@@ -16,21 +16,24 @@
             position: relative;
         }
 
+        /* BATERIA RESTAURADA AO ESTILO EDDY DASHBOARD ORIGINAL */
         #bateria-container { 
             position: absolute; 
-            top: 150px; 
-            right: 50px; 
+            top: 5vh; /* O valor que confirmaste estar bom */
+            right: 4vw; /* O valor que confirmaste estar bom */
             display: flex; 
             align-items: center; 
-            font-size: 35px; 
+            font-size: 3vh; /* Escala pela altura como o Eddy original */
             font-weight: bold; 
             color: #aaa;
             z-index: 10;
         }
 
+        /* RELÓGIO COM DESCIDA EXTREMA */
         #caixa-relogio { 
             position: absolute;
-            top: 40vh;
+            /* Empurra-o para baixo de forma brutal: 60% do ecrã (antes era 40vh) */
+            top: 60vh; 
             left: 50vw;
             transform: translate(-50%, -50%);
             text-align: center; 
@@ -46,9 +49,10 @@
             letter-spacing: -3px;
         }
 
-        /* Animação forçada para meio metro abaixo do teto */
+        /* ANIMAÇÃO QUANDO TOCAS (Sobe um bocado, mas mantém-se muito abaixo do teto) */
         body.movido #caixa-relogio {
-            top: 250px !important;
+            /* Fixa a posição a 400 píxeis do topo, uma descida massiva em relação aos 250px anteriores */
+            top: 400px !important;
             transform: translate(-50%, 0) scale(0.6) !important;
         }
     </style>
@@ -65,7 +69,7 @@
     </div>
 
     <script>
-        // Relógio simples
+        // Relógio
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -75,7 +79,7 @@
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
-        // Bateria simplificada
+        // Bateria
         if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
@@ -96,7 +100,7 @@
             });
         }
 
-        // Clique para subir
+        // Toque
         document.getElementById('meu-ecra').addEventListener('click', function() {
             document.body.classList.toggle('movido');
         });
