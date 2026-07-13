@@ -3,52 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
     <style>
         body { 
             background-color: #000; 
             color: #fff; 
             margin: 0; 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            /* Impede que o ecrã role para os lados ou para baixo */
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            font-family: sans-serif; 
             overflow: hidden; 
+            position: relative;
         }
 
-        /* BATERIA: Descida forçada de 100 pixeis a partir do topo */
         #bateria-container { 
             position: absolute; 
-            top: 100px;  /* <- SE AINDA ESTIVER CORTADA, AUMENTA PARA 150px ou 200px */
+            top: 150px; 
             right: 50px; 
             display: flex; 
             align-items: center; 
-            font-size: 30px; 
+            font-size: 35px; 
             font-weight: bold; 
             color: #aaa;
+            z-index: 10;
         }
 
-        /* RELÓGIO: Descida gigante forçada */
         #caixa-relogio { 
-            /* Empurra o relógio quase para o meio do ecrã à força */
-            margin-top: 40vh; /* <- SE ESTIVER MUITO EM BAIXO AGORA, MUDA PARA 30vh ou 20vh */
+            position: absolute;
+            top: 40vh;
+            left: 50vw;
+            transform: translate(-50%, -50%);
             text-align: center; 
-            transition: margin-top 1s ease-in-out, transform 1s ease-in-out;
-            transform-origin: top center;
+            transition: top 1s ease-in-out, transform 1s ease-in-out;
+            width: 100%;
         }
         
         #relogio { 
-            font-size: 28vw; 
-            font-weight: 900; 
-            letter-spacing: -3px; 
+            font-size: 30vw; 
+            font-weight: bold; 
             margin: 0; 
             line-height: 1;
+            letter-spacing: -3px;
         }
 
-        /* ANIMAÇÃO: Quando tocas, ele reduz a margem para subir, mas nunca toca no teto */
-        .movido {
-            margin-top: 150px !important; /* Fica parado a 150 pixeis do topo */
-            transform: scale(0.5);
+        /* Animação forçada para meio metro abaixo do teto */
+        body.movido #caixa-relogio {
+            top: 250px !important;
+            transform: translate(-50%, 0) scale(0.6) !important;
         }
-
     </style>
 </head>
 <body id="meu-ecra">
@@ -63,41 +65,40 @@
     </div>
 
     <script>
-        // Relógio
+        // Relógio simples
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
             const minutos = String(agora.getMinutes()).padStart(2, '0');
-            document.getElementById('relogio').innerHTML = `${horas}:${minutos}`;
+            document.getElementById('relogio').innerHTML = horas + ':' + minutos;
         }
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
-        // Bateria
-        if ('getBattery' in navigator) {
+        // Bateria simplificada
+        if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
-                    const nivel = Math.round(battery.level * 100);
-                    document.getElementById('txt-bateria').innerText = `${nivel}%`;
+                    const nivel = Math.floor(battery.level * 100);
+                    document.getElementById('txt-bateria').innerText = nivel + '%';
                     
                     if (battery.charging) {
                         document.getElementById('ic-bateria').innerText = '⚡';
                         document.getElementById('bateria-container').style.color = '#4CAF50'; 
                     } else {
                         document.getElementById('ic-bateria').innerText = '🔋';
-                        document.getElementById('bateria-container').style.color = '#aaa';
+                        document.getElementById('bateria-container').style.color = '#aaaaaa';
                     }
                 }
-                
                 atualizarBateria(); 
                 battery.addEventListener('levelchange', atualizarBateria);
                 battery.addEventListener('chargingchange', atualizarBateria);
             });
         }
 
-        // Toque para subir/descer
+        // Clique para subir
         document.getElementById('meu-ecra').addEventListener('click', function() {
-            document.getElementById('caixa-relogio').classList.toggle('movido');
+            document.body.classList.toggle('movido');
         });
     </script>
 </body>
