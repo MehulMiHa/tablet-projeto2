@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horas Tablet</title>
     <style>
         body { 
             background-color: #000; 
@@ -16,24 +17,23 @@
             position: relative;
         }
 
-        /* BATERIA RESTAURADA AO ESTILO EDDY DASHBOARD ORIGINAL */
+        /* BATERIA: Igual ao Eddy Dashboard (que tu gostaste) */
         #bateria-container { 
             position: absolute; 
-            top: 5vh; /* O valor que confirmaste estar bom */
-            right: 4vw; /* O valor que confirmaste estar bom */
+            top: 5vh; 
+            right: 4vw; 
             display: flex; 
             align-items: center; 
-            font-size: 3vh; /* Escala pela altura como o Eddy original */
+            font-size: 3vh; 
             font-weight: bold; 
             color: #aaa;
             z-index: 10;
         }
 
-        /* RELÓGIO COM DESCIDA EXTREMA */
+        /* RELÓGIO: Descida agressiva (Pus 80vh para ficar quase no fundo do ecrã) */
         #caixa-relogio { 
             position: absolute;
-            /* Empurra-o para baixo de forma brutal: 60% do ecrã (antes era 40vh) */
-            top: 60vh; 
+            top: 80vh; 
             left: 50vw;
             transform: translate(-50%, -50%);
             text-align: center; 
@@ -49,10 +49,9 @@
             letter-spacing: -3px;
         }
 
-        /* ANIMAÇÃO QUANDO TOCAS (Sobe um bocado, mas mantém-se muito abaixo do teto) */
+        /* ANIMAÇÃO: Quando toca, desce ainda mais 200px do que a posição anterior */
         body.movido #caixa-relogio {
-            /* Fixa a posição a 400 píxeis do topo, uma descida massiva em relação aos 250px anteriores */
-            top: 400px !important;
+            top: 650px !important; /* Estava 400px, subi 200px para 650px de distância do topo */
             transform: translate(-50%, 0) scale(0.6) !important;
         }
     </style>
@@ -91,7 +90,7 @@
                         document.getElementById('bateria-container').style.color = '#4CAF50'; 
                     } else {
                         document.getElementById('ic-bateria').innerText = '🔋';
-                        document.getElementById('bateria-container').style.color = '#aaaaaa';
+                        document.getElementById('bateria-container').style.color = '#aaa';
                     }
                 }
                 atualizarBateria(); 
