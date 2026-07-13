@@ -5,53 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Horas Tablet</title>
     <style>
-        /* USANDO A TUA LÓGICA DO EDDY DASHBOARD */
         body {
-            background-color: #000; 
-            color: #fff; 
-            margin: 0; 
-            height: 100vh; 
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden; 
-            /* Flexbox para centrar tudo naturalmente, sem coordenadas fixas! */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            position: relative; /* O ecrã é o nosso mapa principal */
             cursor: pointer;
         }
         
-        /* BATERIA: Usa a mesma medida (vh/vw) que o teu rádio usava para não fugir */
+        /* BATERIA: Manteve-se intocável, já vimos que está perfeita */
         #bateria-container {
             position: absolute;
-            top: 5vh; 
-            right: 4vw; 
-            font-size: 3vh; 
+            top: 5vh;
+            right: 4vw;
+            font-size: 3vh;
             display: flex;
             align-items: center;
             gap: 8px;
-            color: #aaaaaa; 
+            color: #aaaaaa;
             font-weight: bold;
+            z-index: 10;
         }
 
-        /* CAIXA DO RELÓGIO (Envolve o relógio para a animação não o partir) */
+        /* GAIOLA DO RELÓGIO: Ocupa sempre 100% do ecrã, do canto superior esquerdo ao inferior direito, e força TUDO lá dentro ao centro matemático */
         #relogio-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             transition: transform 1s ease-in-out;
         }
 
-        /* O RELÓGIO: Tamanho copiado do teu Eddy (33vh) para caber na perfeição */
+        /* O RELÓGIO EM SI: Usa 'vw' (largura) para garantir que nunca rebenta a caixa para cima */
         #relogio {
-            font-size: 35vh; 
-            font-weight: 900; 
-            letter-spacing: -3px; 
+            font-size: 25vw;
+            font-weight: bold;
             margin: 0;
-            line-height: 1; /* Corta espaços invisíveis em cima e em baixo dos números */
+            line-height: 1; /* Corta os espaços invisíveis gigantes acima e abaixo da letra */
+            white-space: nowrap;
+            letter-spacing: -2px;
         }
 
-        /* ANIMAÇÃO QUANDO TOCAS NO ECRÃ */
-        /* Sobe um pouco a partir do centro (30% da altura do ecrã) e fica mais pequeno */
+        /* ANIMAÇÃO QUANDO TOCAS NO ECRÃ: Pega na gaiola e sobe-a (30% do ecrã) reduzindo o tamanho para metade */
         body.movido-para-cima #relogio-wrapper {
-            transform: translateY(-28vh) scale(0.5); 
+            transform: translateY(-30vh) scale(0.5);
         }
     </style>
 </head>
@@ -67,7 +73,7 @@
     </div>
 
     <script>
-        // LÓGICA DO TOQUE (Alternar a animação)
+        // LÓGICA DO TOQUE (Sobe e Desce)
         document.getElementById('ecra').addEventListener('click', function() {
             this.classList.toggle('movido-para-cima');
         });
