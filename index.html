@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Horas Tablet</title>
     <style>
         body {
@@ -14,15 +14,15 @@
             overflow: hidden; 
             font-family: sans-serif;
             position: relative; 
-            cursor: pointer; /* Útil se testares no computador, mostra a mãozinha */
+            cursor: pointer; 
         }
         
-        /* 1. BATERIA (Reduzida para ~1/3 do tamanho) */
+        /* 1. BATERIA - Descemos o teto e afastamos da lateral direita */
         #bateria-container {
             position: absolute;
-            top: 3%;
-            right: 4%;
-            font-size: 1.5vh; /* Era 4vh, agora está bem mais pequeno */
+            top: 8vh; /* Antes estava 3%. O 8vh empurra-a mais para baixo, fugindo da borda */
+            right: 5vw; /* Afasta 5% da margem direita para não colar à borda física */
+            font-size: 1.5vh; 
             display: flex;
             align-items: center;
             gap: 4px;
@@ -31,7 +31,7 @@
             transition: color 0.5s;
         }
 
-        /* 2. RELÓGIO NO CENTRO (Estado Normal) */
+        /* 2. RELÓGIO NO CENTRO */
         #relogio {
             position: absolute;
             top: 50%;
@@ -41,15 +41,14 @@
             font-weight: bold;
             white-space: nowrap; 
             letter-spacing: 2vw; 
-            /* A ordem que cria a animação de deslize: */
             transition: top 1s ease-in-out, transform 1s ease-in-out, font-size 1s ease-in-out;
         }
 
-        /* 3. RELÓGIO NO TOPO (Estado após o toque) */
+        /* 3. RELÓGIO NO TOPO (Animação) - Descemos o limite máximo */
         #relogio.movido-para-cima {
-            top: 8%; /* Sobe até perto do topo */
-            transform: translate(-50%, 0); /* Ajusta para não cortar a parte de cima */
-            font-size: 18vw; /* Fica um pouco mais pequeno para não esmagar a bateria. Podes mudar este valor se quiseres que mantenha o tamanho gigante. */
+            top: 15vh; /* Antes estava 8%. Com 15vh ele para um bom pedaço abaixo da margem de cima */
+            transform: translate(-50%, 0); 
+            font-size: 18vw; 
         }
     </style>
 </head>
@@ -63,14 +62,11 @@
     <div id="relogio">00:00</div>
 
     <script>
-        // LÓGICA DO TOQUE (DESLIZE)
         document.body.addEventListener('click', function() {
             const relogio = document.getElementById('relogio');
-            // O "toggle" faz com que se tocares ele sobe, se voltares a tocar ele desce
             relogio.classList.toggle('movido-para-cima');
         });
 
-        // LÓGICA DAS HORAS
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -80,7 +76,6 @@
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
-        // LÓGICA DA BATERIA
         if ('getBattery' in navigator) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
