@@ -9,47 +9,44 @@
             background-color: #000; 
             color: #fff; 
             margin: 0; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh; 
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            /* Impede que o ecrã role para os lados ou para baixo */
             overflow: hidden; 
-            transition: transform 3s ease-in-out; 
-            justify-content: center;
-            align-items: center;
         }
 
+        /* BATERIA: Descida forçada de 100 pixeis a partir do topo */
         #bateria-container { 
             position: absolute; 
-            top: 5vh; 
-            right: 4vw; 
+            top: 100px;  /* <- SE AINDA ESTIVER CORTADA, AUMENTA PARA 150px ou 200px */
+            right: 50px; 
             display: flex; 
             align-items: center; 
-            font-size: 3vh; 
+            font-size: 30px; 
             font-weight: bold; 
             color: #aaa;
-            z-index: 10;
         }
 
-        /* Usamos a tua classe de layout do Eddy para o relógio */
-        .header-container { 
+        /* RELÓGIO: Descida gigante forçada */
+        #caixa-relogio { 
+            /* Empurra o relógio quase para o meio do ecrã à força */
+            margin-top: 40vh; /* <- SE ESTIVER MUITO EM BAIXO AGORA, MUDA PARA 30vh ou 20vh */
             text-align: center; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            transition: transform 1s ease-in-out;
+            transition: margin-top 1s ease-in-out, transform 1s ease-in-out;
+            transform-origin: top center;
         }
         
         #relogio { 
-            font-size: 33vh; 
+            font-size: 28vw; 
             font-weight: 900; 
             letter-spacing: -3px; 
             margin: 0; 
+            line-height: 1;
         }
 
-        /* Animação quando toca */
+        /* ANIMAÇÃO: Quando tocas, ele reduz a margem para subir, mas nunca toca no teto */
         .movido {
-            transform: translateY(-25vh) scale(0.6);
+            margin-top: 150px !important; /* Fica parado a 150 pixeis do topo */
+            transform: scale(0.5);
         }
 
     </style>
@@ -61,7 +58,7 @@
         <span id="ic-bateria">🔋</span>
     </div>
 
-    <div class="header-container" id="caixa-relogio">
+    <div id="caixa-relogio">
         <div id="relogio">00:00</div>
     </div>
 
@@ -98,7 +95,7 @@
             });
         }
 
-        // Toque
+        // Toque para subir/descer
         document.getElementById('meu-ecra').addEventListener('click', function() {
             document.getElementById('caixa-relogio').classList.toggle('movido');
         });
