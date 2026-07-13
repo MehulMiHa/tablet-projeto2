@@ -2,7 +2,6 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Horas Tablet</title>
     <style>
         body {
@@ -17,42 +16,42 @@
             cursor: pointer; 
         }
         
-        /* 1. BATERIA - Descemos o teto e afastamos da lateral direita */
+        /* BATERIA: Fica ancorada a 40 pixeis exatos do topo e da direita */
         #bateria-container {
             position: absolute;
-            top: 8vh; /* Antes estava 3%. O 8vh empurra-a mais para baixo, fugindo da borda */
-            right: 5vw; /* Afasta 5% da margem direita para não colar à borda física */
-            font-size: 1.5vh; 
+            top: 40px; 
+            right: 40px; 
+            font-size: 24px; 
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 8px;
             color: #aaaaaa; 
             font-weight: bold;
-            transition: color 0.5s;
         }
 
-        /* 2. RELÓGIO NO CENTRO */
+        /* RELÓGIO: Estado Normal (Centro exato) */
         #relogio {
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 28vw; 
+            transform: translate(-50%, -50%) scale(1);
+            font-size: 25vw; 
             font-weight: bold;
             white-space: nowrap; 
             letter-spacing: 2vw; 
-            transition: top 1s ease-in-out, transform 1s ease-in-out, font-size 1s ease-in-out;
+            transition: all 1s ease-in-out;
         }
 
-        /* 3. RELÓGIO NO TOPO (Animação) - Descemos o limite máximo */
-        #relogio.movido-para-cima {
-            top: 15vh; /* Antes estava 8%. Com 15vh ele para um bom pedaço abaixo da margem de cima */
-            transform: translate(-50%, 0); 
-            font-size: 18vw; 
+        /* RELÓGIO: Estado Animado (Após o toque) */
+        body.movido-para-cima #relogio {
+            /* Fixa o relógio a 120 pixeis de distância do topo do ecrã */
+            top: 120px; 
+            /* O '0' no eixo Y impede que a animação o empurre para cima de si próprio */
+            transform: translate(-50%, 0) scale(0.5); 
         }
     </style>
 </head>
-<body>
+<body id="ecra">
     
     <div id="bateria-container">
         <span id="bateria-texto">--%</span>
@@ -62,11 +61,12 @@
     <div id="relogio">00:00</div>
 
     <script>
-        document.body.addEventListener('click', function() {
-            const relogio = document.getElementById('relogio');
-            relogio.classList.toggle('movido-para-cima');
+        // LÓGICA DO TOQUE PARA SUBIR E DESCER
+        document.getElementById('ecra').addEventListener('click', function() {
+            this.classList.toggle('movido-para-cima');
         });
 
+        // LÓGICA DAS HORAS
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -76,6 +76,7 @@
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
+        // LÓGICA DA BATERIA
         if ('getBattery' in navigator) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
