@@ -2,26 +2,31 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Horas Tablet</title>
     <style>
+        /* USANDO A TUA LÓGICA DO EDDY DASHBOARD */
         body {
-            background-color: black;
-            color: white;
-            margin: 0;
-            height: 100vh;
-            width: 100vw;
+            background-color: #000; 
+            color: #fff; 
+            margin: 0; 
+            height: 100vh; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             overflow: hidden; 
-            font-family: sans-serif;
-            position: relative; 
-            cursor: pointer; 
+            /* Flexbox para centrar tudo naturalmente, sem coordenadas fixas! */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
         }
         
-        /* BATERIA: Fica ancorada a 40 pixeis exatos do topo e da direita */
+        /* BATERIA: Usa a mesma medida (vh/vw) que o teu rádio usava para não fugir */
         #bateria-container {
             position: absolute;
-            top: 40px; 
-            right: 40px; 
-            font-size: 24px; 
+            top: 5vh; 
+            right: 4vw; 
+            font-size: 3vh; 
             display: flex;
             align-items: center;
             gap: 8px;
@@ -29,25 +34,24 @@
             font-weight: bold;
         }
 
-        /* RELÓGIO: Estado Normal (Centro exato) */
-        #relogio {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(1);
-            font-size: 25vw; 
-            font-weight: bold;
-            white-space: nowrap; 
-            letter-spacing: 2vw; 
-            transition: all 1s ease-in-out;
+        /* CAIXA DO RELÓGIO (Envolve o relógio para a animação não o partir) */
+        #relogio-wrapper {
+            transition: transform 1s ease-in-out;
         }
 
-        /* RELÓGIO: Estado Animado (Após o toque) */
-        body.movido-para-cima #relogio {
-            /* Fixa o relógio a 120 pixeis de distância do topo do ecrã */
-            top: 120px; 
-            /* O '0' no eixo Y impede que a animação o empurre para cima de si próprio */
-            transform: translate(-50%, 0) scale(0.5); 
+        /* O RELÓGIO: Tamanho copiado do teu Eddy (33vh) para caber na perfeição */
+        #relogio {
+            font-size: 35vh; 
+            font-weight: 900; 
+            letter-spacing: -3px; 
+            margin: 0;
+            line-height: 1; /* Corta espaços invisíveis em cima e em baixo dos números */
+        }
+
+        /* ANIMAÇÃO QUANDO TOCAS NO ECRÃ */
+        /* Sobe um pouco a partir do centro (30% da altura do ecrã) e fica mais pequeno */
+        body.movido-para-cima #relogio-wrapper {
+            transform: translateY(-28vh) scale(0.5); 
         }
     </style>
 </head>
@@ -58,10 +62,12 @@
         <span id="bateria-icone">🔋</span>
     </div>
 
-    <div id="relogio">00:00</div>
+    <div id="relogio-wrapper">
+        <div id="relogio">00:00</div>
+    </div>
 
     <script>
-        // LÓGICA DO TOQUE PARA SUBIR E DESCER
+        // LÓGICA DO TOQUE (Alternar a animação)
         document.getElementById('ecra').addEventListener('click', function() {
             this.classList.toggle('movido-para-cima');
         });
