@@ -1,4 +1,43 @@
-Tablet Dashboard
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horas Tablet</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+            overflow: hidden; /* Evita que o ecrã role para baixo */
+        }
+        #relogio {
+            font-size: 25vw; /* vw significa "viewport width", adapta-se ao tamanho do tablet */
+            font-weight: bold;
+            width: 70%;
+            text-align: center;
+            margin: 0 15%; /* 15% de margem de cada lado */
+        }
+    </style>
+</head>
+<body>
+    <div id="relogio">00:00</div>
 
-
-    Projeto 2 - A funcionar! 🚀
+    <script>
+        function atualizarTempo() {
+            const agora = new Date();
+            const horas = String(agora.getHours()).padStart(2, '0');
+            const minutos = String(agora.getMinutes()).padStart(2, '0');
+            document.getElementById('relogio').innerHTML = `${horas}:${minutos}`;
+        }
+        // Atualiza o relógio a cada segundo (1000 milissegundos)
+        setInterval(atualizarTempo, 1000);
+        atualizarTempo(); // Corre logo ao iniciar para não ficar "00:00" no primeiro segundo
+    </script>
+</body>
+</html>
