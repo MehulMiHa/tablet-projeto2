@@ -10,34 +10,83 @@
             color: white;
             margin: 0;
             height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            width: 100vw;
+            overflow: hidden; /* Tranca o ecrã para não rolar para cima nem para baixo */
             font-family: sans-serif;
-            overflow: hidden; /* Evita que o ecrã role para baixo */
+            position: relative; /* Necessário para ancorar as coisas no sítio exato */
         }
+        
+        /* 1. RELÓGIO AO CENTRO EXATO DOS PÍXEIS */
         #relogio {
-            font-size: 25vw; /* vw significa "viewport width", adapta-se ao tamanho do tablet */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Força matematicamente o centro */
+            font-size: 28vw; /* Adapta-se à largura para ficar gigante */
             font-weight: bold;
-            width: 70%;
-            text-align: center;
-            margin: 0 15%; /* 15% de margem de cada lado */
+            white-space: nowrap; /* Impede os números de saltarem para a linha de baixo */
+            letter-spacing: 2vw; /* Dá um espacinho elegante entre os números */
+        }
+
+        /* 2. BATERIA ESTILO SAMSUNG NO CANTO SUPERIOR DIREITO */
+        #bateria-container {
+            position: absolute;
+            top: 3%;
+            right: 4%;
+            font-size: 4vh;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #aaaaaa; /* Cinzento claro para não ofuscar as horas */
+            font-weight: bold;
+            transition: color 0.5s;
         }
     </style>
 </head>
 <body>
+    
+    <!-- Elementos da Bateria -->
+    <div id="bateria-container">
+        <span id="bateria-texto">--%</span>
+        <span id="bateria-icone">🔋</span>
+    </div>
+
+    <!-- Relógio -->
     <div id="relogio">00:00</div>
 
     <script>
+        // LÓGICA DAS HORAS
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
             const minutos = String(agora.getMinutes()).padStart(2, '0');
             document.getElementById('relogio').innerHTML = `${horas}:${minutos}`;
         }
-        // Atualiza o relógio a cada segundo (1000 milissegundos)
         setInterval(atualizarTempo, 1000);
-        atualizarTempo(); // Corre logo ao iniciar para não ficar "00:00" no primeiro segundo
+        atualizarTempo();
+
+        // LÓGICA DA BATERIA (Lê a bateria real do Tablet)
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(function(battery) {
+                function atualizarBateria() {
+                    const nivel = Math.round(battery.level * 100);
+                    document.getElementById('bateria-texto').innerText = `${nivel}%`;
+                    
+                    // Se estiver a carregar, muda o ícone e fica Verde
+                    if (battery.charging) {
+                        document.getElementById('bateria-icone').innerText = '⚡';
+                        document.getElementById('bateria-container').style.color = '#4CAF50'; 
+                    } else {
+                        document.getElementById('bateria-icone').innerText = '🔋';
+                        document.getElementById('bateria-container').style.color = '#aaaaaa';
+                    }
+                }
+                
+                atualizarBateria(); 
+                battery.addEventListener('levelchange', atualizarBateria);
+                battery.addEventListener('chargingchange', atualizarBateria);
+            });
+        }
     </script>
 </body>
 </html>
