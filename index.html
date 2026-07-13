@@ -3,82 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horas Tablet</title>
+    <title>Dashboard</title>
     <style>
-        body {
-            background-color: #000;
-            color: #fff;
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            position: relative; /* O ecrã é o nosso mapa principal */
-            cursor: pointer;
-        }
-        
-        /* BATERIA: Manteve-se intocável, já vimos que está perfeita */
-        #bateria-container {
-            position: absolute;
-            top: 5vh;
-            right: 4vw;
-            font-size: 3vh;
-            display: flex;
+        body { 
+            background-color: #000; 
+            color: #fff; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            overflow: hidden; 
+            transition: transform 3s ease-in-out; 
+            justify-content: center;
             align-items: center;
-            gap: 8px;
-            color: #aaaaaa;
-            font-weight: bold;
+        }
+
+        #bateria-container { 
+            position: absolute; 
+            top: 5vh; 
+            right: 4vw; 
+            display: flex; 
+            align-items: center; 
+            font-size: 3vh; 
+            font-weight: bold; 
+            color: #aaa;
             z-index: 10;
         }
 
-        /* GAIOLA DO RELÓGIO: Ocupa sempre 100% do ecrã, do canto superior esquerdo ao inferior direito, e força TUDO lá dentro ao centro matemático */
-        #relogio-wrapper {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        /* Usamos a tua classe de layout do Eddy para o relógio */
+        .header-container { 
+            text-align: center; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
             transition: transform 1s ease-in-out;
         }
-
-        /* O RELÓGIO EM SI: Usa 'vw' (largura) para garantir que nunca rebenta a caixa para cima */
-        #relogio {
-            font-size: 25vw;
-            font-weight: bold;
-            margin: 0;
-            line-height: 1; /* Corta os espaços invisíveis gigantes acima e abaixo da letra */
-            white-space: nowrap;
-            letter-spacing: -2px;
+        
+        #relogio { 
+            font-size: 33vh; 
+            font-weight: 900; 
+            letter-spacing: -3px; 
+            margin: 0; 
         }
 
-        /* ANIMAÇÃO QUANDO TOCAS NO ECRÃ: Pega na gaiola e sobe-a (30% do ecrã) reduzindo o tamanho para metade */
-        body.movido-para-cima #relogio-wrapper {
-            transform: translateY(-30vh) scale(0.5);
+        /* Animação quando toca */
+        .movido {
+            transform: translateY(-25vh) scale(0.6);
         }
+
     </style>
 </head>
-<body id="ecra">
-    
+<body id="meu-ecra">
+
     <div id="bateria-container">
-        <span id="bateria-texto">--%</span>
-        <span id="bateria-icone">🔋</span>
+        <span id="txt-bateria">--%</span>
+        <span id="ic-bateria">🔋</span>
     </div>
 
-    <div id="relogio-wrapper">
+    <div class="header-container" id="caixa-relogio">
         <div id="relogio">00:00</div>
     </div>
 
     <script>
-        // LÓGICA DO TOQUE (Sobe e Desce)
-        document.getElementById('ecra').addEventListener('click', function() {
-            this.classList.toggle('movido-para-cima');
-        });
-
-        // LÓGICA DAS HORAS
+        // Relógio
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -88,19 +76,19 @@
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
-        // LÓGICA DA BATERIA
+        // Bateria
         if ('getBattery' in navigator) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
                     const nivel = Math.round(battery.level * 100);
-                    document.getElementById('bateria-texto').innerText = `${nivel}%`;
+                    document.getElementById('txt-bateria').innerText = `${nivel}%`;
                     
                     if (battery.charging) {
-                        document.getElementById('bateria-icone').innerText = '⚡';
+                        document.getElementById('ic-bateria').innerText = '⚡';
                         document.getElementById('bateria-container').style.color = '#4CAF50'; 
                     } else {
-                        document.getElementById('bateria-icone').innerText = '🔋';
-                        document.getElementById('bateria-container').style.color = '#aaaaaa';
+                        document.getElementById('ic-bateria').innerText = '🔋';
+                        document.getElementById('bateria-container').style.color = '#aaa';
                     }
                 }
                 
@@ -109,6 +97,11 @@
                 battery.addEventListener('chargingchange', atualizarBateria);
             });
         }
+
+        // Toque
+        document.getElementById('meu-ecra').addEventListener('click', function() {
+            document.getElementById('caixa-relogio').classList.toggle('movido');
+        });
     </script>
 </body>
 </html>
