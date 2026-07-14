@@ -1,299 +1,418 @@
 <!DOCTYPE html>
+
 <html lang="pt-PT">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <style>
+
         body { 
+
             background-color: #000; 
+
             color: #fff; 
+
             margin: 0; 
+
             height: 100vh; 
+
             font-family: sans-serif;
+
             overflow: hidden; 
+
             display: flex;
+
             flex-direction: column;
+
             justify-content: center; 
+
             align-items: center;
+
         }
+
         
+
         /* BATERIA LIMPA (Só texto) */
+
         #bateria-container {
+
             position: absolute;
+
             top: 5vh; 
+
             right: 4vw; 
+
             font-size: 1.5vh; 
+
             color: #aaaaaa; 
+
             font-weight: bold;
+
         }
+
+
 
         #relogio-wrapper {
+
             transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+
             z-index: 10;
+
         }
+
+
 
         #relogio {
+
             font-size: 24vw; 
+
             font-weight: 900; 
+
             letter-spacing: -3px; 
+
             margin: 0;
+
             line-height: 1; 
+
         }
+
+
 
         body.movido #relogio-wrapper {
+
             transform: translateY(-28vh); 
+
         }
 
+
+
         /* -----------------------------------------------------
+
            BARRAS DE LUZ (TAMANHO GIGANTE - 65vh)
+
            ----------------------------------------------------- */
+
         #painel-luzes {
+
             position: absolute;
+
             bottom: 5vh; 
+
             display: flex;
+
             gap: 20vw; 
+
             opacity: 0;
+
             transform: translateY(15vh) scale(0.8);
+
             pointer-events: none;
+
             transition: opacity 0.5s ease-in, transform 0.5s ease-in;
+
             z-index: 5;
+
         }
+
+
 
         body.movido #painel-luzes {
+
             opacity: 1;
+
             transform: translateY(0) scale(1);
+
             pointer-events: auto;
+
             transition: opacity 0.6s ease-out 0.2s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
+
         }
+
+
 
         .grupo-slider {
+
             display: flex;
+
             flex-direction: column;
+
             align-items: center;
+
         }
+
+
 
         .icone-luz {
+
             font-size: 5vh;
+
             margin-bottom: 2vh;
+
             filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4));
+
             z-index: 2;
+
         }
+
+
 
         .caixa-slider {
+
             width: 10vw;
+
             height: 65vh; /* Ocupa quase o ecrã todo verticalmente */
+
             display: flex;
+
             justify-content: center;
+
             align-items: center;
+
         }
+
+
 
         /* O SLIDER GIGANTE */
+
         input[type=range].slider-girado {
+
             -webkit-appearance: none;
+
             appearance: none;
+
             width: 65vh; /* ESTICADO PARA 65vh */
+
             height: 5vw; /* Ligeiramente mais grosso */
+
             transform: rotate(-90deg);
+
             border-radius: 20px;
+
             outline: none;
+
             background: rgba(255, 255, 255, 0.1);
+
             box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+
         }
+
+
 
         input[type=range].slider-girado::-webkit-slider-thumb {
+
             -webkit-appearance: none;
+
             appearance: none;
+
             width: 9vw;
+
             height: 9vw;
+
             border-radius: 50%;
+
             background: #ffffff;
+
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.9);
+
             border: 2px solid #ccc;
+
         }
+
+
 
         #brilho-luz { background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); }
+
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
-        /* -----------------------------------------------------
-           O NOVO BOTÃO OPÇÕES AVANÇADAS (No fundo de tudo)
-           ----------------------------------------------------- */
-        #btn-opcoes {
-            position: absolute;
-            bottom: 2vh; /* Mesmo cá em baixo, abaixo das barras */
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            font-size: 1.5vh;
-            font-weight: bold;
-            padding: 1vh 4vw;
-            border-radius: 30px;
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-            z-index: 15;
-            
-            /* Animação igual à das barras */
-            opacity: 0;
-            transform: translateY(5vh) scale(0.8);
-            pointer-events: none;
-            transition: all 0.5s ease-in;
-        }
-
-        body.movido #btn-opcoes {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-            pointer-events: auto;
-            transition: opacity 0.6s ease-out 0.3s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s;
-        }
-
-        /* -----------------------------------------------------
-           A NOVA PÁGINA COM O WALLPAPER
-           ----------------------------------------------------- */
-        #vista-secundaria {
-            display: none; 
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-image: url('fundo.jpg');
-            background-size: cover;
-            background-position: center;
-            z-index: 999; /* Fica por cima de tudo o resto! */
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-        }
-
-        #btn-voltar {
-            margin-top: 8vh;
-            background: rgba(0, 0, 0, 0.5);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            color: white;
-            font-size: 2.5vh;
-            font-weight: bold;
-            padding: 2vh 5vw;
-            border-radius: 40px;
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-        }
     </style>
+
 </head>
+
 <body id="ecra">
+
     
+
     <div id="bateria-container">
+
         <span id="txt-bateria">--%</span>
+
     </div>
+
+
 
     <div id="relogio-wrapper">
+
         <div id="relogio">00:00</div>
+
     </div>
+
+
 
     <div id="painel-luzes">
+
         <div class="grupo-slider">
+
             <span class="icone-luz">☀️</span>
+
             <div class="caixa-slider">
+
                 <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="128">
+
             </div>
+
         </div>
+
         
+
         <div class="grupo-slider">
+
             <span class="icone-luz">🌡️</span>
+
             <div class="caixa-slider">
+
                 <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="326">
+
             </div>
+
         </div>
+
     </div>
 
-    <!-- O TEU NOVO BOTÃO AQUI! -->
-    <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
 
-    <!-- A TUA NOVA PÁGINA ESCONDIDA -->
-    <div id="vista-secundaria">
-        <button id="btn-voltar" onclick="fecharOpcoes()">⬅ Voltar ao Relógio</button>
-    </div>
 
     <script>
+
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
+
         const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
+
         const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
+
         const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
+
+
 
         let temporizadorAnimacao = null;
 
+
+
         function ativarAnimacao() {
+
             document.body.classList.add('movido');
+
             if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
+
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
+
         }
+
+
 
         document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
+
         document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
 
-        // -----------------------------------------------------
-        // LÓGICA DAS VISTAS (NOVA)
-        // -----------------------------------------------------
-        function abrirOpcoes() {
-            document.getElementById('vista-secundaria').style.display = 'flex';
-            document.body.classList.remove('movido'); // Recolhe as barras no ecrã de trás
-        }
 
-        function fecharOpcoes() {
-            document.getElementById('vista-secundaria').style.display = 'none';
-        }
 
-        // -----------------------------------------------------
-        // RESTANTE LÓGICA (INTACTA)
-        // -----------------------------------------------------
         window.receberDadosDaBridge = function(base64Dados) {
+
             try {
+
                 const jsonString = atob(base64Dados);
+
                 const payload = JSON.parse(jsonString);
 
+
+
                 for (const evento of payload) {
+
                     if (evento.type === 'update' && evento.data) {
+
                         for (const item of evento.data) {
+
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
+
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
-                                    // Só ativa a animação se não estiveres na página de opções
-                                    if (document.getElementById('vista-secundaria').style.display !== 'flex') {
-                                        ativarAnimacao(); 
-                                    }
+
+                                    ativarAnimacao(); 
+
                                 }
+
                             }
+
                         }
+
                     }
+
                 }
+
             } catch (erro) {}
+
         };
 
+
+
         const ecra = document.getElementById('ecra');
+
         ecra.addEventListener('click', function(e) {
-            // Ignora toques nas barras E nos novos botões
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+
+            if (e.target.tagName !== 'INPUT') {
+
                 if (!document.fullscreenElement) {
+
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
+
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
+
                 }
+
                 ativarAnimacao();
+
             }
+
         });
 
+
+
         function atualizarTempo() {
+
             const agora = new Date();
+
             document.getElementById('relogio').innerHTML = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
+
         }
+
         setInterval(atualizarTempo, 1000);
+
         atualizarTempo();
 
+
+
         if (navigator.getBattery) {
+
             navigator.getBattery().then(function(battery) {
+
                 function atualizarBateria() {
+
                     document.getElementById('txt-bateria').innerText = Math.round(battery.level * 100) + '%';
+
                 }
+
                 atualizarBateria(); 
+
                 battery.addEventListener('levelchange', atualizarBateria);
+
             });
+
         }
+
     </script>
+
 </body>
+
 </html>
+
