@@ -40,9 +40,8 @@
             line-height: 1; 
         }
 
-        /* Ligeiro ajuste de -28vh para -34vh para salvar o relógio da colisão */
         body.movido #relogio-wrapper {
-            transform: translateY(-34vh); 
+            transform: translateY(-30vh); 
         }
 
         /* -----------------------------------------------------
@@ -80,23 +79,29 @@
             z-index: 2;
         }
 
+        /* AQUI ESTÁ A MAGIA: Retirado o Flexbox, adicionado o Relative */
         .caixa-slider {
+            position: relative;
             width: 10vw;
-            height: 65vh; 
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            height: 65vh; /* Ocupa quase o ecrã todo verticalmente */
         }
 
-        /* O SLIDER GIGANTE (BLINDADO CONTRA BUGS DE FLEXBOX) */
+        /* O SLIDER GIGANTE BLINDADO */
         input[type=range].slider-girado {
             -webkit-appearance: none;
             appearance: none;
-            width: 65vh; 
-            min-width: 65vh; /* OBRIGA o browser a respeitar o tamanho */
-            flex-shrink: 0;  /* IMPEDE o flexbox de esmagar a barra */
-            height: 5vw; 
-            transform: rotate(-90deg);
+            
+            /* O posicionamento absoluto impede o Android de o esmagar! */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            
+            width: 65vh; /* ESTICADO PARA 65vh */
+            height: 5vw; /* Ligeiramente mais grosso */
+            
+            /* Roda exatamente a partir do centro da caixa invisível */
+            transform: translate(-50%, -50%) rotate(-90deg);
+            
             border-radius: 20px;
             outline: none;
             background: rgba(255, 255, 255, 0.1);
@@ -118,11 +123,11 @@
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
         /* -----------------------------------------------------
-           BOTÃO OPÇÕES AVANÇADAS E NOVA PÁGINA
+           O NOVO BOTÃO OPÇÕES AVANÇADAS
            ----------------------------------------------------- */
         #btn-opcoes {
             position: absolute;
-            bottom: 1.5vh; 
+            bottom: 1.5vh; /* No fundo de tudo */
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.3);
             color: white;
@@ -143,6 +148,9 @@
             pointer-events: auto;
         }
 
+        /* -----------------------------------------------------
+           A NOVA PÁGINA (VISTA SECUNDÁRIA)
+           ----------------------------------------------------- */
         #vista-secundaria {
             display: none; 
             position: absolute;
@@ -199,7 +207,6 @@
         </div>
     </div>
 
-    <!-- O NOVO BOTÃO E A NOVA PÁGINA INTRODUZIDOS AQUI -->
     <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
 
     <div id="vista-secundaria">
@@ -223,7 +230,6 @@
         document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
         document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
 
-        // FUNÇÕES PARA A NOVA PÁGINA
         function abrirOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'flex';
             document.body.classList.remove('movido'); 
@@ -243,7 +249,6 @@
                         for (const item of evento.data) {
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
-                                    // Previne que a animação dispare se estiveres na página secundária
                                     if (document.getElementById('vista-secundaria').style.display !== 'flex') {
                                         ativarAnimacao(); 
                                     }
@@ -257,7 +262,6 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            // Se clicar nos sliders ou nos botões, não aciona o fullscreen/animação geral
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
