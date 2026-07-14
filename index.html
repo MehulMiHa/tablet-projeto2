@@ -40,8 +40,9 @@
             line-height: 1; 
         }
 
+        /* Ligeiro ajuste de -28vh para -34vh para salvar o relógio da colisão */
         body.movido #relogio-wrapper {
-            transform: translateY(-28vh); 
+            transform: translateY(-34vh); 
         }
 
         /* -----------------------------------------------------
@@ -81,18 +82,20 @@
 
         .caixa-slider {
             width: 10vw;
-            height: 65vh; /* Ocupa quase o ecrã todo verticalmente */
+            height: 65vh; 
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        /* O SLIDER GIGANTE */
+        /* O SLIDER GIGANTE (BLINDADO CONTRA BUGS DE FLEXBOX) */
         input[type=range].slider-girado {
             -webkit-appearance: none;
             appearance: none;
-            width: 65vh; /* ESTICADO PARA 65vh */
-            height: 5vw; /* Ligeiramente mais grosso */
+            width: 65vh; 
+            min-width: 65vh; /* OBRIGA o browser a respeitar o tamanho */
+            flex-shrink: 0;  /* IMPEDE o flexbox de esmagar a barra */
+            height: 5vw; 
             transform: rotate(-90deg);
             border-radius: 20px;
             outline: none;
@@ -115,11 +118,11 @@
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
         /* -----------------------------------------------------
-           O NOVO BOTÃO OPÇÕES AVANÇADAS (No fundo de tudo)
+           BOTÃO OPÇÕES AVANÇADAS E NOVA PÁGINA
            ----------------------------------------------------- */
         #btn-opcoes {
             position: absolute;
-            bottom: 2vh; /* Mesmo cá em baixo, abaixo das barras */
+            bottom: 1.5vh; 
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.3);
             color: white;
@@ -130,24 +133,16 @@
             backdrop-filter: blur(10px);
             cursor: pointer;
             z-index: 15;
-            
-            /* Animação igual à das barras */
             opacity: 0;
-            transform: translateY(5vh) scale(0.8);
             pointer-events: none;
-            transition: all 0.5s ease-in;
+            transition: opacity 0.5s ease-in;
         }
 
         body.movido #btn-opcoes {
             opacity: 1;
-            transform: translateY(0) scale(1);
             pointer-events: auto;
-            transition: opacity 0.6s ease-out 0.3s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s;
         }
 
-        /* -----------------------------------------------------
-           A NOVA PÁGINA COM O WALLPAPER
-           ----------------------------------------------------- */
         #vista-secundaria {
             display: none; 
             position: absolute;
@@ -158,7 +153,7 @@
             background-image: url('fundo.jpg');
             background-size: cover;
             background-position: center;
-            z-index: 999; /* Fica por cima de tudo o resto! */
+            z-index: 999;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
@@ -204,10 +199,9 @@
         </div>
     </div>
 
-    <!-- O TEU NOVO BOTÃO AQUI! -->
+    <!-- O NOVO BOTÃO E A NOVA PÁGINA INTRODUZIDOS AQUI -->
     <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
 
-    <!-- A TUA NOVA PÁGINA ESCONDIDA -->
     <div id="vista-secundaria">
         <button id="btn-voltar" onclick="fecharOpcoes()">⬅ Voltar ao Relógio</button>
     </div>
@@ -229,21 +223,16 @@
         document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
         document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
 
-        // -----------------------------------------------------
-        // LÓGICA DAS VISTAS (NOVA)
-        // -----------------------------------------------------
+        // FUNÇÕES PARA A NOVA PÁGINA
         function abrirOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'flex';
-            document.body.classList.remove('movido'); // Recolhe as barras no ecrã de trás
+            document.body.classList.remove('movido'); 
         }
 
         function fecharOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'none';
         }
 
-        // -----------------------------------------------------
-        // RESTANTE LÓGICA (INTACTA)
-        // -----------------------------------------------------
         window.receberDadosDaBridge = function(base64Dados) {
             try {
                 const jsonString = atob(base64Dados);
@@ -254,7 +243,7 @@
                         for (const item of evento.data) {
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
-                                    // Só ativa a animação se não estiveres na página de opções
+                                    // Previne que a animação dispare se estiveres na página secundária
                                     if (document.getElementById('vista-secundaria').style.display !== 'flex') {
                                         ativarAnimacao(); 
                                     }
@@ -268,7 +257,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            // Ignora toques nas barras E nos novos botões
+            // Se clicar nos sliders ou nos botões, não aciona o fullscreen/animação geral
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
