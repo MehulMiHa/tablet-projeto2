@@ -384,15 +384,33 @@
         let isSyncing = false;
         let grupoAtivo = '83'; 
 
-        async function verificarEstadoSyncBox() {
+        // ------------------------------------------------------------------------
+        // COMUNICACAO NATIVA COM A SYNC BOX (Bypass ao bloqueio do Chrome)
+        // ------------------------------------------------------------------------
+        
+        // Função chamada pelo Kotlin para devolver os dados da Sync Box
+        window.receberDadosSyncBox = function(jsonString) {
             try {
-                const res = await fetch(`https://${SYNC_IP}/api/v1/execution`, {
-                    headers: { 'Authorization': `Bearer ${SYNC_TOKEN}` }
-                });
-                const data = await res.json();
-                isSyncing = data.syncActive;
-                atualizarUIBotaoSync();
-            } catch(e) { console.log("Erro ao ligar à Sync Box:", e); }
+                const data = JSON.parse(jsonString);
+                if (data && data.syncActive !== undefined) {
+                    isSyncing = data.syncActive;
+                    atualizarUIBotaoSync();
+                }
+            } catch (e) {}
+        };
+
+        async function verificarEstadoSyncBox() {
+            if (window.AndroidSync) {
+                // Roteia via app Nativa Kotlin no tablet
+                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "GET", false);
+            } else {
+                // Roteia via Fetch caso estejas a testar num browser normal
+                try {
+                    const res = await fetch(`https://${SYNC_IP}/api/v1/execution`, { headers: { 'Authorization': `Bearer ${SYNC_TOKEN}` } });
+                    const data = await res.json();
+                    receberDadosSyncBox(JSON.stringify(data));
+                } catch(e) {}
+            }
         }
 
         function atualizarUIBotaoSync() {
@@ -408,33 +426,36 @@
 
         function toggleSyncBox() {
             ativarAnimacao('touch');
-            
             isSyncing = !isSyncing;
             atualizarUIBotaoSync();
 
-            fetch(`https://${SYNC_IP}/api/v1/execution`, {
-                method: 'PUT',
-                headers: { 
-                    'Authorization': `Bearer ${SYNC_TOKEN}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ "syncActive": isSyncing })
-            }).catch(e => console.log(e));
+            if (window.AndroidSync) {
+                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", isSyncing);
+            } else {
+                fetch(`https://${SYNC_IP}/api/v1/execution`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${SYNC_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ "syncActive": isSyncing })
+                }).catch(e => console.log(e));
+            }
         }
 
         function autoStopSyncBlindly() {
             isSyncing = false;
             atualizarUIBotaoSync();
             
-            fetch(`https://${SYNC_IP}/api/v1/execution`, {
-                method: 'PUT',
-                headers: { 
-                    'Authorization': `Bearer ${SYNC_TOKEN}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ "syncActive": false })
-            }).catch(e => console.log(e));
+            if (window.AndroidSync) {
+                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", false);
+            } else {
+                fetch(`https://${SYNC_IP}/api/v1/execution`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${SYNC_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ "syncActive": false })
+                }).catch(e => console.log(e));
+            }
         }
+
+        // ------------------------------------------------------------------------
 
         async function sincronizarEstadoSala() {
             try {
