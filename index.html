@@ -34,12 +34,13 @@
             align-items: center;
         }
 
+        /* TEMPERATURAS AFASTADAS PARA CIMA */
         #temps-top {
             display: flex;
             gap: 6vw;
             font-size: 3vh;
             font-weight: bold;
-            margin-bottom: -1vh; 
+            margin-bottom: 4vh; /* Puxado significativamente para cima */
             transition: opacity 0.5s ease;
         }
 
@@ -270,7 +271,7 @@
         const HUE_IP = '192.168.1.183';
         const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
         
-        // ID ATUALIZADO PARA A SALA
+        // ID DA SALA
         const ID_GRUPO_SALA = '83'; 
 
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
@@ -304,7 +305,10 @@
             hueThrottle = true;
             setTimeout(() => { hueThrottle = false; }, 100);
 
-            const corpo = {};
+            // Adicionado o "on": true para obrigar as luzes a acenderem!
+            const corpo = {
+                "on": true
+            };
             corpo[propriedade] = parseInt(valor);
 
             fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
@@ -313,13 +317,14 @@
             }).catch(e => console.log("Erro ao mudar luz:", e));
         }
 
+        // CORREÇÃO: Forçar a origem como 'touch' quando mexes no slider
         document.getElementById('brilho-luz').addEventListener('input', function() {
-            ativarAnimacao(); 
+            ativarAnimacao('touch'); 
             mudarLuzSala('bri', this.value);
         });
 
         document.getElementById('temp-luz').addEventListener('input', function() {
-            ativarAnimacao(); 
+            ativarAnimacao('touch'); 
             mudarLuzSala('ct', this.value);
         });
 
