@@ -16,6 +16,35 @@
             justify-content: center; 
             align-items: center;
         }
+
+        /* -----------------------------------------------------
+           NOVO FUNDO 3D (DESENHO VETORIAL DAS LUZES)
+           ----------------------------------------------------- */
+        #fundo-luzes-container {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1; /* Fica por trás de toda a interface */
+            opacity: 0;
+            /* Inicia escondido mais abaixo e deitado */
+            transform: translateY(30vh) perspective(1000px) rotateX(60deg) scale(0.8);
+            transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: none; /* Garante que não bloqueia o toque nos sliders */
+        }
+
+        body.movido #fundo-luzes-container {
+            opacity: 0.25; /* Opacidade suave para não ofuscar o relógio */
+            /* Sobe e inclina para o ângulo do teu desenho */
+            transform: translateY(-5vh) perspective(1000px) rotateX(35deg) scale(1.1);
+        }
+
+        .luz-vector {
+            transition: stroke 0.3s ease, filter 0.3s ease;
+        }
+
+        /* ----------------------------------------------------- */
         
         #bateria-container {
             position: absolute;
@@ -24,6 +53,7 @@
             font-size: 1.5vh; 
             color: #aaaaaa; 
             font-weight: bold;
+            z-index: 20;
         }
 
         #relogio-wrapper {
@@ -52,6 +82,7 @@
             letter-spacing: -3px; 
             margin: 0;
             line-height: 1; 
+            text-shadow: 0 5px 15px rgba(0,0,0,0.8); /* Ajuda a ler por cima do desenho */
         }
 
         #chuva-hoje {
@@ -83,7 +114,7 @@
             transform: translateY(15vh) scale(0.8);
             pointer-events: none;
             transition: opacity 0.5s ease-in, transform 0.5s ease-in;
-            z-index: 5;
+            z-index: 15;
         }
 
         body.movido #painel-luzes {
@@ -310,6 +341,41 @@
 </head>
 <body id="ecra">
     
+    <!-- NOVO FUNDO VETORIAL DA SALA -->
+    <div id="fundo-luzes-container">
+        <!-- PreserveAspectRatio false para podermos esticar como no desenho -->
+        <svg viewBox="0 0 600 900" width="80vw" height="100vh" preserveAspectRatio="none">
+            <defs>
+                <filter id="brilhoNeon" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="12" result="blur" />
+                    <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+            </defs>
+            
+            <!-- GRUPO 82: Retângulo Exterior (Botões da Direita) -->
+            <rect id="desenho-82" class="luz-vector" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="25" filter="url(#brilhoNeon)"/>
+
+            <!-- GRUPO 84: Os 8 Círculos Interiores (Botões da Esquerda) -->
+            <g id="desenho-84" class="luz-vector" fill="none" stroke="#222" stroke-width="25" filter="url(#brilhoNeon)">
+                <!-- Fila 1 -->
+                <circle cx="200" cy="170" r="50" />
+                <circle cx="400" cy="170" r="50" />
+                <!-- Fila 2 -->
+                <circle cx="200" cy="350" r="50" />
+                <circle cx="400" cy="350" r="50" />
+                <!-- Fila 3 -->
+                <circle cx="200" cy="530" r="50" />
+                <circle cx="400" cy="530" r="50" />
+                <!-- Fila 4 -->
+                <circle cx="200" cy="710" r="50" />
+                <circle cx="400" cy="710" r="50" />
+            </g>
+        </svg>
+    </div>
+
     <div id="bateria-container">
         <span id="txt-bateria">--%</span>
     </div>
@@ -384,11 +450,48 @@
         let isSyncing = false;
         let grupoAtivo = '83'; 
 
+        // ESTADOS LOCAIS PARA DESENHAR O FUNDO 3D
+        let estado82 = { on: false, bri: 254, ct: 326 };
+        let estado84 = { on: false, bri: 254, ct: 326 };
+
         // ------------------------------------------------------------------------
-        // COMUNICACAO NATIVA COM A SYNC BOX (Bypass ao bloqueio do Chrome)
+        // MATEMÁTICA DA LUZ: Converte Temp (Kelvin) e Brilho para RGB CSS
         // ------------------------------------------------------------------------
-        
-        // Função chamada pelo Kotlin para devolver os dados da Sync Box
+        function calcularCorLuz(estado) {
+            if (!estado.on) return 'rgba(50, 50, 50, 0.3)'; // Cor apagada
+
+            let ct = estado.ct || 326; 
+            let r, g, b;
+            
+            // Aproximação do espetro Blackbody da Philips Hue
+            if (ct < 326) {
+                let pct = (ct - 153) / (326 - 153);
+                r = Math.round(200 + pct * 55); 
+                g = Math.round(220 + pct * 35); 
+                b = 255;
+            } else {
+                let pct = (ct - 326) / (500 - 326);
+                r = 255;
+                g = Math.round(255 - pct * 80);  
+                b = Math.round(255 - pct * 150); 
+            }
+
+            // O brilho define a opacidade/força do neon (0.4 a 1.0)
+            let alpha = (estado.bri / 254) * 0.6 + 0.4;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function atualizarCoresFundo3D() {
+            const rect82 = document.getElementById('desenho-82');
+            const circs84 = document.getElementById('desenho-84');
+            
+            rect82.style.stroke = calcularCorLuz(estado82);
+            circs84.style.stroke = calcularCorLuz(estado84);
+        }
+
+        // ------------------------------------------------------------------------
+        // COMUNICACAO NATIVA COM A SYNC BOX 
+        // ------------------------------------------------------------------------
         window.receberDadosSyncBox = function(jsonString) {
             try {
                 const data = JSON.parse(jsonString);
@@ -401,10 +504,8 @@
 
         async function verificarEstadoSyncBox() {
             if (window.AndroidSync) {
-                // Roteia via app Nativa Kotlin no tablet
                 window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "GET", false);
             } else {
-                // Roteia via Fetch caso estejas a testar num browser normal
                 try {
                     const res = await fetch(`https://${SYNC_IP}/api/v1/execution`, { headers: { 'Authorization': `Bearer ${SYNC_TOKEN}` } });
                     const data = await res.json();
@@ -456,22 +557,40 @@
         }
 
         // ------------------------------------------------------------------------
+        // ATUALIZAÇÃO DA LÓGICA DAS LUZES
+        // ------------------------------------------------------------------------
 
         async function sincronizarEstadoSala() {
             try {
-                const res = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}`);
-                const data = await res.json();
+                // Vai buscar o estado de AMBOS os grupos de luz para desenhar o fundo correto
+                const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json());
+                const p84 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84`).then(r => r.json());
                 
-                if (data && data.action) {
-                    salaEstaLigada = data.action.on;
-                    const btn = document.getElementById('btn-power-sala');
-                    
-                    if (salaEstaLigada) btn.classList.add('ligado');
-                    else btn.classList.remove('ligado');
-                    
-                    document.getElementById('brilho-luz').value = data.action.bri;
-                    if(data.action.ct) document.getElementById('temp-luz').value = data.action.ct; 
+                const [d82, d84] = await Promise.all([p82, p84]);
+                
+                if (d82 && d82.action) estado82 = d82.action;
+                if (d84 && d84.action) estado84 = d84.action;
+
+                atualizarCoresFundo3D();
+
+                // Define as posições dos Sliders e do Botão com base no grupo Ativo que tu escolheste
+                let dadosAtivos = (grupoAtivo === '84') ? estado84 : ((grupoAtivo === '82') ? estado82 : d82);
+                
+                // Puxa o 83 (Mestre) se estiver na Sala Toda
+                if (grupoAtivo === '83') {
+                    const res83 = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`);
+                    const d83 = await res83.json();
+                    if (d83 && d83.action) dadosAtivos = d83.action;
                 }
+                
+                salaEstaLigada = dadosAtivos.on;
+                const btn = document.getElementById('btn-power-sala');
+                if (salaEstaLigada) btn.classList.add('ligado');
+                else btn.classList.remove('ligado');
+                
+                document.getElementById('brilho-luz').value = dadosAtivos.bri;
+                if(dadosAtivos.ct) document.getElementById('temp-luz').value = dadosAtivos.ct; 
+
             } catch (e) {}
 
             verificarEstadoSyncBox();
@@ -515,6 +634,17 @@
             salaEstaLigada = true;
             document.getElementById('btn-power-sala').classList.add('ligado');
 
+            // Atualiza os vetores 3D imediatamente na tua cara sem esperar pela bridge
+            if (grupoAtivo === '83' || grupoAtivo === '82') {
+                estado82.on = true;
+                estado82[propriedade] = parseInt(valor);
+            }
+            if (grupoAtivo === '83' || grupoAtivo === '84') {
+                estado84.on = true;
+                estado84[propriedade] = parseInt(valor);
+            }
+            atualizarCoresFundo3D();
+
             fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
                 method: 'PUT',
                 body: JSON.stringify(corpo)
@@ -529,21 +659,35 @@
             if (salaEstaLigada) btn.classList.add('ligado');
             else btn.classList.remove('ligado');
 
+            // Atualiza os vetores 3D do botão Power
+            if (grupoAtivo === '83' || grupoAtivo === '82') estado82.on = salaEstaLigada;
+            if (grupoAtivo === '83' || grupoAtivo === '84') estado84.on = salaEstaLigada;
+            atualizarCoresFundo3D();
+
             fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
                 method: 'PUT',
                 body: JSON.stringify({ "on": salaEstaLigada })
             }).catch(e => console.log(e));
         }
 
-        document.getElementById('brilho-luz').addEventListener('input', () => ativarAnimacao('touch'));
-        document.getElementById('temp-luz').addEventListener('input', () => ativarAnimacao('touch'));
+        document.getElementById('brilho-luz').addEventListener('input', function() {
+            ativarAnimacao('touch');
+            // Só para o fundo alterar dinamicamente a arrastar! 
+            // A Bridge só recebe a ordem no 'change' para não encravar.
+            if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.bri = parseInt(this.value); }
+            if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.bri = parseInt(this.value); }
+            atualizarCoresFundo3D();
+        });
+        
+        document.getElementById('temp-luz').addEventListener('input', function() {
+            ativarAnimacao('touch');
+            if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.ct = parseInt(this.value); }
+            if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.ct = parseInt(this.value); }
+            atualizarCoresFundo3D();
+        });
 
-        document.getElementById('brilho-luz').addEventListener('change', function() {
-            mudarLuzSala('bri', this.value);
-        });
-        document.getElementById('temp-luz').addEventListener('change', function() {
-            mudarLuzSala('ct', this.value);
-        });
+        document.getElementById('brilho-luz').addEventListener('change', function() { mudarLuzSala('bri', this.value); });
+        document.getElementById('temp-luz').addEventListener('change', function() { mudarLuzSala('ct', this.value); });
 
         function abrirOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'flex';
