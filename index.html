@@ -17,7 +17,7 @@
             position: relative;
         }
 
-        /* BATERIA: Igual ao Eddy Dashboard (que tu gostaste) */
+        /* BATERIA (Ancorada no topo como pediste) */
         #bateria-container { 
             position: absolute; 
             top: 5vh; 
@@ -30,14 +30,14 @@
             z-index: 10;
         }
 
-        /* RELÓGIO: Descida agressiva (Pus 80vh para ficar quase no fundo do ecrã) */
+        /* RELÓGIO (Ancorado pelo chão para garantir que não vai para o teto) */
         #caixa-relogio { 
             position: absolute;
-            top: 80vh; 
+            bottom: 25vh; /* A 25% de distância do FUNDO do ecrã */
             left: 50vw;
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, 0);
             text-align: center; 
-            transition: top 1s ease-in-out, transform 1s ease-in-out;
+            transition: bottom 1s ease-in-out, transform 1s ease-in-out;
             width: 100%;
         }
         
@@ -49,9 +49,9 @@
             letter-spacing: -3px;
         }
 
-        /* ANIMAÇÃO: Quando toca, desce ainda mais 200px do que a posição anterior */
+        /* ANIMAÇÃO QUANDO TOCAS (Sobe em relação ao chão) */
         body.movido #caixa-relogio {
-            top: 650px !important; /* Estava 400px, subi 200px para 650px de distância do topo */
+            bottom: 60vh !important; /* Afasta-se 60% do chão, ficando na parte superior */
             transform: translate(-50%, 0) scale(0.6) !important;
         }
     </style>
@@ -68,7 +68,12 @@
     </div>
 
     <script>
-        // Relógio
+        // Lógica do Toque
+        document.getElementById('meu-ecra').addEventListener('click', function() {
+            document.body.classList.toggle('movido');
+        });
+
+        // Lógica das Horas
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -78,7 +83,7 @@
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
-        // Bateria
+        // Lógica da Bateria
         if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
@@ -90,7 +95,7 @@
                         document.getElementById('bateria-container').style.color = '#4CAF50'; 
                     } else {
                         document.getElementById('ic-bateria').innerText = '🔋';
-                        document.getElementById('bateria-container').style.color = '#aaa';
+                        document.getElementById('bateria-container').style.color = '#aaaaaa';
                     }
                 }
                 atualizarBateria(); 
@@ -98,11 +103,6 @@
                 battery.addEventListener('chargingchange', atualizarBateria);
             });
         }
-
-        // Toque
-        document.getElementById('meu-ecra').addEventListener('click', function() {
-            document.body.classList.toggle('movido');
-        });
     </script>
 </body>
 </html>
