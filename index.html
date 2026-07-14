@@ -13,14 +13,14 @@
             overflow: hidden; 
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Centra as horas verticalmente de forma natural */
+            justify-content: center; /* Centra o relógio matematicamente na vertical */
             align-items: center;
         }
         
         #bateria-container {
             position: absolute;
-            top: 5vh; 
-            right: 4vw; 
+            top: 5vh; /* Igual ao teu projeto antigo */
+            right: 4vw; /* Igual ao teu projeto antigo */
             font-size: 3vh; 
             display: flex;
             align-items: center;
@@ -41,7 +41,7 @@
             line-height: 1; 
         }
 
-        /* Animação do toque */
+        /* Animação do toque - Sobe 28% do ecrã e reduz o tamanho */
         body.movido #relogio-wrapper {
             transform: translateY(-28vh) scale(0.5); 
         }
@@ -59,10 +59,12 @@
     </div>
 
     <script>
+        // Animação do toque
         document.getElementById('ecra').addEventListener('click', function() {
             document.body.classList.toggle('movido');
         });
 
+        // Relógio
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -72,6 +74,7 @@
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
+        // Bateria
         if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
