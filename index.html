@@ -17,12 +17,12 @@
             align-items: center;
         }
         
-        /* BATERIA MINIMALISTA */
+        /* BATERIA LIMPA (Só texto) */
         #bateria-container {
             position: absolute;
             top: 5vh; 
             right: 4vw; 
-            font-size: 1.5vh; /* Um nadinha maior para compensar a falta do ícone */
+            font-size: 1.5vh; 
             color: #aaaaaa; 
             font-weight: bold;
         }
@@ -45,15 +45,13 @@
         }
 
         /* -----------------------------------------------------
-           BARRAS DE LUZ (CORRIGIDAS - TAMANHO REAL)
+           BARRAS DE LUZ (TAMANHO GIGANTE - 65vh)
            ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
             bottom: 5vh; 
-            height: 55vh; /* Altura total do painel de controlo */
             display: flex;
-            gap: 25vw; 
-            
+            gap: 20vw; 
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
             pointer-events: none;
@@ -72,74 +70,53 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 100%; /* Ocupa os 55vh todos */
         }
 
         .icone-luz {
             font-size: 5vh;
-            margin-bottom: 2vh; /* Espaço entre o ícone e o topo da barra */
+            margin-bottom: 2vh;
             filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4));
             z-index: 2;
         }
 
-        /* A caixa invisível que impede o flexbox de esmagar o slider */
         .caixa-slider {
-            position: relative;
-            flex-grow: 1; /* Ocupa o resto do espaço até baixo */
             width: 10vw;
+            height: 65vh; /* Ocupa quase o ecrã todo verticalmente */
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* Slider com posicionamento absoluto para forçar o tamanho exato */
+        /* O SLIDER GIGANTE */
         input[type=range].slider-girado {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            /* 48vh é o comprimento gigante que a barra vai ter */
-            width: 48vh; 
-            height: 4vw; /* A espessura */
-            /* O translate fixa a barra no centro antes de a rodar */
-            transform: translate(-50%, -50%) rotate(-90deg);
-            
             -webkit-appearance: none;
             appearance: none;
+            width: 65vh; /* ESTICADO PARA 65vh */
+            height: 5vw; /* Ligeiramente mais grosso */
+            transform: rotate(-90deg);
             border-radius: 20px;
             outline: none;
+            background: rgba(255, 255, 255, 0.1);
             box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
         }
 
         input[type=range].slider-girado::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 7vw;
-            height: 7vw;
+            width: 9vw;
+            height: 9vw;
             border-radius: 50%;
             background: #ffffff;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.9);
             border: 2px solid #ccc;
         }
 
-        #brilho-luz { 
-            background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); 
-        }
-        
-        #temp-luz { 
-            background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); 
-        }
-
-        #instrucao-fullscreen {
-            position: absolute;
-            bottom: 2vh;
-            color: #444;
-            font-size: 1.5vh;
-            text-align: center;
-            pointer-events: none;
-            transition: opacity 0.5s;
-        }
+        #brilho-luz { background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); }
+        #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
     </style>
 </head>
 <body id="ecra">
     
-    <!-- Bateria Apenas com Texto -->
     <div id="bateria-container">
         <span id="txt-bateria">--%</span>
     </div>
@@ -149,7 +126,6 @@
     </div>
 
     <div id="painel-luzes">
-        <!-- BARRA BRILHO -->
         <div class="grupo-slider">
             <span class="icone-luz">☀️</span>
             <div class="caixa-slider">
@@ -157,7 +133,6 @@
             </div>
         </div>
         
-        <!-- BARRA TEMPERATURA -->
         <div class="grupo-slider">
             <span class="icone-luz">🌡️</span>
             <div class="caixa-slider">
@@ -165,8 +140,6 @@
             </div>
         </div>
     </div>
-
-    <div id="instrucao-fullscreen">Toca no fundo para iniciar o Ecrã Inteiro</div>
 
     <script>
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
@@ -187,11 +160,6 @@
 
         window.receberDadosDaBridge = function(base64Dados) {
             try {
-                // A bateria pisca para dar feedback visual de que a app ouviu a Bridge
-                const bat = document.getElementById('bateria-container');
-                bat.style.color = '#00ff00';
-                setTimeout(() => { bat.style.color = '#aaaaaa'; }, 1000);
-
                 const jsonString = atob(base64Dados);
                 const payload = JSON.parse(jsonString);
 
@@ -199,8 +167,7 @@
                     if (evento.type === 'update' && evento.data) {
                         for (const item of evento.data) {
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
-                                const idClicado = item.id;
-                                if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(idClicado)) {
+                                if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
                                     ativarAnimacao(); 
                                 }
                             }
@@ -211,14 +178,11 @@
         };
 
         const ecra = document.getElementById('ecra');
-        const instrucao = document.getElementById('instrucao-fullscreen');
-
         ecra.addEventListener('click', function(e) {
             if (e.target.tagName !== 'INPUT') {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
-                    instrucao.style.opacity = '0';
                 }
                 ativarAnimacao();
             }
@@ -226,19 +190,15 @@
 
         function atualizarTempo() {
             const agora = new Date();
-            const horas = String(agora.getHours()).padStart(2, '0');
-            const minutos = String(agora.getMinutes()).padStart(2, '0');
-            document.getElementById('relogio').innerHTML = horas + ':' + minutos;
+            document.getElementById('relogio').innerHTML = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
         }
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
-        // Ouve apenas o nível da bateria, ignorando o estado de carregamento
         if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
-                    const nivel = Math.round(battery.level * 100);
-                    document.getElementById('txt-bateria').innerText = nivel + '%';
+                    document.getElementById('txt-bateria').innerText = Math.round(battery.level * 100) + '%';
                 }
                 atualizarBateria(); 
                 battery.addEventListener('levelchange', atualizarBateria);
