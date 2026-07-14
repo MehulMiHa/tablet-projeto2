@@ -21,20 +21,22 @@
             position: absolute;
             top: 5vh; 
             right: 4vw; 
-            font-size: 0.8vh; /* Reduzido para 1/4 do tamanho */
+            font-size: 1.2vh; /* Um bocadinho maior que 0.8 para se ler bem */
             display: flex;
             align-items: center;
             gap: 8px;
             color: #aaaaaa; 
             font-weight: bold;
+            transition: color 0.3s;
         }
 
         #relogio-wrapper {
-            transition: transform 1s ease-in-out;
+            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
         }
 
         #relogio {
-            font-size: 20vw; 
+            font-size: 24vw; 
             font-weight: 900; 
             letter-spacing: -3px; 
             margin: 0;
@@ -42,14 +44,87 @@
         }
 
         body.movido #relogio-wrapper {
-            transform: translateY(-35vh); 
+            transform: translateY(-28vh); 
         }
+
+        /* -----------------------------------------------------
+           BARRAS DE LUZ (MÉTODO ROTATE - 100% COMPATÍVEL)
+           ----------------------------------------------------- */
+        #painel-luzes {
+            position: absolute;
+            bottom: 12vh;
+            display: flex;
+            gap: 20vw; 
+            
+            /* Escondido inicialmente */
+            opacity: 0;
+            transform: translateY(15vh) scale(0.8);
+            pointer-events: none;
+            transition: opacity 0.5s ease-in, transform 0.5s ease-in;
+            z-index: 5;
+        }
+
+        body.movido #painel-luzes {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+            transition: opacity 0.6s ease-out 0.2s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
+        }
+
+        .grupo-slider {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3vh;
+        }
+
+        .icone-luz {
+            font-size: 5vh;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4));
+            z-index: 2;
+        }
+
+        /* A "caixa" invisível que segura o slider rodado */
+        .caixa-slider {
+            width: 10vw;
+            height: 35vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* O slider desenhado na horizontal, mas rodado 90 graus para cima */
+        input[type=range].slider-girado {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 35vh; /* O comprimento real do slider */
+            height: 4vw; /* A espessura do slider */
+            transform: rotate(-90deg);
+            border-radius: 20px;
+            outline: none;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        input[type=range].slider-girado::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 7vw;
+            height: 7vw;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
+            border: 2px solid #ccc;
+        }
+
+        #brilho-luz { background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); }
+        #cor-luz { background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); }
 
         #instrucao-fullscreen {
             position: absolute;
-            bottom: 10vh;
-            color: #555;
-            font-size: 2vh;
+            bottom: 3vh;
+            color: #444;
+            font-size: 1.5vh;
             text-align: center;
             pointer-events: none;
             transition: opacity 0.5s;
@@ -67,12 +142,25 @@
         <div id="relogio">00:00</div>
     </div>
 
-    <div id="instrucao-fullscreen">Toca no ecrã para iniciar o Ecrã Inteiro</div>
+    <!-- PAINEL DAS BARRAS -->
+    <div id="painel-luzes">
+        <div class="grupo-slider">
+            <span class="icone-luz">☀️</span>
+            <div class="caixa-slider">
+                <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="128">
+            </div>
+        </div>
+        <div class="grupo-slider">
+            <span class="icone-luz">🎨</span>
+            <div class="caixa-slider">
+                <input type="range" class="slider-girado" id="cor-luz" min="0" max="65535" value="32000">
+            </div>
+        </div>
+    </div>
+
+    <div id="instrucao-fullscreen">Toca no fundo para iniciar o Ecrã Inteiro</div>
 
     <script>
-        // -----------------------------------------------------
-        // OS TEUS 4 BOTÕES DA PAREDE (LIDOS PELO PC)
-        // -----------------------------------------------------
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
         const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
         const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
@@ -86,58 +174,48 @@
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
-        // -----------------------------------------------------
-        // A PONTE NATIVA: Esta função é chamada pelo Kotlin!
-        // -----------------------------------------------------
+        // Renova os 8 segundos ao mexer nas barras
+        document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
+        document.getElementById('cor-luz').addEventListener('input', ativarAnimacao);
+
+        // PONTE NATIVA
         window.receberDadosDaBridge = function(base64Dados) {
             try {
-                // Descodifica o Base64 que veio do tablet
+                // DEBUG: Pisca a bateria a verde durante 1 segundo para saberes que a ponte está viva!
+                const bat = document.getElementById('bateria-container');
+                bat.style.color = '#00ff00';
+                setTimeout(() => { bat.style.color = '#aaaaaa'; }, 1000);
+
                 const jsonString = atob(base64Dados);
                 const payload = JSON.parse(jsonString);
 
                 for (const evento of payload) {
                     if (evento.type === 'update' && evento.data) {
                         for (const item of evento.data) {
-                            
-                            // Se for um botão e acabou de ser clicado
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 const idClicado = item.id;
-                                
-                                // Filtra APENAS para os 4 botões da parede (ignora o comando)
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(idClicado)) {
-                                    
-                                    ativarAnimacao(); // O Relógio sobe na hora!
-
-                                    // Lógica futura preparada
-                                    switch (idClicado) {
-                                        case BOTAO_CIMA_ESQ: console.log("Clicaste Cima Esq"); break;
-                                        case BOTAO_CIMA_DIR: console.log("Clicaste Cima Dir"); break;
-                                        case BOTAO_BAIXO_ESQ: console.log("Clicaste Baixo Esq"); break;
-                                        case BOTAO_BAIXO_DIR: console.log("Clicaste Baixo Dir"); break;
-                                    }
+                                    ativarAnimacao(); 
                                 }
                             }
                         }
                     }
                 }
-            } catch (erro) {
-                // Ignora erros de leitura de JSON
-            }
+            } catch (erro) {}
         };
 
-        // -----------------------------------------------------
-        // LÓGICA DO RESTO
-        // -----------------------------------------------------
         const ecra = document.getElementById('ecra');
         const instrucao = document.getElementById('instrucao-fullscreen');
 
-        ecra.addEventListener('click', function() {
-            if (!document.fullscreenElement) {
-                if (ecra.requestFullscreen) ecra.requestFullscreen();
-                else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
-                instrucao.style.opacity = '0';
+        ecra.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'INPUT') {
+                if (!document.fullscreenElement) {
+                    if (ecra.requestFullscreen) ecra.requestFullscreen();
+                    else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
+                    instrucao.style.opacity = '0';
+                }
+                ativarAnimacao();
             }
-            ativarAnimacao();
         });
 
         function atualizarTempo() {
@@ -156,10 +234,7 @@
                     document.getElementById('txt-bateria').innerText = nivel + '%';
                     if (battery.charging) {
                         document.getElementById('ic-bateria').innerText = '⚡';
-                        document.getElementById('bateria-container').style.color = '#4CAF50'; 
-                    } else {
-                        document.getElementById('ic-bateria').innerText = '🔋';
-                        document.getElementById('bateria-container').style.color = '#aaaaaa';
+                        batContainer.style.color = '#4CAF50'; 
                     }
                 }
                 atualizarBateria(); 
