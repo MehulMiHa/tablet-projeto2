@@ -17,7 +17,6 @@
             align-items: center;
         }
         
-        /* BATERIA LIMPA (Só texto) */
         #bateria-container {
             position: absolute;
             top: 5vh; 
@@ -27,7 +26,9 @@
             font-weight: bold;
         }
 
-        /* O GRUPO DO RELÓGIO (Agora inclui a chuva) */
+        /* -----------------------------------------------------
+           BLOCO CENTRAL: RELÓGIO + METEOROLOGIA
+           ----------------------------------------------------- */
         #relogio-wrapper {
             transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
             z-index: 10;
@@ -44,31 +45,48 @@
             line-height: 1; 
         }
 
+        #weather-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 1vh;
+            transition: opacity 0.5s ease;
+        }
+
+        .row-temps {
+            display: flex;
+            gap: 6vw;
+            font-size: 3vh;
+            font-weight: bold;
+            margin-bottom: 0.5vh;
+        }
+
+        .label-out { color: #0abde3; font-weight: 900; text-shadow: 0 0 10px rgba(10, 189, 227, 0.5); margin-right: 1vw;}
+        .label-in { color: #ff9f43; font-weight: 900; text-shadow: 0 0 10px rgba(255, 159, 67, 0.5); margin-right: 1vw;}
+
         #chuva-hoje {
             font-size: 2.5vh;
             color: #48dbfb;
             font-weight: bold;
             text-shadow: 0 0 10px rgba(72, 219, 251, 0.4);
-            margin-top: 1.5vh;
-            transition: opacity 0.5s ease; /* Animação suave para desaparecer */
         }
 
+        /* ANIMAÇÃO DE SUBIDA E DESAPARECIMENTO */
         body.movido #relogio-wrapper {
             transform: translateY(-30vh); 
         }
 
-        /* Quando as luzes aparecem, a chuva desaparece */
-        body.movido #chuva-hoje {
+        body.movido #weather-wrapper {
             opacity: 0;
             pointer-events: none;
         }
 
         /* -----------------------------------------------------
-           BARRAS DE LUZ (SUBIDAS PARA 16vh)
+           BARRAS DE LUZ 
            ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
-            bottom: 16vh; /* SUBIDAS AQUI! (Era 8vh) */
+            bottom: 16vh; 
             display: flex;
             gap: 28vw; 
             opacity: 0;
@@ -101,7 +119,7 @@
         .caixa-slider {
             position: relative;
             width: 10vw;
-            height: 45vh; /* ALTURA MANTIDA INTACTA */
+            height: 45vh; 
         }
 
         input[type=range].slider-girado {
@@ -110,14 +128,11 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            
             width: 45vh; 
             min-width: 45vh; 
             flex-shrink: 0; 
-            
             height: 5vw; 
             transform: translate(-50%, -50%) rotate(-90deg);
-            
             border-radius: 20px;
             outline: none;
             background: rgba(255, 255, 255, 0.1);
@@ -139,7 +154,7 @@
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
         /* -----------------------------------------------------
-           O BOTÃO OPÇÕES AVANÇADAS
+           BOTÕES E VISTA SECUNDÁRIA
            ----------------------------------------------------- */
         #btn-opcoes {
             position: absolute;
@@ -164,9 +179,6 @@
             pointer-events: auto;
         }
 
-        /* -----------------------------------------------------
-           A NOVA PÁGINA (VISTA SECUNDÁRIA) E OS SEUS BOTÕES
-           ----------------------------------------------------- */
         #vista-secundaria {
             display: none; 
             position: absolute;
@@ -196,7 +208,6 @@
             cursor: pointer;
         }
 
-        /* Grelha de botões do menu avançado */
         #menu-botoes-avancados {
             display: flex;
             flex-direction: column;
@@ -231,10 +242,17 @@
         <span id="txt-bateria">--%</span>
     </div>
 
-    <!-- O RELÓGIO E A CHUVA AGORA ANDAM JUNTOS -->
+    <!-- RELÓGIO + METEOROLOGIA AGRUPADOS -->
     <div id="relogio-wrapper">
         <div id="relogio">00:00</div>
-        <div id="chuva-hoje">🌧️ Chuva nas próximas 12h: --%</div>
+        
+        <div id="weather-wrapper">
+            <div class="row-temps">
+                <span><span class="label-out">OUT</span><span id="temp-out">--</span>°C</span>
+                <span><span class="label-in">IN</span><span id="temp-in">--</span>°C</span>
+            </div>
+            <div id="chuva-hoje">🌧️ Chuva hoje: --%</div>
+        </div>
     </div>
 
     <div id="painel-luzes">
@@ -255,7 +273,6 @@
 
     <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
 
-    <!-- A PÁGINA SECUNDÁRIA COM OS NOVOS BOTÕES -->
     <div id="vista-secundaria">
         <button id="btn-voltar" onclick="fecharOpcoes()">⬅ Voltar ao Relógio</button>
         
@@ -266,25 +283,78 @@
     </div>
 
     <script>
+        // CONFIGURAÇÕES PHILIPS HUE
+        const HUE_IP = '192.168.1.183';
+        const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
+        
+        // ATENÇÃO: Substitui o '1' pelo ID do grupo da tua Sala se necessário! (0 = Casa Toda)
+        const ID_GRUPO_SALA = '1'; 
+
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
         const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
         const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
         const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
 
+        // -----------------------------------------------------
+        // GESTOR DE ESTADOS DA ANIMAÇÃO
+        // -----------------------------------------------------
         let temporizadorAnimacao = null;
+        let origemAnimacao = null; // Sabe se foi 'touch' ou o ID de um botão!
 
-        function ativarAnimacao() {
+        function ativarAnimacao(origem = null) {
+            if (origem) {
+                origemAnimacao = origem; // Guarda quem chamou a animação
+            }
+            
             document.body.classList.add('movido');
+            
             if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
-            temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
+            temporizadorAnimacao = setTimeout(() => { 
+                document.body.classList.remove('movido'); 
+                origemAnimacao = null; // Limpa a memória quando fecha
+            }, 8000);
         }
 
-        document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
-        document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
+        // -----------------------------------------------------
+        // CONTROLO EM TEMPO REAL DA SALA (APENAS POR TOUCH)
+        // -----------------------------------------------------
+        let hueThrottle = false;
 
+        function mudarLuzSala(propriedade, valor) {
+            // Regra de Ouro: Só mexe nas luzes se o ecrã foi ativado pelo toque do utilizador!
+            if (origemAnimacao !== 'touch') return;
+
+            // Throttle: Limita os pedidos para não sobrecarregar a bridge (100ms)
+            if (hueThrottle) return;
+            hueThrottle = true;
+            setTimeout(() => { hueThrottle = false; }, 100);
+
+            const corpo = {};
+            corpo[propriedade] = parseInt(valor);
+
+            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
+                method: 'PUT',
+                body: JSON.stringify(corpo)
+            }).catch(e => console.log("Erro ao mudar luz:", e));
+        }
+
+        document.getElementById('brilho-luz').addEventListener('input', function() {
+            ativarAnimacao(); // Mantém o painel aberto
+            mudarLuzSala('bri', this.value);
+        });
+
+        document.getElementById('temp-luz').addEventListener('input', function() {
+            ativarAnimacao(); 
+            mudarLuzSala('ct', this.value);
+        });
+
+        // -----------------------------------------------------
+        // LÓGICA DE VISTAS (SPA)
+        // -----------------------------------------------------
         function abrirOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'flex';
             document.body.classList.remove('movido'); 
+            origemAnimacao = null;
         }
 
         function fecharOpcoes() {
@@ -292,28 +362,8 @@
         }
 
         // -----------------------------------------------------
-        // API DA CHUVA NAS PRÓXIMAS 12H
+        // RECEÇÃO DE EVENTOS DA PAREDE (PONTE NATIVA)
         // -----------------------------------------------------
-        async function getRainChance() {
-            try {
-                const url = `https://api.openweathermap.org/data/2.5/forecast?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                let maxPop = 0;
-                // Olha para as próximas 4 janelas (3h x 4 = 12 horas) e vê a probabilidade máxima
-                for(let i = 0; i < 4; i++) { 
-                    if(data.list[i] && data.list[i].pop > maxPop) {
-                        maxPop = data.list[i].pop; 
-                    }
-                }
-                
-                document.getElementById('chuva-hoje').innerText = `🌧️ Chuva nas próximas 12h: ${Math.round(maxPop * 100)}%`;
-            } catch (e) { 
-                document.getElementById('chuva-hoje').innerText = `🌧️ Chuva: Err`; 
-            }
-        }
-
         window.receberDadosDaBridge = function(base64Dados) {
             try {
                 const jsonString = atob(base64Dados);
@@ -325,7 +375,8 @@
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
                                     if (document.getElementById('vista-secundaria').style.display !== 'flex') {
-                                        ativarAnimacao(); 
+                                        // Passa a identidade do botão que foi clicado!
+                                        ativarAnimacao(item.id); 
                                     }
                                 }
                             }
@@ -335,6 +386,7 @@
             } catch (erro) {}
         };
 
+        // EVENTO DE TOQUE NA TELA (Atribui o estado 'touch')
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
@@ -342,22 +394,50 @@
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
                 }
-                ativarAnimacao();
+                ativarAnimacao('touch'); // <--- Identifica que a origem foi o dedo na tela
             }
         });
 
+        // -----------------------------------------------------
+        // METEOROLOGIA E RELÓGIO (Importado do Projeto Eddy)
+        // -----------------------------------------------------
         function atualizarTempo() {
             const agora = new Date();
             document.getElementById('relogio').innerHTML = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
         }
-        
-        // Arranca as funções no início e agenda os updates
-        setInterval(atualizarTempo, 1000);
-        setInterval(getRainChance, 600000); // Atualiza a chuva a cada 10 minutos
-        
-        atualizarTempo();
-        getRainChance();
 
+        async function getOutdoorTemp() {
+            try {
+                const url = `https://api.openweathermap.org/data/2.5/weather?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
+                const response = await fetch(url);
+                const data = await response.json();
+                document.getElementById('temp-out').innerText = Math.round(data.main.temp);
+            } catch (e) { document.getElementById('temp-out').innerText = "Err"; }
+        }
+
+        async function getRainChance() {
+            try {
+                const url = `https://api.openweathermap.org/data/2.5/forecast?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
+                const response = await fetch(url);
+                const data = await response.json();
+                let maxPop = 0;
+                for(let i = 0; i < 4; i++) { 
+                    if(data.list[i] && data.list[i].pop > maxPop) maxPop = data.list[i].pop; 
+                }
+                document.getElementById('chuva-hoje').innerText = `🌧️ Chuva hoje: ${Math.round(maxPop * 100)}%`;
+            } catch (e) { document.getElementById('chuva-hoje').innerText = `🌧️ Chuva hoje: Err`; }
+        }
+
+        async function getIndoorTemp() {
+            try {
+                const url = `http://${HUE_IP}/api/${HUE_TOKEN}/sensors/34`;
+                const response = await fetch(url);
+                const data = await response.json();
+                document.getElementById('temp-in').innerText = Math.round(data.state.temperature / 100);
+            } catch (e) { document.getElementById('temp-in').innerText = "Err"; }
+        }
+
+        // Bateria
         if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
@@ -367,6 +447,17 @@
                 battery.addEventListener('levelchange', atualizarBateria);
             });
         }
+
+        // Arranques e Timers
+        setInterval(atualizarTempo, 1000);
+        setInterval(getOutdoorTemp, 600000); 
+        setInterval(getRainChance, 600000);  
+        setInterval(getIndoorTemp, 60000);   
+        
+        atualizarTempo();
+        getOutdoorTemp();
+        getRainChance();
+        getIndoorTemp();
     </script>
 </body>
 </html>
