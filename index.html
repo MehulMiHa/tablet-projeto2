@@ -21,7 +21,7 @@
             position: absolute;
             top: 5vh; 
             right: 4vw; 
-            font-size: 0.8vh; /* Reduzido para 1/4 do tamanho */
+            font-size: 0.8vh; 
             display: flex;
             align-items: center;
             gap: 8px;
@@ -30,26 +30,99 @@
         }
 
         #relogio-wrapper {
-            transition: transform 1s ease-in-out;
+            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
         #relogio {
-            font-size: 20vw; 
+            font-size: 24vw; /* AUMENTADO EM 20% (era 20vw) */
             font-weight: 900; 
             letter-spacing: -3px; 
             margin: 0;
             line-height: 1; 
         }
 
+        /* O Relógio sobe para dar espaço */
         body.movido #relogio-wrapper {
-            transform: translateY(-35vh); 
+            transform: translateY(-30vh); 
+        }
+
+        /* -----------------------------------------------------
+           INTERFACE DOS SLIDERS (BARRAS DE LUZ)
+           ----------------------------------------------------- */
+        #painel-luzes {
+            position: absolute;
+            bottom: 12vh;
+            display: flex;
+            gap: 20vw; /* Espaçamento entre a barra de brilho e a de cor */
+            
+            /* Estado Inicial (Escondido e encolhido lá em baixo) */
+            opacity: 0;
+            transform: translateY(15vh) scale(0.8);
+            pointer-events: none;
+            
+            /* Transição de fecho */
+            transition: opacity 0.5s ease-in, transform 0.5s ease-in;
+        }
+
+        /* Animação quando fica ativo (Efeito Mola / Bounce) */
+        body.movido #painel-luzes {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+            /* Demora um bocadinho a arrancar para deixar o relógio subir primeiro */
+            transition: opacity 0.6s ease-out 0.2s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
+        }
+
+        .grupo-slider {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2vh;
+        }
+
+        .icone-luz {
+            font-size: 4vh;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4));
+        }
+
+        /* Estilo Base das Barras Verticais */
+        input[type=range].slider-vertical {
+            -webkit-appearance: slider-vertical;
+            width: 8vw;
+            height: 35vh;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            outline: none;
+            cursor: pointer;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+        }
+
+        /* A "bolinha" de arrastar */
+        input[type=range].slider-vertical::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 9vw;
+            height: 9vw;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.9);
+            border: 2px solid #ddd;
+        }
+
+        /* Cores Específicas: Barra da Esquerda (Brilho) */
+        #brilho-luz {
+            background: linear-gradient(to top, rgba(255,255,255,0.1), rgba(255,255,255,0.8));
+        }
+
+        /* Cores Específicas: Barra da Direita (Cor / Arco-Íris) */
+        #cor-luz {
+            background: linear-gradient(to top, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
         }
 
         #instrucao-fullscreen {
             position: absolute;
-            bottom: 10vh;
-            color: #555;
-            font-size: 2vh;
+            bottom: 3vh;
+            color: #444;
+            font-size: 1.5vh;
             text-align: center;
             pointer-events: none;
             transition: opacity 0.5s;
@@ -63,11 +136,27 @@
         <span id="ic-bateria">🔋</span>
     </div>
 
+    <!-- RELÓGIO -->
     <div id="relogio-wrapper">
         <div id="relogio">00:00</div>
     </div>
 
-    <div id="instrucao-fullscreen">Toca no ecrã para iniciar o Ecrã Inteiro</div>
+    <!-- BARRAS DE CONTROLO DE LUZ -->
+    <div id="painel-luzes">
+        <!-- Barra Esquerda (Brilho) -->
+        <div class="grupo-slider">
+            <span class="icone-luz">☀️</span>
+            <input type="range" class="slider-vertical" id="brilho-luz" min="1" max="254" value="128">
+        </div>
+
+        <!-- Barra Direita (Cor) -->
+        <div class="grupo-slider">
+            <span class="icone-luz">🎨</span>
+            <input type="range" class="slider-vertical" id="cor-luz" min="0" max="65535" value="32000">
+        </div>
+    </div>
+
+    <div id="instrucao-fullscreen">Toca no fundo para iniciar o Ecrã Inteiro</div>
 
     <script>
         // -----------------------------------------------------
@@ -82,33 +171,38 @@
 
         function ativarAnimacao() {
             document.body.classList.add('movido');
+            
             if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
-            temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
+            
+            // Fica 8 segundos aberto antes de descer
+            temporizadorAnimacao = setTimeout(() => { 
+                document.body.classList.remove('movido'); 
+            }, 8000);
         }
+
+        // Se o utilizador estiver a mexer nos sliders, recomeça os 8 segundos
+        // para o ecrã não se fechar na cara dele!
+        document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
+        document.getElementById('cor-luz').addEventListener('input', ativarAnimacao);
 
         // -----------------------------------------------------
         // A PONTE NATIVA: Esta função é chamada pelo Kotlin!
         // -----------------------------------------------------
         window.receberDadosDaBridge = function(base64Dados) {
             try {
-                // Descodifica o Base64 que veio do tablet
                 const jsonString = atob(base64Dados);
                 const payload = JSON.parse(jsonString);
 
                 for (const evento of payload) {
                     if (evento.type === 'update' && evento.data) {
                         for (const item of evento.data) {
-                            
-                            // Se for um botão e acabou de ser clicado
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 const idClicado = item.id;
                                 
-                                // Filtra APENAS para os 4 botões da parede (ignora o comando)
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(idClicado)) {
-                                    
-                                    ativarAnimacao(); // O Relógio sobe na hora!
+                                    ativarAnimacao(); // O Relógio sobe e as barras aparecem!
 
-                                    // Lógica futura preparada
+                                    // Para o teu futuro desenvolvimento
                                     switch (idClicado) {
                                         case BOTAO_CIMA_ESQ: console.log("Clicaste Cima Esq"); break;
                                         case BOTAO_CIMA_DIR: console.log("Clicaste Cima Dir"); break;
@@ -121,23 +215,27 @@
                     }
                 }
             } catch (erro) {
-                // Ignora erros de leitura de JSON
+                // Silêncio em caso de erro de parse
             }
         };
 
         // -----------------------------------------------------
-        // LÓGICA DO RESTO
+        // LÓGICA GERAL
         // -----------------------------------------------------
         const ecra = document.getElementById('ecra');
         const instrucao = document.getElementById('instrucao-fullscreen');
 
-        ecra.addEventListener('click', function() {
-            if (!document.fullscreenElement) {
-                if (ecra.requestFullscreen) ecra.requestFullscreen();
-                else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
-                instrucao.style.opacity = '0';
+        // Tocar no fundo do ecrã também aciona a animação
+        ecra.addEventListener('click', function(e) {
+            // Evita que tocar nas barras acione o Fullscreen acidentalmente
+            if (e.target.tagName !== 'INPUT') {
+                if (!document.fullscreenElement) {
+                    if (ecra.requestFullscreen) ecra.requestFullscreen();
+                    else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
+                    instrucao.style.opacity = '0';
+                }
+                ativarAnimacao();
             }
-            ativarAnimacao();
         });
 
         function atualizarTempo() {
