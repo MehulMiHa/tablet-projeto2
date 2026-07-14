@@ -48,11 +48,11 @@
         }
 
         /* -----------------------------------------------------
-           BARRAS DE LUZ (TAMANHO TITÂNICO - 300vh)
+           BARRAS DE LUZ GIGANTES
            ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
-            bottom: -50vh; /* Desci o painel inteiro porque os 300vh vão empurrar tudo para cima */
+            bottom: 8vh; /* Desceu um pouco para acomodar o tamanho gigante */
             display: flex;
             gap: 20vw; 
             
@@ -85,8 +85,7 @@
 
         .caixa-slider {
             width: 10vw;
-            /* SE FICARES SEM BOLINHA NO ECRÃ, MUDA OS 300vh ABAIXO PARA 80vh! */
-            height: 300vh; 
+            height: 55vh; /* ALTURA MONSTRUOSA PARA A CAIXA! (Era 35vh) */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -95,9 +94,8 @@
         input[type=range].slider-girado {
             -webkit-appearance: none;
             appearance: none;
-            /* O GIGANTE 300vh DE COMPRIMENTO */
-            width: 300vh; 
-            height: 4vw; 
+            width: 55vh; /* COMPRIMENTO REAL DO SLIDER ESTICADO (Era 35vh) */
+            height: 4vw; /* A ESPESSURA MANTÉM-SE EXATAMENTE IGUAL */
             transform: rotate(-90deg);
             border-radius: 20px;
             outline: none;
@@ -116,12 +114,12 @@
             border: 2px solid #ccc;
         }
 
-        /* Barra 1: Brilho */
+        /* Barra 1: Brilho (Mantém-se igual) */
         #brilho-luz { 
             background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); 
         }
         
-        /* Barra 2: Temperatura de Cor */
+        /* Barra 2: Temperatura de Cor (Branco Frio para Branco Quente) */
         #temp-luz { 
             background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); 
         }
@@ -148,7 +146,7 @@
         <div id="relogio">00:00</div>
     </div>
 
-    <!-- PAINEL DAS BARRAS 300vh -->
+    <!-- PAINEL DAS BARRAS GIGANTES -->
     <div id="painel-luzes">
         <!-- BARRA DA ESQUERDA (BRILHO) -->
         <div class="grupo-slider">
@@ -162,6 +160,7 @@
         <div class="grupo-slider">
             <span class="icone-luz">🌡️</span>
             <div class="caixa-slider">
+                <!-- A escala Mired da Hue (153 = Frio, 500 = Quente) -->
                 <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="326">
             </div>
         </div>
@@ -183,13 +182,14 @@
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
-        // Renova os 8 segundos sempre que arrastas um dos sliders
+        // Renova os 8 segundos sempre que arrastas um dos sliders!
         document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
         document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
 
         // PONTE NATIVA
         window.receberDadosDaBridge = function(base64Dados) {
             try {
+                // Pisca a bateria a verde durante 1 segundo
                 const bat = document.getElementById('bateria-container');
                 bat.style.color = '#00ff00';
                 setTimeout(() => { bat.style.color = '#aaaaaa'; }, 1000);
