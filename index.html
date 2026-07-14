@@ -40,7 +40,7 @@
             gap: 6vw;
             font-size: 3vh;
             font-weight: bold;
-            margin-bottom: 4vh; /* Puxado significativamente para cima */
+            margin-bottom: 4vh; 
             transition: opacity 0.5s ease;
         }
 
@@ -280,58 +280,59 @@
         const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
 
         let temporizadorAnimacao = null;
-        let origemAnimacao = null; 
 
-        function ativarAnimacao(origem = null) {
-            if (origem) {
-                origemAnimacao = origem; 
-            }
-            
+        function ativarAnimacao() {
             document.body.classList.add('movido');
-            
             if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
-            temporizadorAnimacao = setTimeout(() => { 
-                document.body.classList.remove('movido'); 
-                origemAnimacao = null; 
-            }, 8000);
+            temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
-        let hueThrottle = false;
+        // -----------------------------------------------------------------
+        // ALGORITMO DE THROTTLE & FADE SENSORIAL (Garante 0 Delays)
+        // -----------------------------------------------------------------
+        let ultimoEnvioHue = 0;
+        let timerHueEspera = null;
 
         function mudarLuzSala(propriedade, valor) {
-            if (origemAnimacao !== 'touch') return;
+            const agora = Date.now();
+            const limiteTempo = 300; // 300ms entre pedidos à Bridge
 
-            if (hueThrottle) return;
-            hueThrottle = true;
-            setTimeout(() => { hueThrottle = false; }, 100);
+            const enviarComando = () => {
+                ultimoEnvioHue = Date.now();
+                
+                const corpo = {
+                    "on": true,
+                    "transitiontime": 3 // O hardware faz o fade suave de 300ms
+                };
+                corpo[propriedade] = parseInt(valor);
 
-            // Adicionado o "on": true para obrigar as luzes a acenderem!
-            const corpo = {
-                "on": true
+                fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
+                    method: 'PUT',
+                    body: JSON.stringify(corpo)
+                }).catch(e => console.log("Erro ao mudar luz:", e));
             };
-            corpo[propriedade] = parseInt(valor);
 
-            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
-                method: 'PUT',
-                body: JSON.stringify(corpo)
-            }).catch(e => console.log("Erro ao mudar luz:", e));
+            if (agora - ultimoEnvioHue > limiteTempo) {
+                enviarComando();
+            } else {
+                clearTimeout(timerHueEspera);
+                timerHueEspera = setTimeout(enviarComando, limiteTempo);
+            }
         }
 
-        // CORREÇÃO: Forçar a origem como 'touch' quando mexes no slider
         document.getElementById('brilho-luz').addEventListener('input', function() {
-            ativarAnimacao('touch'); 
+            ativarAnimacao(); 
             mudarLuzSala('bri', this.value);
         });
 
         document.getElementById('temp-luz').addEventListener('input', function() {
-            ativarAnimacao('touch'); 
+            ativarAnimacao(); 
             mudarLuzSala('ct', this.value);
         });
 
         function abrirOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'flex';
             document.body.classList.remove('movido'); 
-            origemAnimacao = null;
         }
 
         function fecharOpcoes() {
@@ -349,7 +350,7 @@
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
                                     if (document.getElementById('vista-secundaria').style.display !== 'flex') {
-                                        ativarAnimacao(item.id); 
+                                        ativarAnimacao(); 
                                     }
                                 }
                             }
@@ -366,7 +367,7 @@
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
                 }
-                ativarAnimacao('touch'); 
+                ativarAnimacao(); 
             }
         });
 
