@@ -43,18 +43,19 @@
             line-height: 1; 
         }
 
+        /* O Relógio sobe para deixar a metade de baixo livre */
         body.movido #relogio-wrapper {
-            transform: translateY(-28vh); 
+            transform: translateY(-30vh); 
         }
 
         /* -----------------------------------------------------
-           BARRAS DE LUZ GIGANTES
+           BARRAS DE LUZ (TAMANHO PERFEITO PARA A METADE INFERIOR)
            ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
-            bottom: 8vh; /* Desceu um pouco para acomodar o tamanho gigante */
+            bottom: 6vh; /* Fica encostadinho ao fundo do ecrã */
             display: flex;
-            gap: 20vw; 
+            gap: 25vw; /* Afastei-os um bocadinho mais para ficar elegante */
             
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
@@ -85,7 +86,7 @@
 
         .caixa-slider {
             width: 10vw;
-            height: 55vh; /* ALTURA MONSTRUOSA PARA A CAIXA! (Era 35vh) */
+            height: 45vh; /* Ocupa exatamente a metade inferior do ecrã */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -94,8 +95,8 @@
         input[type=range].slider-girado {
             -webkit-appearance: none;
             appearance: none;
-            width: 55vh; /* COMPRIMENTO REAL DO SLIDER ESTICADO (Era 35vh) */
-            height: 4vw; /* A ESPESSURA MANTÉM-SE EXATAMENTE IGUAL */
+            width: 45vh; /* O comprimento exato do slider */
+            height: 4vw; /* A espessura */
             transform: rotate(-90deg);
             border-radius: 20px;
             outline: none;
@@ -114,19 +115,19 @@
             border: 2px solid #ccc;
         }
 
-        /* Barra 1: Brilho (Mantém-se igual) */
+        /* Barra 1: Brilho */
         #brilho-luz { 
             background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); 
         }
         
-        /* Barra 2: Temperatura de Cor (Branco Frio para Branco Quente) */
+        /* Barra 2: Temperatura de Cor */
         #temp-luz { 
             background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); 
         }
 
         #instrucao-fullscreen {
             position: absolute;
-            bottom: 3vh;
+            bottom: 2vh;
             color: #444;
             font-size: 1.5vh;
             text-align: center;
@@ -146,7 +147,7 @@
         <div id="relogio">00:00</div>
     </div>
 
-    <!-- PAINEL DAS BARRAS GIGANTES -->
+    <!-- PAINEL DAS BARRAS -->
     <div id="painel-luzes">
         <!-- BARRA DA ESQUERDA (BRILHO) -->
         <div class="grupo-slider">
@@ -160,7 +161,6 @@
         <div class="grupo-slider">
             <span class="icone-luz">🌡️</span>
             <div class="caixa-slider">
-                <!-- A escala Mired da Hue (153 = Frio, 500 = Quente) -->
                 <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="326">
             </div>
         </div>
@@ -182,14 +182,11 @@
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
-        // Renova os 8 segundos sempre que arrastas um dos sliders!
         document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
         document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
 
-        // PONTE NATIVA
         window.receberDadosDaBridge = function(base64Dados) {
             try {
-                // Pisca a bateria a verde durante 1 segundo
                 const bat = document.getElementById('bateria-container');
                 bat.style.color = '#00ff00';
                 setTimeout(() => { bat.style.color = '#aaaaaa'; }, 1000);
