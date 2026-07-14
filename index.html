@@ -2,10 +2,8 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <!-- BLOQUEIO 1: Proíbe zoom in/out ao "beliscar" o ecrã -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        /* BLOQUEIO 2: Desliga o elástico (overscroll) e os toques nativos de navegação do browser */
         html, body { 
             overscroll-behavior: none; 
             touch-action: none; 
@@ -124,22 +122,6 @@
             transition: opacity 0.6s ease-out 0.2s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
         }
 
-        /* TEXTO DO GRUPO ATUAL NO TOPO DO PAINEL */
-        #lbl-grupo-ativo {
-            position: absolute;
-            top: -10vh; /* Puxa para cima das barras */
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 4vh;
-            font-weight: 900;
-            letter-spacing: 5px;
-            text-transform: uppercase;
-            color: #ffffff;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
-            white-space: nowrap;
-            transition: color 0.3s ease;
-        }
-
         .grupo-slider {
             display: flex;
             flex-direction: column;
@@ -174,7 +156,7 @@
             outline: none;
             background: rgba(255, 255, 255, 0.1);
             box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
-            touch-action: none; /* Garante que arrastar a barra só arrasta a barra! */
+            touch-action: none; 
         }
 
         input[type=range].slider-girado::-webkit-slider-thumb {
@@ -196,7 +178,20 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin-top: 7vh;
+        }
+
+        /* TEXTO DO GRUPO AGORA ESTÁ AQUI, DENTRO DA COLUNA CENTRAL */
+        #lbl-grupo-ativo {
+            font-size: 3vh;
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+            white-space: nowrap;
+            transition: color 0.3s ease;
+            margin-bottom: 2.5vh; /* Espaço elegante entre o texto e o botão do Sync */
+            text-align: center;
         }
 
         #btn-sync-box {
@@ -370,10 +365,8 @@
                 </filter>
             </defs>
             
-            <!-- GRUPO 82: Sanca (Direita) -->
             <rect id="desenho-82" class="luz-vector" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="25" filter="url(#brilhoNeon)"/>
 
-            <!-- GRUPO 84: Focos (Esquerda) -->
             <g id="desenho-84" class="luz-vector" fill="none" stroke="#222" stroke-width="25" filter="url(#brilhoNeon)">
                 <circle cx="200" cy="170" r="50" />
                 <circle cx="400" cy="170" r="50" />
@@ -403,9 +396,6 @@
     </div>
 
     <div id="painel-luzes">
-        <!-- O Nome do Grupo a ser controlado -->
-        <div id="lbl-grupo-ativo">SALA</div>
-
         <div class="grupo-slider">
             <span class="icone-luz">☀️</span>
             <div class="caixa-slider">
@@ -414,6 +404,9 @@
         </div>
         
         <div class="coluna-central">
+            <!-- A ETIQUETA AGORA ESTÁ AQUI -->
+            <div id="lbl-grupo-ativo">SALA</div>
+
             <div id="btn-sync-box" onclick="toggleSyncBox()">
                 🟢 Iniciar Sincronização TV
             </div>
@@ -444,16 +437,12 @@
     </div>
 
     <script>
-        // BLOQUEIO 3: Interceta o "puxar" da tela inteira, protegendo contra refresh da WebView
         document.addEventListener('touchmove', function(e) {
-            // Se o que estamos a arrastar NÃO for um slider (input range), cancela o movimento.
             if (e.target.tagName !== 'INPUT') {
                 e.preventDefault();
             }
         }, { passive: false });
 
-
-        // CONFIGURAÇÕES DA REDE
         const HUE_IP = '192.168.1.183';
         const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
         
@@ -471,14 +460,12 @@
         let isSyncing = false;
         let grupoAtivo = '83'; 
 
-        // DICIONÁRIO DE NOMES DOS GRUPOS
         const nomesGrupos = {
             '83': 'SALA',
             '82': 'SANCA',
             '84': 'FOCOS'
         };
 
-        // ESTADOS LOCAIS PARA DESENHAR O FUNDO 3D
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
 
@@ -512,7 +499,6 @@
             circs84.style.stroke = calcularCorLuz(estado84);
         }
 
-        // COMUNICACAO NATIVA COM A SYNC BOX 
         window.receberDadosSyncBox = function(jsonString) {
             try {
                 const data = JSON.parse(jsonString);
@@ -621,7 +607,6 @@
                     else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) grupoAtivo = '84'; 
                     else if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) grupoAtivo = '82'; 
 
-                    // ATUALIZA O NOME DO GRUPO NO UI
                     document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo];
                 }
             }
@@ -641,7 +626,6 @@
                 document.body.classList.remove('movido'); 
                 origemAnimacao = null; 
                 grupoAtivo = '83'; 
-                // Reinicia o nome quando a tela fecha
                 document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
             }, 8000);
         }
