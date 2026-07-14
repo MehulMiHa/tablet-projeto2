@@ -11,23 +11,12 @@
             height: 100vh; 
             font-family: sans-serif;
             overflow: hidden; 
-        }
-
-        /* -----------------------------------------------------
-           VISTA PRINCIPAL (Mimetiza o body do teu código perfeito)
-           ----------------------------------------------------- */
-        #vista-principal {
-            width: 100vw;
-            height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center; 
             align-items: center;
-            position: absolute;
-            top: 0;
-            left: 0;
         }
-
+        
         /* BATERIA LIMPA (Só texto) */
         #bateria-container {
             position: absolute;
@@ -36,7 +25,6 @@
             font-size: 1.5vh; 
             color: #aaaaaa; 
             font-weight: bold;
-            z-index: 20;
         }
 
         #relogio-wrapper {
@@ -52,44 +40,12 @@
             line-height: 1; 
         }
 
-        /* Relógio sobe bastante para dar espaço às barras gigantes */
         body.movido #relogio-wrapper {
-            transform: translateY(-33vh); 
+            transform: translateY(-28vh); 
         }
 
         /* -----------------------------------------------------
-           BOTÃO OPÇÕES AVANÇADAS (Logo abaixo do relógio)
-           ----------------------------------------------------- */
-        #btn-opcoes {
-            position: absolute;
-            top: 30vh; /* Fica cirurgicamente por baixo do relógio quando ele sobe */
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            font-size: 2vh;
-            font-weight: bold;
-            padding: 1.5vh 4vw;
-            border-radius: 30px;
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-            z-index: 15;
-            
-            /* Começa invisível e encolhido */
-            opacity: 0;
-            transform: scale(0.8);
-            pointer-events: none;
-            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-
-        body.movido #btn-opcoes {
-            opacity: 1;
-            transform: scale(1);
-            pointer-events: auto;
-            transition-delay: 0.15s; 
-        }
-
-        /* -----------------------------------------------------
-           BARRAS DE LUZ (EXATAMENTE COMO O TEU CÓDIGO)
+           BARRAS DE LUZ (TAMANHO GIGANTE - 65vh)
            ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
@@ -159,22 +115,53 @@
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
         /* -----------------------------------------------------
-           VISTA SECUNDÁRIA (Wallpaper "fundo.jpg")
+           O NOVO BOTÃO OPÇÕES AVANÇADAS (No fundo de tudo)
+           ----------------------------------------------------- */
+        #btn-opcoes {
+            position: absolute;
+            bottom: 2vh; /* Mesmo cá em baixo, abaixo das barras */
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 1.5vh;
+            font-weight: bold;
+            padding: 1vh 4vw;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            z-index: 15;
+            
+            /* Animação igual à das barras */
+            opacity: 0;
+            transform: translateY(5vh) scale(0.8);
+            pointer-events: none;
+            transition: all 0.5s ease-in;
+        }
+
+        body.movido #btn-opcoes {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+            transition: opacity 0.6s ease-out 0.3s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s;
+        }
+
+        /* -----------------------------------------------------
+           A NOVA PÁGINA COM O WALLPAPER
            ----------------------------------------------------- */
         #vista-secundaria {
             display: none; 
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100vw;
             height: 100vh;
             background-image: url('fundo.jpg');
             background-size: cover;
             background-position: center;
+            z-index: 999; /* Fica por cima de tudo o resto! */
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 999;
         }
 
         #btn-voltar {
@@ -193,49 +180,37 @@
 </head>
 <body id="ecra">
     
-    <!-- ========================================== -->
-    <!-- VISTA PRINCIPAL -->
-    <!-- ========================================== -->
-    <div id="vista-principal">
-        
-        <div id="bateria-container">
-            <span id="txt-bateria">--%</span>
-        </div>
+    <div id="bateria-container">
+        <span id="txt-bateria">--%</span>
+    </div>
 
-        <div id="relogio-wrapper">
-            <div id="relogio">00:00</div>
-        </div>
+    <div id="relogio-wrapper">
+        <div id="relogio">00:00</div>
+    </div>
 
-        <!-- BOTÃO OPÇÕES (Aparece debaixo do relógio) -->
-        <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
-
-        <div id="painel-luzes">
-            <div class="grupo-slider">
-                <span class="icone-luz">☀️</span>
-                <div class="caixa-slider">
-                    <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="128">
-                </div>
+    <div id="painel-luzes">
+        <div class="grupo-slider">
+            <span class="icone-luz">☀️</span>
+            <div class="caixa-slider">
+                <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="128">
             </div>
-            
-            <div class="grupo-slider">
-                <span class="icone-luz">🌡️</span>
-                <div class="caixa-slider">
-                    <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="326">
-                </div>
+        </div>
+        
+        <div class="grupo-slider">
+            <span class="icone-luz">🌡️</span>
+            <div class="caixa-slider">
+                <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="326">
             </div>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- VISTA SECUNDÁRIA (OPÇÕES AVANÇADAS) -->
-    <!-- ========================================== -->
+    <!-- O TEU NOVO BOTÃO AQUI! -->
+    <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
+
+    <!-- A TUA NOVA PÁGINA ESCONDIDA -->
     <div id="vista-secundaria">
-        <!-- Botão para voltar à página inicial -->
         <button id="btn-voltar" onclick="fecharOpcoes()">⬅ Voltar ao Relógio</button>
-        
-        <!-- O espaço fica livre aqui em baixo para o teu desenvolvimento futuro! -->
     </div>
-
 
     <script>
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
@@ -251,30 +226,23 @@
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
-        // Mantém a página ligada ao mexer nos sliders
         document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
         document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
 
         // -----------------------------------------------------
-        // LÓGICA DE NAVEGAÇÃO ENTRE VISTAS (SPA)
+        // LÓGICA DAS VISTAS (NOVA)
         // -----------------------------------------------------
-        const vistaPrinc = document.getElementById('vista-principal');
-        const vistaSec = document.getElementById('vista-secundaria');
-
         function abrirOpcoes() {
-            vistaPrinc.style.display = 'none';
-            vistaSec.style.display = 'flex';
-            // Recolhe a animação para não ficar aberta em background
-            document.body.classList.remove('movido'); 
+            document.getElementById('vista-secundaria').style.display = 'flex';
+            document.body.classList.remove('movido'); // Recolhe as barras no ecrã de trás
         }
 
         function fecharOpcoes() {
-            vistaSec.style.display = 'none';
-            vistaPrinc.style.display = 'flex';
+            document.getElementById('vista-secundaria').style.display = 'none';
         }
 
         // -----------------------------------------------------
-        // PONTE NATIVA HUE
+        // RESTANTE LÓGICA (INTACTA)
         // -----------------------------------------------------
         window.receberDadosDaBridge = function(base64Dados) {
             try {
@@ -286,8 +254,8 @@
                         for (const item of evento.data) {
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
-                                    // Só faz a animação se o ecrã principal estiver visível
-                                    if (vistaPrinc.style.display !== 'none') {
+                                    // Só ativa a animação se não estiveres na página de opções
+                                    if (document.getElementById('vista-secundaria').style.display !== 'flex') {
                                         ativarAnimacao(); 
                                     }
                                 }
@@ -298,18 +266,18 @@
             } catch (erro) {}
         };
 
-        // Ativa a animação ao tocar no ecrã (Ignora cliques em barras e botões)
-        vistaPrinc.addEventListener('click', function(e) {
+        const ecra = document.getElementById('ecra');
+        ecra.addEventListener('click', function(e) {
+            // Ignora toques nas barras E nos novos botões
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
                 if (!document.fullscreenElement) {
-                    if (document.body.requestFullscreen) document.body.requestFullscreen();
-                    else if (document.body.webkitRequestFullscreen) document.body.webkitRequestFullscreen();
+                    if (ecra.requestFullscreen) ecra.requestFullscreen();
+                    else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
                 }
                 ativarAnimacao();
             }
         });
 
-        // Relógio
         function atualizarTempo() {
             const agora = new Date();
             document.getElementById('relogio').innerHTML = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
@@ -317,7 +285,6 @@
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
-        // Bateria
         if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
