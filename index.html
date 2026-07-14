@@ -34,22 +34,49 @@
         }
 
         #relogio {
-            font-size: 20vw; /* Tamanho muito reduzido */
+            font-size: 20vw; 
             font-weight: 900; 
             letter-spacing: -3px; 
             margin: 0;
             line-height: 1; 
         }
 
-        /* Animação do toque - Apenas desliza para cima (-35% do ecrã) sem diminuir */
         body.movido #relogio-wrapper {
             transform: translateY(-35vh); 
         }
 
+        /* CAIXA DE DEBUG (Para descobrires os IDs dos teus interruptores) */
+        #debug-hue {
+            position: absolute;
+            top: 2vh;
+            left: 2vw;
+            background-color: rgba(255, 204, 0, 0.2);
+            color: #ffcc00;
+            padding: 10px;
+            border: 1px solid #ffcc00;
+            font-family: monospace;
+            font-size: 1.5vh;
+            max-width: 40vw;
+            word-wrap: break-word;
+            z-index: 999;
+        }
+
+        #instrucao-fullscreen {
+            position: absolute;
+            bottom: 10vh;
+            color: #555;
+            font-size: 2vh;
+            text-align: center;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
     </style>
 </head>
 <body id="ecra">
     
+    <!-- Aviso temporário para apanhares os IDs -->
+    <div id="debug-hue">À escuta da Philips Hue Bridge... Carrega num botão!</div>
+
     <div id="bateria-container">
         <span id="txt-bateria">--%</span>
         <span id="ic-bateria">🔋</span>
@@ -59,13 +86,117 @@
         <div id="relogio">00:00</div>
     </div>
 
+    <div id="instrucao-fullscreen">Toca no ecrã para iniciar o Ecrã Inteiro</div>
+
     <script>
-        // Lógica do Toque (Apenas ativa a animação)
-        document.getElementById('ecra').addEventListener('click', function() {
-            document.body.classList.toggle('movido');
+        // -----------------------------------------------------
+        // CONFIGURAÇÕES PHILIPS HUE V2
+        // -----------------------------------------------------
+        const HUE_IP = '192.168.1.183';
+        const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
+        let temporizadorAnimacao = null;
+
+        function ativarAnimacao() {
+            document.body.classList.add('movido');
+            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
+            temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
+        }
+
+        // TÚNEL AVANÇADO (COM PARSER DE JSON)
+        async function conectarHuePush() {
+            try {
+                const resposta = await fetch(`https://${HUE_IP}/eventstream/clip/v2`, {
+                    method: 'GET',
+                    headers: {
+                        'hue-application-key': HUE_TOKEN,
+                        'Accept': 'text/event-stream'
+                    }
+                });
+
+                const leitor = resposta.body.getReader();
+                const descodificador = new TextDecoder('utf-8');
+                let buffer = ''; // Guarda pacotes que cheguem cortados a meio
+
+                while (true) {
+                    const { done, value } = await leitor.read();
+                    if (done) break; 
+                    
+                    buffer += descodificador.decode(value, { stream: true });
+                    let mensagens = buffer.split('\n\n');
+                    buffer = mensagens.pop(); // Guarda o último bocado caso esteja incompleto
+
+                    for (let msg of mensagens) {
+                        if (msg.startsWith('data: ')) {
+                            try {
+                                const payload = JSON.parse(msg.substring(6));
+                                
+                                // Percorre os eventos enviados pela Bridge
+                                for (const evento of payload) {
+                                    if (evento.type === 'update' && evento.data) {
+                                        for (const item of evento.data) {
+                                            
+                                            // Deteta se é um Botão e se acabou de ser pressionado
+                                            if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
+                                                const idBotaoPressionado = item.id;
+                                                
+                                                // IMPRIME O ID NO ECRÃ PARA TU VERES!
+                                                document.getElementById('debug-hue').innerHTML = `Último botão clicado:<br><b>${idBotaoPressionado}</b>`;
+                                                
+                                                // -------------------------------------------------
+                                                // A TUA LÓGICA DO FUTURO ENTRA AQUI
+                                                // -------------------------------------------------
+                                                switch (idBotaoPressionado) {
+                                                    case 'COLA_AQUI_O_ID_DO_BOTAO_DA_SALA':
+                                                        ativarAnimacao();
+                                                        // No futuro podes meter aqui: ligarRadio();
+                                                        break;
+                                                    
+                                                    case 'COLA_AQUI_O_ID_DO_BOTAO_DO_QUARTO':
+                                                        ativarAnimacao();
+                                                        // No futuro podes meter aqui: mostrarTempo();
+                                                        break;
+
+                                                    // Se não quiseres diferenciar botões agora, mas quiseres 
+                                                    // que TODOS façam a animação (exceto o comando), 
+                                                    // apagas este switch e fazes apenas um IF com os IDs da parede.
+                                                }
+                                                
+                                                // Para os testes iniciais, vamos obrigar a animação a acontecer
+                                                // com qualquer botão, para veres que está a funcionar.
+                                                // (Depois de teres os IDs, apagas esta linha de baixo)
+                                                ativarAnimacao();
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (erroJSON) {
+                                // Ignora erros de parse se a Hue mandar lixo
+                            }
+                        }
+                    }
+                }
+            } catch (erro) {
+                setTimeout(conectarHuePush, 5000);
+            }
+        }
+
+        conectarHuePush();
+
+        // -----------------------------------------------------
+        // RESTANTE LÓGICA (Ecrã, Relógio, Bateria)
+        // -----------------------------------------------------
+        const ecra = document.getElementById('ecra');
+        const instrucao = document.getElementById('instrucao-fullscreen');
+
+        ecra.addEventListener('click', function() {
+            if (!document.fullscreenElement) {
+                if (ecra.requestFullscreen) ecra.requestFullscreen();
+                else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
+                instrucao.style.opacity = '0';
+            }
+            ativarAnimacao();
         });
 
-        // Relógio
         function atualizarTempo() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -75,13 +206,11 @@
         setInterval(atualizarTempo, 1000);
         atualizarTempo();
 
-        // Bateria
         if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
                 function atualizarBateria() {
                     const nivel = Math.round(battery.level * 100);
                     document.getElementById('txt-bateria').innerText = nivel + '%';
-                    
                     if (battery.charging) {
                         document.getElementById('ic-bateria').innerText = '⚡';
                         document.getElementById('bateria-container').style.color = '#4CAF50'; 
