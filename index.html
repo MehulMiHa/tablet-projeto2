@@ -21,7 +21,7 @@
             position: absolute;
             top: 5vh; 
             right: 4vw; 
-            font-size: 3vh; 
+            font-size: 0.8vh; /* Reduzido para 1/4 do tamanho */
             display: flex;
             align-items: center;
             gap: 8px;
@@ -71,18 +71,13 @@
 
     <script>
         // -----------------------------------------------------
-        // MAPEAMENTO DOS INTERRUPTORES DA PAREDE
+        // OS TEUS 4 BOTÕES DA PAREDE (LIDOS PELO PC)
         // -----------------------------------------------------
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
         const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
         const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
         const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
 
-        // -----------------------------------------------------
-        // CONFIGURAÇÕES PHILIPS HUE V2
-        // -----------------------------------------------------
-        const HUE_IP = '192.168.1.183';
-        const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
         let temporizadorAnimacao = null;
 
         function ativarAnimacao() {
@@ -91,83 +86,47 @@
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
-        async function conectarHuePush() {
+        // -----------------------------------------------------
+        // A PONTE NATIVA: Esta função é chamada pelo Kotlin!
+        // -----------------------------------------------------
+        window.receberDadosDaBridge = function(base64Dados) {
             try {
-                const resposta = await fetch(`https://${HUE_IP}/eventstream/clip/v2`, {
-                    method: 'GET',
-                    headers: {
-                        'hue-application-key': HUE_TOKEN,
-                        'Accept': 'text/event-stream'
-                    }
-                });
+                // Descodifica o Base64 que veio do tablet
+                const jsonString = atob(base64Dados);
+                const payload = JSON.parse(jsonString);
 
-                const leitor = resposta.body.getReader();
-                const descodificador = new TextDecoder('utf-8');
-                let buffer = ''; 
-
-                while (true) {
-                    const { done, value } = await leitor.read();
-                    if (done) break; 
-                    
-                    buffer += descodificador.decode(value, { stream: true });
-                    let mensagens = buffer.split('\n\n');
-                    buffer = mensagens.pop(); 
-
-                    for (let msg of mensagens) {
-                        if (msg.startsWith('data: ')) {
-                            try {
-                                const payload = JSON.parse(msg.substring(6));
+                for (const evento of payload) {
+                    if (evento.type === 'update' && evento.data) {
+                        for (const item of evento.data) {
+                            
+                            // Se for um botão e acabou de ser clicado
+                            if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
+                                const idClicado = item.id;
                                 
-                                for (const evento of payload) {
-                                    if (evento.type === 'update' && evento.data) {
-                                        for (const item of evento.data) {
-                                            
-                                            if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
-                                                const idClicado = item.id;
-                                                
-                                                // Verifica se o ID pertence aos 4 botões da parede (ignora o comando)
-                                                if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(idClicado)) {
-                                                    
-                                                    // Sobe as horas por 8 segundos SEMPRE que clicares num destes 4
-                                                    ativarAnimacao();
+                                // Filtra APENAS para os 4 botões da parede (ignora o comando)
+                                if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(idClicado)) {
+                                    
+                                    ativarAnimacao(); // O Relógio sobe na hora!
 
-                                                    // Bloco preparado para o teu futuro desenvolvimento:
-                                                    switch (idClicado) {
-                                                        case BOTAO_CIMA_ESQ:
-                                                            // O que quiseres programar aqui no futuro...
-                                                            break;
-                                                        case BOTAO_CIMA_DIR:
-                                                            // ...
-                                                            break;
-                                                        case BOTAO_BAIXO_ESQ:
-                                                            // ...
-                                                            break;
-                                                        case BOTAO_BAIXO_DIR:
-                                                            // ...
-                                                            break;
-                                                    }
-                                                }
-                                            }
-                                        }
+                                    // Lógica futura preparada
+                                    switch (idClicado) {
+                                        case BOTAO_CIMA_ESQ: console.log("Clicaste Cima Esq"); break;
+                                        case BOTAO_CIMA_DIR: console.log("Clicaste Cima Dir"); break;
+                                        case BOTAO_BAIXO_ESQ: console.log("Clicaste Baixo Esq"); break;
+                                        case BOTAO_BAIXO_DIR: console.log("Clicaste Baixo Dir"); break;
                                     }
                                 }
-                            } catch (erroJSON) {
-                                // Ignora lixo no stream
                             }
                         }
                     }
                 }
             } catch (erro) {
-                // Reconecta suavemente após 5 segundos se a rede for abaixo
-                setTimeout(conectarHuePush, 5000);
+                // Ignora erros de leitura de JSON
             }
-        }
-
-        // Arranca o túnel instantâneo
-        conectarHuePush();
+        };
 
         // -----------------------------------------------------
-        // LÓGICA DE ECRÃ, TOQUE, RELÓGIO E BATERIA
+        // LÓGICA DO RESTO
         // -----------------------------------------------------
         const ecra = document.getElementById('ecra');
         const instrucao = document.getElementById('instrucao-fullscreen');
