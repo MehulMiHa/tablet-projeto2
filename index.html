@@ -14,18 +14,21 @@
         }
 
         /* -----------------------------------------------------
-           VISTA PRINCIPAL (Relógio e Luzes)
+           VISTA PRINCIPAL (Mimetiza o body do teu código perfeito)
            ----------------------------------------------------- */
         #vista-principal {
             width: 100vw;
             height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: center; 
             align-items: center;
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
-        
+
+        /* BATERIA LIMPA (Só texto) */
         #bateria-container {
             position: absolute;
             top: 5vh; 
@@ -49,15 +52,17 @@
             line-height: 1; 
         }
 
-        /* SUBIMOS O RELÓGIO AINDA MAIS (De -28vh para -33vh) */
+        /* Relógio sobe bastante para dar espaço às barras gigantes */
         body.movido #relogio-wrapper {
             transform: translateY(-33vh); 
         }
 
-        /* BOTÃO OPÇÕES AVANÇADAS */
+        /* -----------------------------------------------------
+           BOTÃO OPÇÕES AVANÇADAS (Logo abaixo do relógio)
+           ----------------------------------------------------- */
         #btn-opcoes {
             position: absolute;
-            top: 45vh; /* Fica no espaço vazio entre o relógio e as barras */
+            top: 30vh; /* Fica cirurgicamente por baixo do relógio quando ele sobe */
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.3);
             color: white;
@@ -69,7 +74,7 @@
             cursor: pointer;
             z-index: 15;
             
-            /* Animação para aparecer e desaparecer */
+            /* Começa invisível e encolhido */
             opacity: 0;
             transform: scale(0.8);
             pointer-events: none;
@@ -80,10 +85,12 @@
             opacity: 1;
             transform: scale(1);
             pointer-events: auto;
-            transition-delay: 0.1s; /* Aparece logo a seguir ao relógio começar a subir */
+            transition-delay: 0.15s; 
         }
 
-        /* BARRAS DE LUZ (65vh) */
+        /* -----------------------------------------------------
+           BARRAS DE LUZ (EXATAMENTE COMO O TEU CÓDIGO)
+           ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
             bottom: 5vh; 
@@ -118,17 +125,18 @@
 
         .caixa-slider {
             width: 10vw;
-            height: 65vh; 
+            height: 65vh; /* Ocupa quase o ecrã todo verticalmente */
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
+        /* O SLIDER GIGANTE */
         input[type=range].slider-girado {
             -webkit-appearance: none;
             appearance: none;
-            width: 65vh; 
-            height: 5vw; 
+            width: 65vh; /* ESTICADO PARA 65vh */
+            height: 5vw; /* Ligeiramente mais grosso */
             transform: rotate(-90deg);
             border-radius: 20px;
             outline: none;
@@ -151,10 +159,10 @@
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
         /* -----------------------------------------------------
-           VISTA SECUNDÁRIA (Opções Avançadas com o Wallpaper)
+           VISTA SECUNDÁRIA (Wallpaper "fundo.jpg")
            ----------------------------------------------------- */
         #vista-secundaria {
-            display: none; /* Escondido por defeito */
+            display: none; 
             width: 100vw;
             height: 100vh;
             background-image: url('fundo.jpg');
@@ -186,9 +194,10 @@
 <body id="ecra">
     
     <!-- ========================================== -->
-    <!-- VISTA 1: RELÓGIO E LUZES -->
+    <!-- VISTA PRINCIPAL -->
     <!-- ========================================== -->
     <div id="vista-principal">
+        
         <div id="bateria-container">
             <span id="txt-bateria">--%</span>
         </div>
@@ -197,7 +206,7 @@
             <div id="relogio">00:00</div>
         </div>
 
-        <!-- NOVO BOTÃO OPÇÕES -->
+        <!-- BOTÃO OPÇÕES (Aparece debaixo do relógio) -->
         <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
 
         <div id="painel-luzes">
@@ -218,13 +227,13 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- VISTA 2: OPÇÕES AVANÇADAS -->
+    <!-- VISTA SECUNDÁRIA (OPÇÕES AVANÇADAS) -->
     <!-- ========================================== -->
     <div id="vista-secundaria">
-        <!-- Para não ficares preso nesta página, adicionei um botão Voltar -->
+        <!-- Botão para voltar à página inicial -->
         <button id="btn-voltar" onclick="fecharOpcoes()">⬅ Voltar ao Relógio</button>
         
-        <!-- No futuro, as tuas novas opções avançadas vão entrar todas aqui debaixo! -->
+        <!-- O espaço fica livre aqui em baixo para o teu desenvolvimento futuro! -->
     </div>
 
 
@@ -242,6 +251,7 @@
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
+        // Mantém a página ligada ao mexer nos sliders
         document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
         document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
 
@@ -252,15 +262,13 @@
         const vistaSec = document.getElementById('vista-secundaria');
 
         function abrirOpcoes() {
-            // Esconde a vista 1 e mostra a vista 2
             vistaPrinc.style.display = 'none';
             vistaSec.style.display = 'flex';
-            // Reseta a animação para que o relógio não fique lá em cima quando voltares
+            // Recolhe a animação para não ficar aberta em background
             document.body.classList.remove('movido'); 
         }
 
         function fecharOpcoes() {
-            // Volta tudo ao normal
             vistaSec.style.display = 'none';
             vistaPrinc.style.display = 'flex';
         }
@@ -278,8 +286,7 @@
                         for (const item of evento.data) {
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
-                                    // Se estiver na vista secundária e carregar na parede, não faz nada
-                                    // Só anima se estiver na vista principal
+                                    // Só faz a animação se o ecrã principal estiver visível
                                     if (vistaPrinc.style.display !== 'none') {
                                         ativarAnimacao(); 
                                     }
@@ -291,9 +298,8 @@
             } catch (erro) {}
         };
 
-        // Adiciona a deteção de clique apenas na Vista Principal (para não disparar nos botões)
+        // Ativa a animação ao tocar no ecrã (Ignora cliques em barras e botões)
         vistaPrinc.addEventListener('click', function(e) {
-            // Ignora o clique se tocares nas barras de luz ou no novo botão de opções
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
                 if (!document.fullscreenElement) {
                     if (document.body.requestFullscreen) document.body.requestFullscreen();
