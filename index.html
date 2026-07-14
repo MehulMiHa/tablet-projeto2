@@ -13,7 +13,7 @@
             overflow: hidden; 
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Centra o relógio na vertical */
+            justify-content: center; 
             align-items: center;
         }
         
@@ -34,28 +34,18 @@
         }
 
         #relogio {
-            font-size: 35vh; 
+            font-size: 20vw; /* Tamanho muito reduzido */
             font-weight: 900; 
             letter-spacing: -3px; 
             margin: 0;
             line-height: 1; 
         }
 
-        /* Animação do toque - Sobe 28% do ecrã e reduz o tamanho */
+        /* Animação do toque - Apenas desliza para cima (-35% do ecrã) sem diminuir */
         body.movido #relogio-wrapper {
-            transform: translateY(-28vh) scale(0.5); 
+            transform: translateY(-35vh); 
         }
 
-        /* Instrução Inicial para o Utilizador (Desaparece após o primeiro toque) */
-        #instrucao-fullscreen {
-            position: absolute;
-            bottom: 10vh;
-            color: #555;
-            font-size: 2vh;
-            text-align: center;
-            pointer-events: none;
-            transition: opacity 0.5s;
-        }
     </style>
 </head>
 <body id="ecra">
@@ -69,28 +59,9 @@
         <div id="relogio">00:00</div>
     </div>
 
-    <div id="instrucao-fullscreen">Toca no ecrã para iniciar o Ecrã Inteiro</div>
-
     <script>
-        const ecra = document.getElementById('ecra');
-        const instrucao = document.getElementById('instrucao-fullscreen');
-
-        // Lógica do Toque (Ativar Ecrã Inteiro E fazer a Animação)
-        ecra.addEventListener('click', function() {
-            // 1. OBRIGAR O TABLET A FICAR EM ECRÃ INTEIRO
-            if (!document.fullscreenElement) {
-                if (ecra.requestFullscreen) {
-                    ecra.requestFullscreen();
-                } else if (ecra.webkitRequestFullscreen) { /* Safari */
-                    ecra.webkitRequestFullscreen();
-                } else if (ecra.msRequestFullscreen) { /* IE11 */
-                    ecra.msRequestFullscreen();
-                }
-                // Esconde a instrução após entrar em Ecrã Inteiro
-                instrucao.style.opacity = '0';
-            }
-
-            // 2. ALTERNAR A ANIMAÇÃO DO RELÓGIO
+        // Lógica do Toque (Apenas ativa a animação)
+        document.getElementById('ecra').addEventListener('click', function() {
             document.body.classList.toggle('movido');
         });
 
