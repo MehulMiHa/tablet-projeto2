@@ -45,22 +45,6 @@
             transform: translateY(-35vh); 
         }
 
-        /* CAIXA DE DEBUG (Para descobrires os IDs dos teus interruptores) */
-        #debug-hue {
-            position: absolute;
-            top: 2vh;
-            left: 2vw;
-            background-color: rgba(255, 204, 0, 0.2);
-            color: #ffcc00;
-            padding: 10px;
-            border: 1px solid #ffcc00;
-            font-family: monospace;
-            font-size: 1.5vh;
-            max-width: 40vw;
-            word-wrap: break-word;
-            z-index: 999;
-        }
-
         #instrucao-fullscreen {
             position: absolute;
             bottom: 10vh;
@@ -74,9 +58,6 @@
 </head>
 <body id="ecra">
     
-    <!-- Aviso temporário para apanhares os IDs -->
-    <div id="debug-hue">À escuta da Philips Hue Bridge... Carrega num botão!</div>
-
     <div id="bateria-container">
         <span id="txt-bateria">--%</span>
         <span id="ic-bateria">🔋</span>
@@ -90,6 +71,14 @@
 
     <script>
         // -----------------------------------------------------
+        // MAPEAMENTO DOS INTERRUPTORES DA PAREDE
+        // -----------------------------------------------------
+        const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
+        const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
+        const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
+        const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
+
+        // -----------------------------------------------------
         // CONFIGURAÇÕES PHILIPS HUE V2
         // -----------------------------------------------------
         const HUE_IP = '192.168.1.183';
@@ -102,7 +91,6 @@
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
-        // TÚNEL AVANÇADO (COM PARSER DE JSON)
         async function conectarHuePush() {
             try {
                 const resposta = await fetch(`https://${HUE_IP}/eventstream/clip/v2`, {
@@ -115,7 +103,7 @@
 
                 const leitor = resposta.body.getReader();
                 const descodificador = new TextDecoder('utf-8');
-                let buffer = ''; // Guarda pacotes que cheguem cortados a meio
+                let buffer = ''; 
 
                 while (true) {
                     const { done, value } = await leitor.read();
@@ -123,67 +111,63 @@
                     
                     buffer += descodificador.decode(value, { stream: true });
                     let mensagens = buffer.split('\n\n');
-                    buffer = mensagens.pop(); // Guarda o último bocado caso esteja incompleto
+                    buffer = mensagens.pop(); 
 
                     for (let msg of mensagens) {
                         if (msg.startsWith('data: ')) {
                             try {
                                 const payload = JSON.parse(msg.substring(6));
                                 
-                                // Percorre os eventos enviados pela Bridge
                                 for (const evento of payload) {
                                     if (evento.type === 'update' && evento.data) {
                                         for (const item of evento.data) {
                                             
-                                            // Deteta se é um Botão e se acabou de ser pressionado
                                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
-                                                const idBotaoPressionado = item.id;
+                                                const idClicado = item.id;
                                                 
-                                                // IMPRIME O ID NO ECRÃ PARA TU VERES!
-                                                document.getElementById('debug-hue').innerHTML = `Último botão clicado:<br><b>${idBotaoPressionado}</b>`;
-                                                
-                                                // -------------------------------------------------
-                                                // A TUA LÓGICA DO FUTURO ENTRA AQUI
-                                                // -------------------------------------------------
-                                                switch (idBotaoPressionado) {
-                                                    case 'COLA_AQUI_O_ID_DO_BOTAO_DA_SALA':
-                                                        ativarAnimacao();
-                                                        // No futuro podes meter aqui: ligarRadio();
-                                                        break;
+                                                // Verifica se o ID pertence aos 4 botões da parede (ignora o comando)
+                                                if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(idClicado)) {
                                                     
-                                                    case 'COLA_AQUI_O_ID_DO_BOTAO_DO_QUARTO':
-                                                        ativarAnimacao();
-                                                        // No futuro podes meter aqui: mostrarTempo();
-                                                        break;
+                                                    // Sobe as horas por 8 segundos SEMPRE que clicares num destes 4
+                                                    ativarAnimacao();
 
-                                                    // Se não quiseres diferenciar botões agora, mas quiseres 
-                                                    // que TODOS façam a animação (exceto o comando), 
-                                                    // apagas este switch e fazes apenas um IF com os IDs da parede.
+                                                    // Bloco preparado para o teu futuro desenvolvimento:
+                                                    switch (idClicado) {
+                                                        case BOTAO_CIMA_ESQ:
+                                                            // O que quiseres programar aqui no futuro...
+                                                            break;
+                                                        case BOTAO_CIMA_DIR:
+                                                            // ...
+                                                            break;
+                                                        case BOTAO_BAIXO_ESQ:
+                                                            // ...
+                                                            break;
+                                                        case BOTAO_BAIXO_DIR:
+                                                            // ...
+                                                            break;
+                                                    }
                                                 }
-                                                
-                                                // Para os testes iniciais, vamos obrigar a animação a acontecer
-                                                // com qualquer botão, para veres que está a funcionar.
-                                                // (Depois de teres os IDs, apagas esta linha de baixo)
-                                                ativarAnimacao();
                                             }
                                         }
                                     }
                                 }
                             } catch (erroJSON) {
-                                // Ignora erros de parse se a Hue mandar lixo
+                                // Ignora lixo no stream
                             }
                         }
                     }
                 }
             } catch (erro) {
+                // Reconecta suavemente após 5 segundos se a rede for abaixo
                 setTimeout(conectarHuePush, 5000);
             }
         }
 
+        // Arranca o túnel instantâneo
         conectarHuePush();
 
         // -----------------------------------------------------
-        // RESTANTE LÓGICA (Ecrã, Relógio, Bateria)
+        // LÓGICA DE ECRÃ, TOQUE, RELÓGIO E BATERIA
         // -----------------------------------------------------
         const ecra = document.getElementById('ecra');
         const instrucao = document.getElementById('instrucao-fullscreen');
