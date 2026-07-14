@@ -73,15 +73,12 @@
             pointer-events: none;
         }
 
-        /* -----------------------------------------------------
-           PAINEL DE LUZES (Agora com 3 elementos no Flexbox)
-           ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
             bottom: 16vh; 
             display: flex;
-            gap: 12vw; /* Ajustado para caber o botão no meio */
-            align-items: center; /* Centra o botão verticalmente com as barras */
+            gap: 12vw; 
+            align-items: center; 
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
             pointer-events: none;
@@ -146,9 +143,6 @@
         #brilho-luz { background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); }
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
-        /* -----------------------------------------------------
-           NOVO INTERRUPTOR 3D (ON/OFF)
-           ----------------------------------------------------- */
         #btn-power-sala {
             width: 9vw;
             height: 25vh;
@@ -161,7 +155,7 @@
             align-items: center;
             cursor: pointer;
             overflow: hidden;
-            margin-top: 7vh; /* Ajuste para alinhar visualmente */
+            margin-top: 7vh; 
             transition: all 0.2s;
         }
 
@@ -177,7 +171,6 @@
             transition: all 0.3s ease;
         }
 
-        /* Estado Padrão (OFF) */
         .switch-on {
             color: #999;
             background: linear-gradient(to bottom, #eeeeee, #cccccc);
@@ -190,7 +183,6 @@
             box-shadow: inset 0 10px 10px rgba(0,0,0,0.2);
         }
 
-        /* Estado Ligado (ON) */
         #btn-power-sala.ligado .switch-on {
             color: #33ff33;
             text-shadow: 0 0 12px rgba(51,255,51,0.8);
@@ -206,9 +198,6 @@
             border-top: 2px solid #fff;
         }
 
-        /* -----------------------------------------------------
-           BOTÕES E VISTA SECUNDÁRIA
-           ----------------------------------------------------- */
         #btn-opcoes {
             position: absolute;
             bottom: 1.5vh; 
@@ -310,12 +299,10 @@
         <div class="grupo-slider">
             <span class="icone-luz">☀️</span>
             <div class="caixa-slider">
-                <!-- Agora começam em valores vazios, serão preenchidos pela API! -->
                 <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="1">
             </div>
         </div>
         
-        <!-- O NOVO INTERRUPTOR ENTRE AS BARRAS -->
         <div id="btn-power-sala" onclick="togglePowerSala()">
             <div class="metade-switch switch-on">ON</div>
             <div class="metade-switch switch-off">OFF</div>
@@ -343,37 +330,32 @@
     <script>
         const HUE_IP = '192.168.1.183';
         const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
-        const ID_GRUPO_SALA = '83'; 
-
+        
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
         const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
         const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
         const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
 
+        // GESTOR DE ESTADO E ALVO
         let temporizadorAnimacao = null;
         let origemAnimacao = null; 
         let salaEstaLigada = false;
+        let grupoAtivo = '83'; // Por defeito arranca sempre com o grupo 83 (Sala Toda)
 
-        // -----------------------------------------------------
-        // SINCRONIZAR ESTADO REAL DA SALA (MAGIA!)
-        // -----------------------------------------------------
         async function sincronizarEstadoSala() {
             try {
-                const res = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}`);
+                // Sincroniza APENAS com o grupo que estiver ativo no momento!
+                const res = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}`);
                 const data = await res.json();
                 
                 if (data && data.action) {
                     salaEstaLigada = data.action.on;
                     const btn = document.getElementById('btn-power-sala');
                     
-                    if (salaEstaLigada) {
-                        btn.classList.add('ligado');
-                    } else {
-                        btn.classList.remove('ligado');
-                    }
+                    if (salaEstaLigada) btn.classList.add('ligado');
+                    else btn.classList.remove('ligado');
                     
                     document.getElementById('brilho-luz').value = data.action.bri;
-                    // Previne erro caso a luz não suporte temperatura de cor
                     if(data.action.ct) document.getElementById('temp-luz').value = data.action.ct; 
                 }
             } catch (e) {
@@ -382,10 +364,23 @@
         }
 
         function ativarAnimacao(origem = null) {
-            if (origem) origemAnimacao = origem; 
+            const telaFechada = !document.body.classList.contains('movido');
+
+            if (origem) {
+                // Se a tela está fechada OU se foi clicado num botão físico da parede, muda o alvo.
+                // Ignora toques no ecrã para não sobrescrever o alvo que tu escolheste com o interruptor!
+                if (telaFechada || origem !== 'touch') {
+                    origemAnimacao = origem; 
+                    
+                    if (origem === 'touch') grupoAtivo = '83'; // Dedo na tela = Sala toda (83)
+                    else if (origem === BOTAO_CIMA_ESQ) grupoAtivo = '84'; // Cima Esquerdo = 84
+                    else if (origem === BOTAO_CIMA_DIR) grupoAtivo = '82'; // Cima Direito = 82
+                    // else mantém o anterior
+                }
+            }
             
-            // Se o ecrã não estava movido, atualiza os sliders ANTES de mostrar
-            if (!document.body.classList.contains('movido')) {
+            // Força a atualização do UI sempre que a tela acorda, ou mudas de botão
+            if (telaFechada || (origem && origem !== 'touch')) {
                 sincronizarEstadoSala();
             }
 
@@ -395,23 +390,19 @@
             temporizadorAnimacao = setTimeout(() => { 
                 document.body.classList.remove('movido'); 
                 origemAnimacao = null; 
+                grupoAtivo = '83'; // Limpa e volta à Sala Toda quando a tela fecha
             }, 8000);
         }
 
-        // -----------------------------------------------------
-        // ENVIOS PARA A PHILIPS HUE (EVENTO "CHANGE")
-        // -----------------------------------------------------
         function mudarLuzSala(propriedade, valor) {
-            if (origemAnimacao !== 'touch') return;
-
+            // Usa sempre o grupo que foi roteado pela variável `grupoAtivo`
             const corpo = { "on": true };
             corpo[propriedade] = parseInt(valor);
 
-            // Se mudaste os sliders, a sala liga obrigatoriamente, atualiza o UI do botão
             salaEstaLigada = true;
             document.getElementById('btn-power-sala').classList.add('ligado');
 
-            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
+            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
                 method: 'PUT',
                 body: JSON.stringify(corpo)
             }).catch(e => console.log("Erro ao mudar luz:", e));
@@ -422,23 +413,18 @@
             salaEstaLigada = !salaEstaLigada;
             
             const btn = document.getElementById('btn-power-sala');
-            if (salaEstaLigada) {
-                btn.classList.add('ligado');
-            } else {
-                btn.classList.remove('ligado');
-            }
+            if (salaEstaLigada) btn.classList.add('ligado');
+            else btn.classList.remove('ligado');
 
-            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
+            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
                 method: 'PUT',
                 body: JSON.stringify({ "on": salaEstaLigada })
             }).catch(e => console.log("Erro ao alternar luz:", e));
         }
 
-        // INPUT: Apenas mantém o ecrã acordado enquanto arrastas o dedo
         document.getElementById('brilho-luz').addEventListener('input', () => ativarAnimacao('touch'));
         document.getElementById('temp-luz').addEventListener('input', () => ativarAnimacao('touch'));
 
-        // CHANGE: Só dispara e envia a API no instante em que levantas o dedo!
         document.getElementById('brilho-luz').addEventListener('change', function() {
             mudarLuzSala('bri', this.value);
         });
@@ -446,9 +432,6 @@
             mudarLuzSala('ct', this.value);
         });
 
-        // -----------------------------------------------------
-        // LÓGICA DE SPA & NATIVO
-        // -----------------------------------------------------
         function abrirOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'flex';
             document.body.classList.remove('movido'); 
@@ -470,6 +453,7 @@
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
                                     if (document.getElementById('vista-secundaria').style.display !== 'flex') {
+                                        // Passa o ID exato do botão para a máquina de estados rotear
                                         ativarAnimacao(item.id); 
                                     }
                                 }
@@ -482,7 +466,6 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            // Se clicar no botão ON/OFF, ele trata de si, mas não faz fullscreen
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala') {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
