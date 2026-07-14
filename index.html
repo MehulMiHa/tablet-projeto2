@@ -27,9 +27,13 @@
             font-weight: bold;
         }
 
+        /* O GRUPO DO RELÓGIO (Agora inclui a chuva) */
         #relogio-wrapper {
             transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
             z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         #relogio {
@@ -40,18 +44,33 @@
             line-height: 1; 
         }
 
+        #chuva-hoje {
+            font-size: 2.5vh;
+            color: #48dbfb;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(72, 219, 251, 0.4);
+            margin-top: 1.5vh;
+            transition: opacity 0.5s ease; /* Animação suave para desaparecer */
+        }
+
         body.movido #relogio-wrapper {
             transform: translateY(-30vh); 
         }
 
+        /* Quando as luzes aparecem, a chuva desaparece */
+        body.movido #chuva-hoje {
+            opacity: 0;
+            pointer-events: none;
+        }
+
         /* -----------------------------------------------------
-           BARRAS DE LUZ (REDUZIDAS E MAIS AFASTADAS)
+           BARRAS DE LUZ (SUBIDAS PARA 16vh)
            ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
-            bottom: 8vh; /* Subi ligeiramente para centrar melhor com o novo tamanho */
+            bottom: 16vh; /* SUBIDAS AQUI! (Era 8vh) */
             display: flex;
-            gap: 28vw; /* MAIS AFASTADAS (era 20vw) */
+            gap: 28vw; 
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
             pointer-events: none;
@@ -82,7 +101,7 @@
         .caixa-slider {
             position: relative;
             width: 10vw;
-            height: 45vh; /* REDUZIDAS 30% na altura total (era 65vh) */
+            height: 45vh; /* ALTURA MANTIDA INTACTA */
         }
 
         input[type=range].slider-girado {
@@ -92,11 +111,11 @@
             top: 50%;
             left: 50%;
             
-            width: 45vh; /* REDUZIDAS (Acompanha a caixa) */
+            width: 45vh; 
             min-width: 45vh; 
             flex-shrink: 0; 
             
-            height: 5vw; /* ESPESSURA INTOCÁVEL */
+            height: 5vw; 
             transform: translate(-50%, -50%) rotate(-90deg);
             
             border-radius: 20px;
@@ -146,7 +165,7 @@
         }
 
         /* -----------------------------------------------------
-           A NOVA PÁGINA (VISTA SECUNDÁRIA)
+           A NOVA PÁGINA (VISTA SECUNDÁRIA) E OS SEUS BOTÕES
            ----------------------------------------------------- */
         #vista-secundaria {
             display: none; 
@@ -166,7 +185,7 @@
 
         #btn-voltar {
             margin-top: 8vh;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.6);
             border: 2px solid rgba(255, 255, 255, 0.5);
             color: white;
             font-size: 2.5vh;
@@ -176,6 +195,34 @@
             backdrop-filter: blur(10px);
             cursor: pointer;
         }
+
+        /* Grelha de botões do menu avançado */
+        #menu-botoes-avancados {
+            display: flex;
+            flex-direction: column;
+            gap: 4vh;
+            margin-top: 12vh;
+            width: 70vw;
+        }
+
+        .btn-avancado {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 4vh;
+            font-weight: bold;
+            padding: 4vh 0;
+            border-radius: 20px;
+            backdrop-filter: blur(15px);
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            transition: transform 0.1s, background 0.3s;
+        }
+
+        .btn-avancado:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.3);
+        }
     </style>
 </head>
 <body id="ecra">
@@ -184,8 +231,10 @@
         <span id="txt-bateria">--%</span>
     </div>
 
+    <!-- O RELÓGIO E A CHUVA AGORA ANDAM JUNTOS -->
     <div id="relogio-wrapper">
         <div id="relogio">00:00</div>
+        <div id="chuva-hoje">🌧️ Chuva nas próximas 12h: --%</div>
     </div>
 
     <div id="painel-luzes">
@@ -206,8 +255,14 @@
 
     <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
 
+    <!-- A PÁGINA SECUNDÁRIA COM OS NOVOS BOTÕES -->
     <div id="vista-secundaria">
         <button id="btn-voltar" onclick="fecharOpcoes()">⬅ Voltar ao Relógio</button>
+        
+        <div id="menu-botoes-avancados">
+            <button class="btn-avancado">💡 Luzes</button>
+            <button class="btn-avancado">🤖 Rocky</button>
+        </div>
     </div>
 
     <script>
@@ -234,6 +289,29 @@
 
         function fecharOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'none';
+        }
+
+        // -----------------------------------------------------
+        // API DA CHUVA NAS PRÓXIMAS 12H
+        // -----------------------------------------------------
+        async function getRainChance() {
+            try {
+                const url = `https://api.openweathermap.org/data/2.5/forecast?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                let maxPop = 0;
+                // Olha para as próximas 4 janelas (3h x 4 = 12 horas) e vê a probabilidade máxima
+                for(let i = 0; i < 4; i++) { 
+                    if(data.list[i] && data.list[i].pop > maxPop) {
+                        maxPop = data.list[i].pop; 
+                    }
+                }
+                
+                document.getElementById('chuva-hoje').innerText = `🌧️ Chuva nas próximas 12h: ${Math.round(maxPop * 100)}%`;
+            } catch (e) { 
+                document.getElementById('chuva-hoje').innerText = `🌧️ Chuva: Err`; 
+            }
         }
 
         window.receberDadosDaBridge = function(base64Dados) {
@@ -272,8 +350,13 @@
             const agora = new Date();
             document.getElementById('relogio').innerHTML = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
         }
+        
+        // Arranca as funções no início e agenda os updates
         setInterval(atualizarTempo, 1000);
+        setInterval(getRainChance, 600000); // Atualiza a chuva a cada 10 minutos
+        
         atualizarTempo();
+        getRainChance();
 
         if (navigator.getBattery) {
             navigator.getBattery().then(function(battery) {
