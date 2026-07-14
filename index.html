@@ -1,107 +1,47 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horas Tablet</title>
+    <!-- Removi as limitações de ecrã para a página poder crescer o que quiser -->
     <style>
         body { 
-            background-color: #000; 
-            color: #fff; 
+            background-color: black; 
+            color: #00ff00; /* Verde matrix */
+            font-size: 24px; 
+            font-family: monospace; 
+            word-wrap: break-word; /* Força o texto a quebrar de linha */
             margin: 0; 
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            font-family: sans-serif; 
-            overflow: hidden; 
-            position: relative;
-        }
-
-        /* BATERIA (Ancorada no topo como pediste) */
-        #bateria-container { 
-            position: absolute; 
-            top: 5vh; 
-            right: 4vw; 
-            display: flex; 
-            align-items: center; 
-            font-size: 3vh; 
-            font-weight: bold; 
-            color: #aaa;
-            z-index: 10;
-        }
-
-        /* RELÓGIO (Ancorado pelo chão para garantir que não vai para o teto) */
-        #caixa-relogio { 
-            position: absolute;
-            bottom: 25vh; /* A 25% de distância do FUNDO do ecrã */
-            left: 50vw;
-            transform: translate(-50%, 0);
-            text-align: center; 
-            transition: bottom 1s ease-in-out, transform 1s ease-in-out;
-            width: 100%;
-        }
-        
-        #relogio { 
-            font-size: 30vw; 
-            font-weight: bold; 
-            margin: 0; 
-            line-height: 1;
-            letter-spacing: -3px;
-        }
-
-        /* ANIMAÇÃO QUANDO TOCAS (Sobe em relação ao chão) */
-        body.movido #caixa-relogio {
-            bottom: 60vh !important; /* Afasta-se 60% do chão, ficando na parte superior */
-            transform: translate(-50%, 0) scale(0.6) !important;
+            padding: 20px; 
         }
     </style>
 </head>
-<body id="meu-ecra">
-
-    <div id="bateria-container">
-        <span id="txt-bateria">--%</span>
-        <span id="ic-bateria">🔋</span>
-    </div>
-
-    <div id="caixa-relogio">
-        <div id="relogio">00:00</div>
-    </div>
+<body>
+    <!-- Se vires esta frase, o HTML carregou mas o tablet bloqueou o JavaScript -->
+    <div id="debug-text">HTML CARREGOU. A TENTAR LER O ECRÃ... SE VIRES ISTO, O TABLET BLOQUEOU O JAVASCRIPT!</div>
 
     <script>
-        // Lógica do Toque
-        document.getElementById('meu-ecra').addEventListener('click', function() {
-            document.body.classList.toggle('movido');
-        });
-
-        // Lógica das Horas
-        function atualizarTempo() {
-            const agora = new Date();
-            const horas = String(agora.getHours()).padStart(2, '0');
-            const minutos = String(agora.getMinutes()).padStart(2, '0');
-            document.getElementById('relogio').innerHTML = horas + ':' + minutos;
-        }
-        setInterval(atualizarTempo, 1000);
-        atualizarTempo();
-
-        // Lógica da Bateria
-        if (navigator.getBattery) {
-            navigator.getBattery().then(function(battery) {
-                function atualizarBateria() {
-                    const nivel = Math.floor(battery.level * 100);
-                    document.getElementById('txt-bateria').innerText = nivel + '%';
-                    
-                    if (battery.charging) {
-                        document.getElementById('ic-bateria').innerText = '⚡';
-                        document.getElementById('bateria-container').style.color = '#4CAF50'; 
-                    } else {
-                        document.getElementById('ic-bateria').innerText = '🔋';
-                        document.getElementById('bateria-container').style.color = '#aaaaaa';
-                    }
-                }
-                atualizarBateria(); 
-                battery.addEventListener('levelchange', atualizarBateria);
-                battery.addEventListener('chargingchange', atualizarBateria);
-            });
+        try {
+            // Tira as medidas
+            var largura = window.innerWidth;
+            var altura = window.innerHeight;
+            var ecraL = window.screen.width;
+            var ecraA = window.screen.height;
+            
+            // A frase que vamos repetir
+            var mensagem = "[WEBVIEW: " + largura + "x" + altura + " | FISICO: " + ecraL + "x" + ecraA + "] --- ";
+            
+            // Metralhadora: repete a frase 1000 vezes para encher o ecrã todo
+            var textoGigante = "";
+            for (var i = 0; i < 1000; i++) {
+                textoGigante += mensagem;
+            }
+            
+            // Substitui o texto no ecrã
+            document.getElementById('debug-text').innerHTML = textoGigante;
+            
+        } catch (erro) {
+            // Se o JavaScript crashar, imprime o erro
+            document.getElementById('debug-text').innerHTML = "ERRO FATAL NO JAVASCRIPT: " + erro.message;
         }
     </script>
 </body>
