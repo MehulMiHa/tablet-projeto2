@@ -21,7 +21,7 @@
             position: absolute;
             top: 5vh; 
             right: 4vw; 
-            font-size: 1.2vh; /* Um bocadinho maior que 0.8 para se ler bem */
+            font-size: 1.2vh; 
             display: flex;
             align-items: center;
             gap: 8px;
@@ -48,15 +48,14 @@
         }
 
         /* -----------------------------------------------------
-           BARRAS DE LUZ (MÉTODO ROTATE - 100% COMPATÍVEL)
+           BARRAS DE LUZ (TAMANHO TITÂNICO - 300vh)
            ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
-            bottom: 12vh;
+            bottom: -50vh; /* Desci o painel inteiro porque os 300vh vão empurrar tudo para cima */
             display: flex;
             gap: 20vw; 
             
-            /* Escondido inicialmente */
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
             pointer-events: none;
@@ -84,21 +83,21 @@
             z-index: 2;
         }
 
-        /* A "caixa" invisível que segura o slider rodado */
         .caixa-slider {
             width: 10vw;
-            height: 35vh;
+            /* SE FICARES SEM BOLINHA NO ECRÃ, MUDA OS 300vh ABAIXO PARA 80vh! */
+            height: 300vh; 
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        /* O slider desenhado na horizontal, mas rodado 90 graus para cima */
         input[type=range].slider-girado {
             -webkit-appearance: none;
             appearance: none;
-            width: 35vh; /* O comprimento real do slider */
-            height: 4vw; /* A espessura do slider */
+            /* O GIGANTE 300vh DE COMPRIMENTO */
+            width: 300vh; 
+            height: 4vw; 
             transform: rotate(-90deg);
             border-radius: 20px;
             outline: none;
@@ -117,8 +116,15 @@
             border: 2px solid #ccc;
         }
 
-        #brilho-luz { background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); }
-        #cor-luz { background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); }
+        /* Barra 1: Brilho */
+        #brilho-luz { 
+            background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); 
+        }
+        
+        /* Barra 2: Temperatura de Cor */
+        #temp-luz { 
+            background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); 
+        }
 
         #instrucao-fullscreen {
             position: absolute;
@@ -142,18 +148,21 @@
         <div id="relogio">00:00</div>
     </div>
 
-    <!-- PAINEL DAS BARRAS -->
+    <!-- PAINEL DAS BARRAS 300vh -->
     <div id="painel-luzes">
+        <!-- BARRA DA ESQUERDA (BRILHO) -->
         <div class="grupo-slider">
             <span class="icone-luz">☀️</span>
             <div class="caixa-slider">
                 <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="128">
             </div>
         </div>
+        
+        <!-- BARRA DA DIREITA (TEMPERATURA) -->
         <div class="grupo-slider">
-            <span class="icone-luz">🎨</span>
+            <span class="icone-luz">🌡️</span>
             <div class="caixa-slider">
-                <input type="range" class="slider-girado" id="cor-luz" min="0" max="65535" value="32000">
+                <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="326">
             </div>
         </div>
     </div>
@@ -174,14 +183,13 @@
             temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
         }
 
-        // Renova os 8 segundos ao mexer nas barras
+        // Renova os 8 segundos sempre que arrastas um dos sliders
         document.getElementById('brilho-luz').addEventListener('input', ativarAnimacao);
-        document.getElementById('cor-luz').addEventListener('input', ativarAnimacao);
+        document.getElementById('temp-luz').addEventListener('input', ativarAnimacao);
 
         // PONTE NATIVA
         window.receberDadosDaBridge = function(base64Dados) {
             try {
-                // DEBUG: Pisca a bateria a verde durante 1 segundo para saberes que a ponte está viva!
                 const bat = document.getElementById('bateria-container');
                 bat.style.color = '#00ff00';
                 setTimeout(() => { bat.style.color = '#aaaaaa'; }, 1000);
@@ -234,7 +242,10 @@
                     document.getElementById('txt-bateria').innerText = nivel + '%';
                     if (battery.charging) {
                         document.getElementById('ic-bateria').innerText = '⚡';
-                        batContainer.style.color = '#4CAF50'; 
+                        document.getElementById('bateria-container').style.color = '#4CAF50'; 
+                    } else {
+                        document.getElementById('ic-bateria').innerText = '🔋';
+                        document.getElementById('bateria-container').style.color = '#aaaaaa';
                     }
                 }
                 atualizarBateria(); 
