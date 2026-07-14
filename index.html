@@ -143,6 +143,37 @@
         #brilho-luz { background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); }
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
+        .coluna-central {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 7vh;
+        }
+
+        #btn-sync-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #aaa;
+            font-size: 1.5vh;
+            font-weight: bold;
+            padding: 1.5vh 2vw;
+            border-radius: 15px;
+            margin-bottom: 3vh; 
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            width: max-content;
+        }
+
+        #btn-sync-box.sync-active {
+            background: rgba(229, 57, 53, 0.2); 
+            border-color: #e53935;
+            color: #ffcdd2;
+            box-shadow: 0 0 15px rgba(229, 57, 53, 0.4);
+        }
+
         #btn-power-sala {
             width: 9vw;
             height: 25vh;
@@ -155,7 +186,6 @@
             align-items: center;
             cursor: pointer;
             overflow: hidden;
-            margin-top: 7vh; 
             transition: all 0.2s;
         }
 
@@ -303,9 +333,15 @@
             </div>
         </div>
         
-        <div id="btn-power-sala" onclick="togglePowerSala()">
-            <div class="metade-switch switch-on">ON</div>
-            <div class="metade-switch switch-off">OFF</div>
+        <div class="coluna-central">
+            <div id="btn-sync-box" onclick="toggleSyncBox()">
+                🟢 Iniciar Sincronização TV
+            </div>
+
+            <div id="btn-power-sala" onclick="togglePowerSala()">
+                <div class="metade-switch switch-on">ON</div>
+                <div class="metade-switch switch-off">OFF</div>
+            </div>
         </div>
 
         <div class="grupo-slider">
@@ -328,9 +364,15 @@
     </div>
 
     <script>
+        // CONFIGURAÇÕES DA REDE
         const HUE_IP = '192.168.1.183';
         const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
         
+        const SYNC_IP = '192.168.1.188'; 
+        const SYNC_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODQwNjA1MzUzNDYsImlzcyI6ImhzYi1DNDI5OTYwNzZCMzIiLCJyb2xlIjoidXNlciIsInJpZCI6MTcsInJhbiI6InRhYmxldCIsInJpbiI6ImRhc2hib2FyZCJ9.kz3Ym/nPSs5bkVWqIZSzuyubq5Wiskk6PQeWBRzc0nc='; 
+        
+        const ID_GRUPO_SALA = '83'; 
+
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
         const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
         const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
@@ -339,7 +381,60 @@
         let temporizadorAnimacao = null;
         let origemAnimacao = null; 
         let salaEstaLigada = false;
+        let isSyncing = false;
         let grupoAtivo = '83'; 
+
+        async function verificarEstadoSyncBox() {
+            try {
+                const res = await fetch(`https://${SYNC_IP}/api/v1/execution`, {
+                    headers: { 'Authorization': `Bearer ${SYNC_TOKEN}` }
+                });
+                const data = await res.json();
+                isSyncing = data.syncActive;
+                atualizarUIBotaoSync();
+            } catch(e) { console.log("Erro ao ligar à Sync Box:", e); }
+        }
+
+        function atualizarUIBotaoSync() {
+            const btnSync = document.getElementById('btn-sync-box');
+            if(isSyncing) {
+                btnSync.classList.add('sync-active');
+                btnSync.innerHTML = '🔴 Parar Sincronização TV';
+            } else {
+                btnSync.classList.remove('sync-active');
+                btnSync.innerHTML = '🟢 Iniciar Sincronização TV';
+            }
+        }
+
+        function toggleSyncBox() {
+            ativarAnimacao('touch');
+            
+            isSyncing = !isSyncing;
+            atualizarUIBotaoSync();
+
+            fetch(`https://${SYNC_IP}/api/v1/execution`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `Bearer ${SYNC_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ "syncActive": isSyncing })
+            }).catch(e => console.log(e));
+        }
+
+        function autoStopSyncBlindly() {
+            isSyncing = false;
+            atualizarUIBotaoSync();
+            
+            fetch(`https://${SYNC_IP}/api/v1/execution`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `Bearer ${SYNC_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ "syncActive": false })
+            }).catch(e => console.log(e));
+        }
 
         async function sincronizarEstadoSala() {
             try {
@@ -356,9 +451,9 @@
                     document.getElementById('brilho-luz').value = data.action.bri;
                     if(data.action.ct) document.getElementById('temp-luz').value = data.action.ct; 
                 }
-            } catch (e) {
-                console.log("Erro a sincronizar estado:", e);
-            }
+            } catch (e) {}
+
+            verificarEstadoSyncBox();
         }
 
         function ativarAnimacao(origem = null) {
@@ -368,13 +463,16 @@
                 if (telaFechada || origem !== 'touch') {
                     origemAnimacao = origem; 
                     
-                    // ROTEAMENTO DINÂMICO
                     if (origem === 'touch') grupoAtivo = '83'; 
-                    else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) grupoAtivo = '84'; // Esquerda = 84
-                    else if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) grupoAtivo = '82'; // Direita = 82
+                    else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) grupoAtivo = '84'; 
+                    else if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) grupoAtivo = '82'; 
                 }
             }
             
+            if (telaFechada) {
+                autoStopSyncBlindly();
+            }
+
             if (telaFechada || (origem && origem !== 'touch')) {
                 sincronizarEstadoSala();
             }
@@ -399,7 +497,7 @@
             fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
                 method: 'PUT',
                 body: JSON.stringify(corpo)
-            }).catch(e => console.log("Erro ao mudar luz:", e));
+            }).catch(e => console.log(e));
         }
 
         function togglePowerSala() {
@@ -413,7 +511,7 @@
             fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
                 method: 'PUT',
                 body: JSON.stringify({ "on": salaEstaLigada })
-            }).catch(e => console.log("Erro ao alternar luz:", e));
+            }).catch(e => console.log(e));
         }
 
         document.getElementById('brilho-luz').addEventListener('input', () => ativarAnimacao('touch'));
@@ -459,7 +557,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala') {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync') {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
