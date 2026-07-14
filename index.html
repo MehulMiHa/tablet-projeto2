@@ -34,7 +34,6 @@
             align-items: center;
         }
 
-        /* TEMPERATURAS AFASTADAS PARA CIMA */
         #temps-top {
             display: flex;
             gap: 6vw;
@@ -74,11 +73,15 @@
             pointer-events: none;
         }
 
+        /* -----------------------------------------------------
+           PAINEL DE LUZES (Agora com 3 elementos no Flexbox)
+           ----------------------------------------------------- */
         #painel-luzes {
             position: absolute;
             bottom: 16vh; 
             display: flex;
-            gap: 28vw; 
+            gap: 12vw; /* Ajustado para caber o botão no meio */
+            align-items: center; /* Centra o botão verticalmente com as barras */
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
             pointer-events: none;
@@ -143,6 +146,69 @@
         #brilho-luz { background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); }
         #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
 
+        /* -----------------------------------------------------
+           NOVO INTERRUPTOR 3D (ON/OFF)
+           ----------------------------------------------------- */
+        #btn-power-sala {
+            width: 9vw;
+            height: 25vh;
+            background: #d9d9d9;
+            border-radius: 1vw;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,255,255,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            overflow: hidden;
+            margin-top: 7vh; /* Ajuste para alinhar visualmente */
+            transition: all 0.2s;
+        }
+
+        .metade-switch {
+            width: 100%;
+            height: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 900;
+            font-size: 2.5vh;
+            font-family: sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        /* Estado Padrão (OFF) */
+        .switch-on {
+            color: #999;
+            background: linear-gradient(to bottom, #eeeeee, #cccccc);
+            border-bottom: 2px solid #aaa;
+        }
+        .switch-off {
+            color: #ff3333;
+            text-shadow: 0 0 10px rgba(255,51,51,0.5);
+            background: linear-gradient(to bottom, #bbbbbb, #999999);
+            box-shadow: inset 0 10px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Estado Ligado (ON) */
+        #btn-power-sala.ligado .switch-on {
+            color: #33ff33;
+            text-shadow: 0 0 12px rgba(51,255,51,0.8);
+            background: linear-gradient(to bottom, #bbbbbb, #999999);
+            box-shadow: inset 0 -10px 10px rgba(0,0,0,0.2);
+            border-bottom: none;
+        }
+        #btn-power-sala.ligado .switch-off {
+            color: #999;
+            text-shadow: none;
+            background: linear-gradient(to bottom, #cccccc, #eeeeee);
+            box-shadow: none;
+            border-top: 2px solid #fff;
+        }
+
+        /* -----------------------------------------------------
+           BOTÕES E VISTA SECUNDÁRIA
+           ----------------------------------------------------- */
         #btn-opcoes {
             position: absolute;
             bottom: 1.5vh; 
@@ -244,14 +310,21 @@
         <div class="grupo-slider">
             <span class="icone-luz">☀️</span>
             <div class="caixa-slider">
-                <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="128">
+                <!-- Agora começam em valores vazios, serão preenchidos pela API! -->
+                <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="1">
             </div>
         </div>
         
+        <!-- O NOVO INTERRUPTOR ENTRE AS BARRAS -->
+        <div id="btn-power-sala" onclick="togglePowerSala()">
+            <div class="metade-switch switch-on">ON</div>
+            <div class="metade-switch switch-off">OFF</div>
+        </div>
+
         <div class="grupo-slider">
             <span class="icone-luz">🌡️</span>
             <div class="caixa-slider">
-                <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="326">
+                <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="153">
             </div>
         </div>
     </div>
@@ -270,8 +343,6 @@
     <script>
         const HUE_IP = '192.168.1.183';
         const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
-        
-        // ID DA SALA
         const ID_GRUPO_SALA = '83'; 
 
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
@@ -280,59 +351,108 @@
         const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
 
         let temporizadorAnimacao = null;
+        let origemAnimacao = null; 
+        let salaEstaLigada = false;
 
-        function ativarAnimacao() {
-            document.body.classList.add('movido');
-            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
-            temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); }, 8000);
-        }
-
-        // -----------------------------------------------------------------
-        // ALGORITMO DE THROTTLE & FADE SENSORIAL (Garante 0 Delays)
-        // -----------------------------------------------------------------
-        let ultimoEnvioHue = 0;
-        let timerHueEspera = null;
-
-        function mudarLuzSala(propriedade, valor) {
-            const agora = Date.now();
-            const limiteTempo = 300; // 300ms entre pedidos à Bridge
-
-            const enviarComando = () => {
-                ultimoEnvioHue = Date.now();
+        // -----------------------------------------------------
+        // SINCRONIZAR ESTADO REAL DA SALA (MAGIA!)
+        // -----------------------------------------------------
+        async function sincronizarEstadoSala() {
+            try {
+                const res = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}`);
+                const data = await res.json();
                 
-                const corpo = {
-                    "on": true,
-                    "transitiontime": 3 // O hardware faz o fade suave de 300ms
-                };
-                corpo[propriedade] = parseInt(valor);
-
-                fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
-                    method: 'PUT',
-                    body: JSON.stringify(corpo)
-                }).catch(e => console.log("Erro ao mudar luz:", e));
-            };
-
-            if (agora - ultimoEnvioHue > limiteTempo) {
-                enviarComando();
-            } else {
-                clearTimeout(timerHueEspera);
-                timerHueEspera = setTimeout(enviarComando, limiteTempo);
+                if (data && data.action) {
+                    salaEstaLigada = data.action.on;
+                    const btn = document.getElementById('btn-power-sala');
+                    
+                    if (salaEstaLigada) {
+                        btn.classList.add('ligado');
+                    } else {
+                        btn.classList.remove('ligado');
+                    }
+                    
+                    document.getElementById('brilho-luz').value = data.action.bri;
+                    // Previne erro caso a luz não suporte temperatura de cor
+                    if(data.action.ct) document.getElementById('temp-luz').value = data.action.ct; 
+                }
+            } catch (e) {
+                console.log("Erro a sincronizar estado:", e);
             }
         }
 
-        document.getElementById('brilho-luz').addEventListener('input', function() {
-            ativarAnimacao(); 
+        function ativarAnimacao(origem = null) {
+            if (origem) origemAnimacao = origem; 
+            
+            // Se o ecrã não estava movido, atualiza os sliders ANTES de mostrar
+            if (!document.body.classList.contains('movido')) {
+                sincronizarEstadoSala();
+            }
+
+            document.body.classList.add('movido');
+            
+            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
+            temporizadorAnimacao = setTimeout(() => { 
+                document.body.classList.remove('movido'); 
+                origemAnimacao = null; 
+            }, 8000);
+        }
+
+        // -----------------------------------------------------
+        // ENVIOS PARA A PHILIPS HUE (EVENTO "CHANGE")
+        // -----------------------------------------------------
+        function mudarLuzSala(propriedade, valor) {
+            if (origemAnimacao !== 'touch') return;
+
+            const corpo = { "on": true };
+            corpo[propriedade] = parseInt(valor);
+
+            // Se mudaste os sliders, a sala liga obrigatoriamente, atualiza o UI do botão
+            salaEstaLigada = true;
+            document.getElementById('btn-power-sala').classList.add('ligado');
+
+            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
+                method: 'PUT',
+                body: JSON.stringify(corpo)
+            }).catch(e => console.log("Erro ao mudar luz:", e));
+        }
+
+        function togglePowerSala() {
+            ativarAnimacao('touch');
+            salaEstaLigada = !salaEstaLigada;
+            
+            const btn = document.getElementById('btn-power-sala');
+            if (salaEstaLigada) {
+                btn.classList.add('ligado');
+            } else {
+                btn.classList.remove('ligado');
+            }
+
+            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${ID_GRUPO_SALA}/action`, {
+                method: 'PUT',
+                body: JSON.stringify({ "on": salaEstaLigada })
+            }).catch(e => console.log("Erro ao alternar luz:", e));
+        }
+
+        // INPUT: Apenas mantém o ecrã acordado enquanto arrastas o dedo
+        document.getElementById('brilho-luz').addEventListener('input', () => ativarAnimacao('touch'));
+        document.getElementById('temp-luz').addEventListener('input', () => ativarAnimacao('touch'));
+
+        // CHANGE: Só dispara e envia a API no instante em que levantas o dedo!
+        document.getElementById('brilho-luz').addEventListener('change', function() {
             mudarLuzSala('bri', this.value);
         });
-
-        document.getElementById('temp-luz').addEventListener('input', function() {
-            ativarAnimacao(); 
+        document.getElementById('temp-luz').addEventListener('change', function() {
             mudarLuzSala('ct', this.value);
         });
 
+        // -----------------------------------------------------
+        // LÓGICA DE SPA & NATIVO
+        // -----------------------------------------------------
         function abrirOpcoes() {
             document.getElementById('vista-secundaria').style.display = 'flex';
             document.body.classList.remove('movido'); 
+            origemAnimacao = null;
         }
 
         function fecharOpcoes() {
@@ -350,7 +470,7 @@
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
                                     if (document.getElementById('vista-secundaria').style.display !== 'flex') {
-                                        ativarAnimacao(); 
+                                        ativarAnimacao(item.id); 
                                     }
                                 }
                             }
@@ -362,12 +482,13 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+            // Se clicar no botão ON/OFF, ele trata de si, mas não faz fullscreen
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala') {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
                 }
-                ativarAnimacao(); 
+                ativarAnimacao('touch'); 
             }
         });
 
