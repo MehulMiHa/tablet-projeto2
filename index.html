@@ -1,47 +1,95 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <!-- Removi as limitações de ecrã para a página poder crescer o que quiser -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { 
-            background-color: black; 
-            color: #00ff00; /* Verde matrix */
-            font-size: 24px; 
-            font-family: monospace; 
-            word-wrap: break-word; /* Força o texto a quebrar de linha */
+            background-color: #000; 
+            color: #fff; 
             margin: 0; 
-            padding: 20px; 
+            height: 100vh; 
+            font-family: sans-serif;
+            overflow: hidden; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Centra as horas verticalmente de forma natural */
+            align-items: center;
+        }
+        
+        #bateria-container {
+            position: absolute;
+            top: 5vh; 
+            right: 4vw; 
+            font-size: 3vh; 
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #aaaaaa; 
+            font-weight: bold;
+        }
+
+        #relogio-wrapper {
+            transition: transform 1s ease-in-out;
+        }
+
+        #relogio {
+            font-size: 35vh; 
+            font-weight: 900; 
+            letter-spacing: -3px; 
+            margin: 0;
+            line-height: 1; 
+        }
+
+        /* Animação do toque */
+        body.movido #relogio-wrapper {
+            transform: translateY(-28vh) scale(0.5); 
         }
     </style>
 </head>
-<body>
-    <!-- Se vires esta frase, o HTML carregou mas o tablet bloqueou o JavaScript -->
-    <div id="debug-text">HTML CARREGOU. A TENTAR LER O ECRÃ... SE VIRES ISTO, O TABLET BLOQUEOU O JAVASCRIPT!</div>
+<body id="ecra">
+    
+    <div id="bateria-container">
+        <span id="txt-bateria">--%</span>
+        <span id="ic-bateria">🔋</span>
+    </div>
+
+    <div id="relogio-wrapper">
+        <div id="relogio">00:00</div>
+    </div>
 
     <script>
-        try {
-            // Tira as medidas
-            var largura = window.innerWidth;
-            var altura = window.innerHeight;
-            var ecraL = window.screen.width;
-            var ecraA = window.screen.height;
-            
-            // A frase que vamos repetir
-            var mensagem = "[WEBVIEW: " + largura + "x" + altura + " | FISICO: " + ecraL + "x" + ecraA + "] --- ";
-            
-            // Metralhadora: repete a frase 1000 vezes para encher o ecrã todo
-            var textoGigante = "";
-            for (var i = 0; i < 1000; i++) {
-                textoGigante += mensagem;
-            }
-            
-            // Substitui o texto no ecrã
-            document.getElementById('debug-text').innerHTML = textoGigante;
-            
-        } catch (erro) {
-            // Se o JavaScript crashar, imprime o erro
-            document.getElementById('debug-text').innerHTML = "ERRO FATAL NO JAVASCRIPT: " + erro.message;
+        document.getElementById('ecra').addEventListener('click', function() {
+            document.body.classList.toggle('movido');
+        });
+
+        function atualizarTempo() {
+            const agora = new Date();
+            const horas = String(agora.getHours()).padStart(2, '0');
+            const minutos = String(agora.getMinutes()).padStart(2, '0');
+            document.getElementById('relogio').innerHTML = horas + ':' + minutos;
+        }
+        setInterval(atualizarTempo, 1000);
+        atualizarTempo();
+
+        if (navigator.getBattery) {
+            navigator.getBattery().then(function(battery) {
+                function atualizarBateria() {
+                    const nivel = Math.round(battery.level * 100);
+                    document.getElementById('txt-bateria').innerText = nivel + '%';
+                    
+                    if (battery.charging) {
+                        document.getElementById('ic-bateria').innerText = '⚡';
+                        document.getElementById('bateria-container').style.color = '#4CAF50'; 
+                    } else {
+                        document.getElementById('ic-bateria').innerText = '🔋';
+                        document.getElementById('bateria-container').style.color = '#aaaaaa';
+                    }
+                }
+                atualizarBateria(); 
+                battery.addEventListener('levelchange', atualizarBateria);
+                battery.addEventListener('chargingchange', atualizarBateria);
+            });
         }
     </script>
 </body>
