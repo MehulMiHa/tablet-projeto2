@@ -2,8 +2,15 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- BLOQUEIO 1: Proíbe zoom in/out ao "beliscar" o ecrã -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
+        /* BLOQUEIO 2: Desliga o elástico (overscroll) e os toques nativos de navegação do browser */
+        html, body { 
+            overscroll-behavior: none; 
+            touch-action: none; 
+        }
+
         body { 
             background-color: #000; 
             color: #fff; 
@@ -17,26 +24,21 @@
             align-items: center;
         }
 
-        /* -----------------------------------------------------
-           NOVO FUNDO 3D (DESENHO VETORIAL DAS LUZES)
-           ----------------------------------------------------- */
         #fundo-luzes-container {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 1; /* Fica por trás de toda a interface */
+            z-index: 1; 
             opacity: 0;
-            /* Inicia escondido mais abaixo e deitado */
             transform: translateY(30vh) perspective(1000px) rotateX(60deg) scale(0.8);
             transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
-            pointer-events: none; /* Garante que não bloqueia o toque nos sliders */
+            pointer-events: none; 
         }
 
         body.movido #fundo-luzes-container {
-            opacity: 0.25; /* Opacidade suave para não ofuscar o relógio */
-            /* Sobe e inclina para o ângulo do teu desenho */
+            opacity: 0.25; 
             transform: translateY(-5vh) perspective(1000px) rotateX(35deg) scale(1.1);
         }
 
@@ -44,8 +46,6 @@
             transition: stroke 0.3s ease, filter 0.3s ease;
         }
 
-        /* ----------------------------------------------------- */
-        
         #bateria-container {
             position: absolute;
             top: 5vh; 
@@ -82,7 +82,7 @@
             letter-spacing: -3px; 
             margin: 0;
             line-height: 1; 
-            text-shadow: 0 5px 15px rgba(0,0,0,0.8); /* Ajuda a ler por cima do desenho */
+            text-shadow: 0 5px 15px rgba(0,0,0,0.8); 
         }
 
         #chuva-hoje {
@@ -124,6 +124,22 @@
             transition: opacity 0.6s ease-out 0.2s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
         }
 
+        /* TEXTO DO GRUPO ATUAL NO TOPO DO PAINEL */
+        #lbl-grupo-ativo {
+            position: absolute;
+            top: -10vh; /* Puxa para cima das barras */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 4vh;
+            font-weight: 900;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+            white-space: nowrap;
+            transition: color 0.3s ease;
+        }
+
         .grupo-slider {
             display: flex;
             flex-direction: column;
@@ -158,6 +174,7 @@
             outline: none;
             background: rgba(255, 255, 255, 0.1);
             box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            touch-action: none; /* Garante que arrastar a barra só arrasta a barra! */
         }
 
         input[type=range].slider-girado::-webkit-slider-thumb {
@@ -341,9 +358,7 @@
 </head>
 <body id="ecra">
     
-    <!-- NOVO FUNDO VETORIAL DA SALA -->
     <div id="fundo-luzes-container">
-        <!-- PreserveAspectRatio false para podermos esticar como no desenho -->
         <svg viewBox="0 0 600 900" width="80vw" height="100vh" preserveAspectRatio="none">
             <defs>
                 <filter id="brilhoNeon" x="-20%" y="-20%" width="140%" height="140%">
@@ -355,21 +370,17 @@
                 </filter>
             </defs>
             
-            <!-- GRUPO 82: Retângulo Exterior (Botões da Direita) -->
+            <!-- GRUPO 82: Sanca (Direita) -->
             <rect id="desenho-82" class="luz-vector" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="25" filter="url(#brilhoNeon)"/>
 
-            <!-- GRUPO 84: Os 8 Círculos Interiores (Botões da Esquerda) -->
+            <!-- GRUPO 84: Focos (Esquerda) -->
             <g id="desenho-84" class="luz-vector" fill="none" stroke="#222" stroke-width="25" filter="url(#brilhoNeon)">
-                <!-- Fila 1 -->
                 <circle cx="200" cy="170" r="50" />
                 <circle cx="400" cy="170" r="50" />
-                <!-- Fila 2 -->
                 <circle cx="200" cy="350" r="50" />
                 <circle cx="400" cy="350" r="50" />
-                <!-- Fila 3 -->
                 <circle cx="200" cy="530" r="50" />
                 <circle cx="400" cy="530" r="50" />
-                <!-- Fila 4 -->
                 <circle cx="200" cy="710" r="50" />
                 <circle cx="400" cy="710" r="50" />
             </g>
@@ -392,6 +403,9 @@
     </div>
 
     <div id="painel-luzes">
+        <!-- O Nome do Grupo a ser controlado -->
+        <div id="lbl-grupo-ativo">SALA</div>
+
         <div class="grupo-slider">
             <span class="icone-luz">☀️</span>
             <div class="caixa-slider">
@@ -430,6 +444,15 @@
     </div>
 
     <script>
+        // BLOQUEIO 3: Interceta o "puxar" da tela inteira, protegendo contra refresh da WebView
+        document.addEventListener('touchmove', function(e) {
+            // Se o que estamos a arrastar NÃO for um slider (input range), cancela o movimento.
+            if (e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+
         // CONFIGURAÇÕES DA REDE
         const HUE_IP = '192.168.1.183';
         const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
@@ -437,8 +460,6 @@
         const SYNC_IP = '192.168.1.188'; 
         const SYNC_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODQwNjA1MzUzNDYsImlzcyI6ImhzYi1DNDI5OTYwNzZCMzIiLCJyb2xlIjoidXNlciIsInJpZCI6MTcsInJhbiI6InRhYmxldCIsInJpbiI6ImRhc2hib2FyZCJ9.kz3Ym/nPSs5bkVWqIZSzuyubq5Wiskk6PQeWBRzc0nc='; 
         
-        const ID_GRUPO_SALA = '83'; 
-
         const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
         const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
         const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
@@ -450,20 +471,23 @@
         let isSyncing = false;
         let grupoAtivo = '83'; 
 
+        // DICIONÁRIO DE NOMES DOS GRUPOS
+        const nomesGrupos = {
+            '83': 'SALA',
+            '82': 'SANCA',
+            '84': 'FOCOS'
+        };
+
         // ESTADOS LOCAIS PARA DESENHAR O FUNDO 3D
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
 
-        // ------------------------------------------------------------------------
-        // MATEMÁTICA DA LUZ: Converte Temp (Kelvin) e Brilho para RGB CSS
-        // ------------------------------------------------------------------------
         function calcularCorLuz(estado) {
-            if (!estado.on) return 'rgba(50, 50, 50, 0.3)'; // Cor apagada
+            if (!estado.on) return 'rgba(50, 50, 50, 0.3)'; 
 
             let ct = estado.ct || 326; 
             let r, g, b;
             
-            // Aproximação do espetro Blackbody da Philips Hue
             if (ct < 326) {
                 let pct = (ct - 153) / (326 - 153);
                 r = Math.round(200 + pct * 55); 
@@ -476,7 +500,6 @@
                 b = Math.round(255 - pct * 150); 
             }
 
-            // O brilho define a opacidade/força do neon (0.4 a 1.0)
             let alpha = (estado.bri / 254) * 0.6 + 0.4;
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
@@ -489,9 +512,7 @@
             circs84.style.stroke = calcularCorLuz(estado84);
         }
 
-        // ------------------------------------------------------------------------
         // COMUNICACAO NATIVA COM A SYNC BOX 
-        // ------------------------------------------------------------------------
         window.receberDadosSyncBox = function(jsonString) {
             try {
                 const data = JSON.parse(jsonString);
@@ -556,13 +577,8 @@
             }
         }
 
-        // ------------------------------------------------------------------------
-        // ATUALIZAÇÃO DA LÓGICA DAS LUZES
-        // ------------------------------------------------------------------------
-
         async function sincronizarEstadoSala() {
             try {
-                // Vai buscar o estado de AMBOS os grupos de luz para desenhar o fundo correto
                 const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json());
                 const p84 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84`).then(r => r.json());
                 
@@ -573,10 +589,8 @@
 
                 atualizarCoresFundo3D();
 
-                // Define as posições dos Sliders e do Botão com base no grupo Ativo que tu escolheste
                 let dadosAtivos = (grupoAtivo === '84') ? estado84 : ((grupoAtivo === '82') ? estado82 : d82);
                 
-                // Puxa o 83 (Mestre) se estiver na Sala Toda
                 if (grupoAtivo === '83') {
                     const res83 = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`);
                     const d83 = await res83.json();
@@ -606,6 +620,9 @@
                     if (origem === 'touch') grupoAtivo = '83'; 
                     else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) grupoAtivo = '84'; 
                     else if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) grupoAtivo = '82'; 
+
+                    // ATUALIZA O NOME DO GRUPO NO UI
+                    document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo];
                 }
             }
             
@@ -624,6 +641,8 @@
                 document.body.classList.remove('movido'); 
                 origemAnimacao = null; 
                 grupoAtivo = '83'; 
+                // Reinicia o nome quando a tela fecha
+                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
             }, 8000);
         }
 
@@ -634,7 +653,6 @@
             salaEstaLigada = true;
             document.getElementById('btn-power-sala').classList.add('ligado');
 
-            // Atualiza os vetores 3D imediatamente na tua cara sem esperar pela bridge
             if (grupoAtivo === '83' || grupoAtivo === '82') {
                 estado82.on = true;
                 estado82[propriedade] = parseInt(valor);
@@ -659,7 +677,6 @@
             if (salaEstaLigada) btn.classList.add('ligado');
             else btn.classList.remove('ligado');
 
-            // Atualiza os vetores 3D do botão Power
             if (grupoAtivo === '83' || grupoAtivo === '82') estado82.on = salaEstaLigada;
             if (grupoAtivo === '83' || grupoAtivo === '84') estado84.on = salaEstaLigada;
             atualizarCoresFundo3D();
@@ -672,8 +689,6 @@
 
         document.getElementById('brilho-luz').addEventListener('input', function() {
             ativarAnimacao('touch');
-            // Só para o fundo alterar dinamicamente a arrastar! 
-            // A Bridge só recebe a ordem no 'change' para não encravar.
             if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.bri = parseInt(this.value); }
             if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.bri = parseInt(this.value); }
             atualizarCoresFundo3D();
