@@ -615,19 +615,19 @@
         <div id="rocky-conteudo-config" style="display: none; width: 92vw; flex: 1; flex-direction: column; align-items: center;">
             
             <div class="painel-config-rocky">
-                <div class="grupo-slider">
+                <div class="grupo-slider" id="container-succao">
                     <span class="icone-luz">🌪️</span>
                     <div class="caixa-slider">
-                        <!-- Valores API Roborock de Sucção: 101 a 105 -->
+                        <!-- Valores API Roborock: 101, 102, 103, 104, 105 -->
                         <input type="range" class="slider-girado" id="slider-succao" min="101" max="105" value="102">
                     </div>
                     <div class="slider-label" id="lbl-succao">Normal</div>
                 </div>
 
-                <div class="grupo-slider">
+                <div class="grupo-slider" id="container-agua">
                     <span class="icone-luz">💧</span>
                     <div class="caixa-slider">
-                        <!-- Valores API Roborock de Água: 1 a 30 -->
+                        <!-- Valores API Roborock: 1 a 30 -->
                         <input type="range" class="slider-girado" id="slider-agua" min="1" max="30" value="15">
                     </div>
                     <div class="slider-label" id="lbl-agua">Nível 15</div>
@@ -1061,6 +1061,21 @@
                     btn.style.background = "rgba(76, 175, 80, 0.4)"; 
                 }, 2000);
                 return;
+            }
+
+            // Ocultar e Mostrar as Barras consoante a escolha!
+            const containerSuccao = document.getElementById('container-succao');
+            const containerAgua = document.getElementById('container-agua');
+
+            if (arrayAspirar.length > 0 && arrayLavar.length === 0) {
+                containerSuccao.style.display = 'flex';
+                containerAgua.style.display = 'none';
+            } else if (arrayLavar.length > 0 && arrayAspirar.length === 0) {
+                containerSuccao.style.display = 'none';
+                containerAgua.style.display = 'flex';
+            } else {
+                containerSuccao.style.display = 'flex';
+                containerAgua.style.display = 'flex';
             }
 
             document.getElementById('rocky-conteudo').style.display = 'none';
