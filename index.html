@@ -349,7 +349,7 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* --- ESTILOS DO PAINEL ROCKY --- */
+        /* --- NOVOS ESTILOS DO PAINEL ROCKY --- */
         #vista-rocky {
             display: none; 
             position: absolute;
@@ -359,7 +359,7 @@
             z-index: 1000;
             flex-direction: column;
             align-items: center;
-            pointer-events: auto;
+            justify-content: flex-start;
         }
 
         #titulo-rocky {
@@ -370,14 +370,13 @@
             text-shadow: 0 0 15px rgba(255,255,255,0.4);
         }
 
-        #rocky-conteudo-lista {
+        #rocky-conteudo, #rocky-conteudo-config {
             display: flex;
             width: 92vw;
             flex: 1;
             margin-top: 3vh;
+            overflow: hidden;
             flex-direction: column;
-            z-index: 1001;
-            pointer-events: auto;
         }
 
         #rocky-colunas {
@@ -411,7 +410,6 @@
             cursor: pointer;
             margin-bottom: 2vh;
             transition: background 0.2s;
-            pointer-events: auto;
         }
         .btn-selecionar-tudo:active { background: rgba(255, 255, 255, 0.3); }
 
@@ -423,7 +421,6 @@
             padding-bottom: 5vh; 
             -ms-overflow-style: none; 
             scrollbar-width: none; 
-            pointer-events: auto;
         }
         .lista-scroll::-webkit-scrollbar { display: none; }
 
@@ -439,7 +436,6 @@
             text-align: center; 
             font-weight: bold;
             transition: all 0.2s ease-out;
-            pointer-events: auto;
         }
 
         .btn-divisao.selecionado-asp {
@@ -456,42 +452,12 @@
             color: #fff;
         }
 
-        #rocky-conteudo-config {
-            display: none;
-            width: 92vw;
-            flex: 1;
-            flex-direction: column;
-            align-items: center;
-            z-index: 1001;
-            pointer-events: auto;
-        }
-
-        .painel-config-rocky {
-            display: flex;
-            width: 100%;
-            justify-content: space-around;
-            align-items: center;
-            margin-top: 5vh;
-        }
-
-        .slider-label {
-            text-align: center;
-            font-size: 2vh;
-            font-weight: bold;
-            margin-top: 3vh;
-            color: #ccc;
-        }
-
-        #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
-        #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
-
-        .rocky-footer {
+        #rocky-footer, #rocky-footer-config {
             display: flex;
             justify-content: space-between;
             width: 92vw;
             padding: 3vh 0;
             margin-top: auto;
-            pointer-events: auto;
         }
 
         .btn-footer-rocky {
@@ -504,14 +470,33 @@
             border-radius: 20px;
             cursor: pointer;
             backdrop-filter: blur(5px);
-            pointer-events: auto;
         }
         
         #btn-continuar, #btn-iniciar {
             background: rgba(76, 175, 80, 0.4);
             border-color: #4caf50;
             box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
         }
+
+        /* --- ESTILOS EXTRA PARA O ECRÃ DOS SLIDERS (CONFIGURAÇÕES) --- */
+        .painel-config-rocky {
+            display: flex;
+            width: 100%;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 5vh;
+        }
+        .slider-label {
+            text-align: center;
+            font-size: 2vh;
+            font-weight: bold;
+            margin-top: 3vh;
+            color: #ccc;
+        }
+        #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
+        #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
+
     </style>
 </head>
 <body id="ecra">
@@ -521,46 +506,69 @@
             <defs>
                 <filter id="brilhoNeon" x="-20%" y="-20%" width="140%" height="140%">
                     <feGaussianBlur stdDeviation="15" result="blur" />
-                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                    <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
                 </filter>
             </defs>
+            
             <rect id="desenho-82" class="luz-vector" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
+
             <g id="desenho-84" class="luz-vector" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
-                <circle cx="200" cy="170" r="50" /> <circle cx="400" cy="170" r="50" />
-                <circle cx="200" cy="350" r="50" /> <circle cx="400" cy="350" r="50" />
-                <circle cx="200" cy="530" r="50" /> <circle cx="400" cy="530" r="50" />
-                <circle cx="200" cy="710" r="50" /> <circle cx="400" cy="710" r="50" />
+                <circle cx="200" cy="170" r="50" />
+                <circle cx="400" cy="170" r="50" />
+                <circle cx="200" cy="350" r="50" />
+                <circle cx="400" cy="350" r="50" />
+                <circle cx="200" cy="530" r="50" />
+                <circle cx="400" cy="530" r="50" />
+                <circle cx="200" cy="710" r="50" />
+                <circle cx="400" cy="710" r="50" />
             </g>
         </svg>
     </div>
 
-    <div id="bateria-container"><span id="txt-bateria">--%</span></div>
+    <div id="bateria-container">
+        <span id="txt-bateria">--%</span>
+    </div>
 
     <div id="relogio-wrapper">
         <div id="temps-top">
             <span><span class="label-out">OUT</span><span id="temp-out">--</span>°C</span>
             <span><span class="label-in">IN</span><span id="temp-in">--</span>°C</span>
         </div>
+        
         <div id="relogio">00:00</div>
+        
         <div id="chuva-hoje">🌧️ Chuva nas próximas 12h: --%</div>
     </div>
 
     <div id="painel-luzes">
         <div class="grupo-slider">
             <span class="icone-luz">☀️</span>
-            <div class="caixa-slider"><input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="1"></div>
+            <div class="caixa-slider">
+                <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="1">
+            </div>
         </div>
+        
         <div class="coluna-central">
             <div id="lbl-grupo-ativo">SALA</div>
-            <div id="btn-sync-box" onclick="toggleSyncBox()">🟢 Iniciar Sincronização TV</div>
+
+            <div id="btn-sync-box" onclick="toggleSyncBox()">
+                🟢 Iniciar Sincronização TV
+            </div>
+
             <div id="btn-power-sala" onclick="togglePowerSala()">
                 <div class="metade-switch switch-on">ON</div>
                 <div class="metade-switch switch-off">OFF</div>
             </div>
         </div>
+
         <div class="grupo-slider">
             <span class="icone-luz">🌡️</span>
-            <div class="caixa-slider"><input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="153"></div>
+            <div class="caixa-slider">
+                <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="153">
+            </div>
         </div>
     </div>
 
@@ -568,19 +576,21 @@
 
     <div id="vista-secundaria">
         <button id="btn-voltar" onclick="fecharOpcoes()">⬅ Voltar ao Relógio</button>
+        
         <div id="menu-botoes-avancados">
             <button class="btn-avancado">💡 Luzes</button>
             <button class="btn-avancado" onclick="abrirVistaRocky()">🤖 Rocky</button>
         </div>
     </div>
 
-    <!-- ECRÃ PRINCIPAL DO ROCKY -->
+    <!-- NOVA VISTA DO ROCKY -->
     <div id="vista-rocky">
-        <button id="btn-voltar-rocky" onclick="fecharVistaRocky()" style="margin-top: 5vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; cursor: pointer; pointer-events: auto; z-index: 1005;">⬅ Voltar às Opções</button>
+        <button id="btn-voltar-rocky" onclick="fecharVistaRocky()" style="margin-top: 5vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; cursor: pointer;">⬅ Voltar às Opções</button>
         <div id="titulo-rocky">Onde desejas limpar?</div>
         <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
         
-        <div id="rocky-conteudo-lista" style="display: none;">
+        <!-- PARTE 1: AS LISTAS DE DIVISÕES -->
+        <div id="rocky-conteudo" style="display: none;">
             <div id="rocky-colunas">
                 <div class="coluna-acao">
                     <div class="titulo-coluna" style="color: #ffeb3b;">🧹 Aspirar</div>
@@ -595,34 +605,36 @@
                 </div>
             </div>
 
-            <div class="rocky-footer">
+            <div id="rocky-footer">
                 <button class="btn-footer-rocky" id="btn-area" onclick="desenharMapa()">📐 Área</button>
                 <button class="btn-footer-rocky" id="btn-continuar" onclick="avancarLimpeza()">Continuar ➔</button>
             </div>
         </div>
 
-        <div id="rocky-conteudo-config" style="display: none;">
+        <!-- PARTE 2: OS SLIDERS (INVISÍVEL DE INÍCIO) -->
+        <div id="rocky-conteudo-config" style="display: none; width: 92vw; flex: 1; flex-direction: column; align-items: center;">
+            
             <div class="painel-config-rocky">
                 <div class="grupo-slider">
                     <span class="icone-luz">🌪️</span>
                     <div class="caixa-slider">
-                        <!-- Sucção: 101 a 105 -->
-                        <input type="range" class="slider-girado" id="slider-succao" min="101" max="105" value="104">
+                        <!-- Valores API Roborock de Sucção: 101 a 105 -->
+                        <input type="range" class="slider-girado" id="slider-succao" min="101" max="105" value="102">
                     </div>
-                    <div class="slider-label" id="lbl-succao">Máximo</div>
+                    <div class="slider-label" id="lbl-succao">Normal</div>
                 </div>
 
                 <div class="grupo-slider">
                     <span class="icone-luz">💧</span>
                     <div class="caixa-slider">
-                        <!-- Água: 1 a 30 -->
+                        <!-- Valores API Roborock de Água: 1 a 30 -->
                         <input type="range" class="slider-girado" id="slider-agua" min="1" max="30" value="15">
                     </div>
                     <div class="slider-label" id="lbl-agua">Nível 15</div>
                 </div>
             </div>
 
-            <div class="rocky-footer">
+            <div id="rocky-footer-config" style="display: flex; justify-content: space-between; width: 92vw; padding: 3vh 0; margin-top: auto;">
                 <button class="btn-footer-rocky" onclick="voltarParaDivisoes()">⬅ Voltar</button>
                 <button class="btn-footer-rocky" id="btn-iniciar" onclick="enviarComandoFinal()">Iniciar Limpeza 🚀</button>
             </div>
@@ -631,33 +643,269 @@
     </div>
 
     <script>
-        document.addEventListener('touchmove', function(e) { if (e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) { e.preventDefault(); } }, { passive: false });
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
 
-        const HUE_IP = '192.168.1.183'; const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
-        const SYNC_IP = '192.168.1.188'; const SYNC_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODQwNjA1MzUzNDYsImlzcyI6ImhzYi1DNDI5OTYwNzZCMzIiLCJyb2xlIjoidXNlciIsInJpZCI6MTcsInJhbiI6InRhYmxldCIsInJpbiI6ImRhc2hib2FyZCJ9.kz3Ym/nPSs5bkVWqIZSzuyubq5Wiskk6PQeWBRzc0nc='; 
-        const BOTAO_CIMA_ESQ = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1'; const BOTAO_CIMA_DIR = 'ed9d9822-f78e-4e2b-ad8b-d14739553733'; const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca'; const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
-        let temporizadorAnimacao = null; let origemAnimacao = null; let salaEstaLigada = false; let isSyncing = false; let grupoAtivo = '83'; 
-        const nomesGrupos = { '83': 'SALA', '82': 'SANCA', '84': 'FOCOS' };
-        let estado82 = { on: false, bri: 254, ct: 326 }; let estado84 = { on: false, bri: 254, ct: 326 };
-        function calcularCorLuz(estado) { if (!estado.on) return 'rgba(100, 100, 100, 0.4)'; let ct = estado.ct || 326; let r, g, b; if (ct < 326) { let pct = (ct - 153) / (326 - 153); r = Math.round(200 + pct * 55); g = Math.round(220 + pct * 35); b = 255; } else { let pct = (ct - 326) / (500 - 326); r = 255; g = Math.round(255 - pct * 80); b = Math.round(255 - pct * 150); } let alpha = (estado.bri / 254) * 0.6 + 0.4; return `rgba(${r}, ${g}, ${b}, ${alpha})`; }
-        function atualizarCoresFundo3D() { document.getElementById('desenho-82').style.stroke = calcularCorLuz(estado82); document.getElementById('desenho-84').style.stroke = calcularCorLuz(estado84); }
-        window.receberDadosSyncBox = function(jsonString) { try { const data = JSON.parse(jsonString); if (data && data.syncActive !== undefined) { isSyncing = data.syncActive; atualizarUIBotaoSync(); } } catch (e) {} };
-        async function verificarEstadoSyncBox() { if (window.AndroidSync) { window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "GET", false); } else { try { const res = await fetch(`https://${SYNC_IP}/api/v1/execution`, { headers: { 'Authorization': `Bearer ${SYNC_TOKEN}` } }); const data = await res.json(); receberDadosSyncBox(JSON.stringify(data)); } catch(e) {} } }
-        function atualizarUIBotaoSync() { const btnSync = document.getElementById('btn-sync-box'); if(isSyncing) { btnSync.classList.add('sync-active'); btnSync.innerHTML = '🔴 Parar Sincronização TV'; } else { btnSync.classList.remove('sync-active'); btnSync.innerHTML = '🟢 Iniciar Sincronização TV'; } }
-        function toggleSyncBox() { ativarAnimacao('touch'); isSyncing = !isSyncing; atualizarUIBotaoSync(); if (window.AndroidSync) { window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", isSyncing); } else { fetch(`https://${SYNC_IP}/api/v1/execution`, { method: 'PUT', headers: { 'Authorization': `Bearer ${SYNC_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ "syncActive": isSyncing }) }).catch(e => console.log(e)); } }
-        function autoStopSyncBlindly() { isSyncing = false; atualizarUIBotaoSync(); if (window.AndroidSync) { window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", false); } else { fetch(`https://${SYNC_IP}/api/v1/execution`, { method: 'PUT', headers: { 'Authorization': `Bearer ${SYNC_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ "syncActive": false }) }).catch(e => console.log(e)); } }
-        async function sincronizarEstadoSala() { try { const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json()); const p84 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84`).then(r => r.json()); const [d82, d84] = await Promise.all([p82, p84]); if (d82 && d82.action) estado82 = d82.action; if (d84 && d84.action) estado84 = d84.action; atualizarCoresFundo3D(); let dadosAtivos = (grupoAtivo === '84') ? estado84 : ((grupoAtivo === '82') ? estado82 : d82); if (grupoAtivo === '83') { const res83 = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`); const d83 = await res83.json(); if (d83 && d83.action) dadosAtivos = d83.action; } salaEstaLigada = dadosAtivos.on; const btn = document.getElementById('btn-power-sala'); if (salaEstaLigada) btn.classList.add('ligado'); else btn.classList.remove('ligado'); document.getElementById('brilho-luz').value = dadosAtivos.bri; if(dadosAtivos.ct) document.getElementById('temp-luz').value = dadosAtivos.ct; } catch (e) {} verificarEstadoSyncBox(); }
-        function ativarAnimacao(origem = null) { const telaFechada = !document.body.classList.contains('movido'); if (origem) { if (telaFechada || origem !== 'touch') { origemAnimacao = origem; if (origem === 'touch') grupoAtivo = '83'; else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) grupoAtivo = '84'; else if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) grupoAtivo = '82'; document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo]; } } if (telaFechada) { autoStopSyncBlindly(); } if (telaFechada || (origem && origem !== 'touch')) { sincronizarEstadoSala(); } document.body.classList.add('movido'); if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao); temporizadorAnimacao = setTimeout(() => { document.body.classList.remove('movido'); origemAnimacao = null; grupoAtivo = '83'; document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83']; }, 8000); }
-        function mudarLuzSala(propriedade, valor) { const corpo = { "on": true }; corpo[propriedade] = parseInt(valor); salaEstaLigada = true; document.getElementById('btn-power-sala').classList.add('ligado'); if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82[propriedade] = parseInt(valor); } if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84[propriedade] = parseInt(valor); } atualizarCoresFundo3D(); fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => console.log(e)); }
-        function togglePowerSala() { ativarAnimacao('touch'); salaEstaLigada = !salaEstaLigada; const btn = document.getElementById('btn-power-sala'); if (salaEstaLigada) btn.classList.add('ligado'); else btn.classList.remove('ligado'); if (grupoAtivo === '83' || grupoAtivo === '82') estado82.on = salaEstaLigada; if (grupoAtivo === '83' || grupoAtivo === '84') estado84.on = salaEstaLigada; atualizarCoresFundo3D(); fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, { method: 'PUT', body: JSON.stringify({ "on": salaEstaLigada }) }).catch(e => console.log(e)); }
-        document.getElementById('brilho-luz').addEventListener('input', function() { ativarAnimacao('touch'); if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.bri = parseInt(this.value); } if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.bri = parseInt(this.value); } atualizarCoresFundo3D(); });
-        document.getElementById('temp-luz').addEventListener('input', function() { ativarAnimacao('touch'); if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.ct = parseInt(this.value); } if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.ct = parseInt(this.value); } atualizarCoresFundo3D(); });
-        document.getElementById('brilho-luz').addEventListener('change', function() { mudarLuzSala('bri', this.value); }); document.getElementById('temp-luz').addEventListener('change', function() { mudarLuzSala('ct', this.value); });
-        function abrirOpcoes() { document.getElementById('vista-secundaria').style.display = 'flex'; document.body.classList.remove('movido'); origemAnimacao = null; }
-        function fecharOpcoes() { document.getElementById('vista-secundaria').style.display = 'none'; }
+        const HUE_IP = '192.168.1.183';
+        const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
+        
+        const SYNC_IP = '192.168.1.188'; 
+        const SYNC_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODQwNjA1MzUzNDYsImlzcyI6ImhzYi1DNDI5OTYwNzZCMzIiLCJyb2xlIjoidXNlciIsInJpZCI6MTcsInJhbiI6InRhYmxldCIsInJpbiI6ImRhc2hib2FyZCJ9.kz3Ym/nPSs5bkVWqIZSzuyubq5Wiskk6PQeWBRzc0nc='; 
+        
+        const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
+        const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
+        const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
+        const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
+
+        let temporizadorAnimacao = null;
+        let origemAnimacao = null; 
+        let salaEstaLigada = false;
+        let isSyncing = false;
+        let grupoAtivo = '83'; 
+
+        const nomesGrupos = {
+            '83': 'SALA',
+            '82': 'SANCA',
+            '84': 'FOCOS'
+        };
+
+        let estado82 = { on: false, bri: 254, ct: 326 };
+        let estado84 = { on: false, bri: 254, ct: 326 };
+
+        function calcularCorLuz(estado) {
+            if (!estado.on) return 'rgba(100, 100, 100, 0.4)'; 
+
+            let ct = estado.ct || 326; 
+            let r, g, b;
+            
+            if (ct < 326) {
+                let pct = (ct - 153) / (326 - 153);
+                r = Math.round(200 + pct * 55); 
+                g = Math.round(220 + pct * 35); 
+                b = 255;
+            } else {
+                let pct = (ct - 326) / (500 - 326);
+                r = 255;
+                g = Math.round(255 - pct * 80);  
+                b = Math.round(255 - pct * 150); 
+            }
+
+            let alpha = (estado.bri / 254) * 0.6 + 0.4;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function atualizarCoresFundo3D() {
+            const rect82 = document.getElementById('desenho-82');
+            const circs84 = document.getElementById('desenho-84');
+            
+            rect82.style.stroke = calcularCorLuz(estado82);
+            circs84.style.stroke = calcularCorLuz(estado84);
+        }
+
+        window.receberDadosSyncBox = function(jsonString) {
+            try {
+                const data = JSON.parse(jsonString);
+                if (data && data.syncActive !== undefined) {
+                    isSyncing = data.syncActive;
+                    atualizarUIBotaoSync();
+                }
+            } catch (e) {}
+        };
+
+        async function verificarEstadoSyncBox() {
+            if (window.AndroidSync) {
+                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "GET", false);
+            } else {
+                try {
+                    const res = await fetch(`https://${SYNC_IP}/api/v1/execution`, { headers: { 'Authorization': `Bearer ${SYNC_TOKEN}` } });
+                    const data = await res.json();
+                    receberDadosSyncBox(JSON.stringify(data));
+                } catch(e) {}
+            }
+        }
+
+        function atualizarUIBotaoSync() {
+            const btnSync = document.getElementById('btn-sync-box');
+            if(isSyncing) {
+                btnSync.classList.add('sync-active');
+                btnSync.innerHTML = '🔴 Parar Sincronização TV';
+            } else {
+                btnSync.classList.remove('sync-active');
+                btnSync.innerHTML = '🟢 Iniciar Sincronização TV';
+            }
+        }
+
+        function toggleSyncBox() {
+            ativarAnimacao('touch');
+            isSyncing = !isSyncing;
+            atualizarUIBotaoSync();
+
+            if (window.AndroidSync) {
+                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", isSyncing);
+            } else {
+                fetch(`https://${SYNC_IP}/api/v1/execution`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${SYNC_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ "syncActive": isSyncing })
+                }).catch(e => console.log(e));
+            }
+        }
+
+        function autoStopSyncBlindly() {
+            isSyncing = false;
+            atualizarUIBotaoSync();
+            
+            if (window.AndroidSync) {
+                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", false);
+            } else {
+                fetch(`https://${SYNC_IP}/api/v1/execution`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${SYNC_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ "syncActive": false })
+                }).catch(e => console.log(e));
+            }
+        }
+
+        async function sincronizarEstadoSala() {
+            try {
+                const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json());
+                const p84 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84`).then(r => r.json());
+                
+                const [d82, d84] = await Promise.all([p82, p84]);
+                
+                if (d82 && d82.action) estado82 = d82.action;
+                if (d84 && d84.action) estado84 = d84.action;
+
+                atualizarCoresFundo3D();
+
+                let dadosAtivos = (grupoAtivo === '84') ? estado84 : ((grupoAtivo === '82') ? estado82 : d82);
+                
+                if (grupoAtivo === '83') {
+                    const res83 = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`);
+                    const d83 = await res83.json();
+                    if (d83 && d83.action) dadosAtivos = d83.action;
+                }
+                
+                salaEstaLigada = dadosAtivos.on;
+                const btn = document.getElementById('btn-power-sala');
+                if (salaEstaLigada) btn.classList.add('ligado');
+                else btn.classList.remove('ligado');
+                
+                document.getElementById('brilho-luz').value = dadosAtivos.bri;
+                if(dadosAtivos.ct) document.getElementById('temp-luz').value = dadosAtivos.ct; 
+
+            } catch (e) {}
+
+            verificarEstadoSyncBox();
+        }
+
+        function ativarAnimacao(origem = null) {
+            const telaFechada = !document.body.classList.contains('movido');
+
+            if (origem) {
+                if (telaFechada || origem !== 'touch') {
+                    origemAnimacao = origem; 
+                    
+                    if (origem === 'touch') grupoAtivo = '83'; 
+                    else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) grupoAtivo = '84'; 
+                    else if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) grupoAtivo = '82'; 
+
+                    document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo];
+                }
+            }
+            
+            if (telaFechada) {
+                autoStopSyncBlindly();
+            }
+
+            if (telaFechada || (origem && origem !== 'touch')) {
+                sincronizarEstadoSala();
+            }
+
+            document.body.classList.add('movido');
+            
+            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
+            temporizadorAnimacao = setTimeout(() => { 
+                document.body.classList.remove('movido'); 
+                origemAnimacao = null; 
+                grupoAtivo = '83'; 
+                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
+            }, 8000);
+        }
+
+        function mudarLuzSala(propriedade, valor) {
+            const corpo = { "on": true };
+            corpo[propriedade] = parseInt(valor);
+
+            salaEstaLigada = true;
+            document.getElementById('btn-power-sala').classList.add('ligado');
+
+            if (grupoAtivo === '83' || grupoAtivo === '82') {
+                estado82.on = true;
+                estado82[propriedade] = parseInt(valor);
+            }
+            if (grupoAtivo === '83' || grupoAtivo === '84') {
+                estado84.on = true;
+                estado84[propriedade] = parseInt(valor);
+            }
+            atualizarCoresFundo3D();
+
+            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
+                method: 'PUT',
+                body: JSON.stringify(corpo)
+            }).catch(e => console.log(e));
+        }
+
+        function togglePowerSala() {
+            ativarAnimacao('touch');
+            salaEstaLigada = !salaEstaLigada;
+            
+            const btn = document.getElementById('btn-power-sala');
+            if (salaEstaLigada) btn.classList.add('ligado');
+            else btn.classList.remove('ligado');
+
+            if (grupoAtivo === '83' || grupoAtivo === '82') estado82.on = salaEstaLigada;
+            if (grupoAtivo === '83' || grupoAtivo === '84') estado84.on = salaEstaLigada;
+            atualizarCoresFundo3D();
+
+            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
+                method: 'PUT',
+                body: JSON.stringify({ "on": salaEstaLigada })
+            }).catch(e => console.log(e));
+        }
+
+        document.getElementById('brilho-luz').addEventListener('input', function() {
+            ativarAnimacao('touch');
+            if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.bri = parseInt(this.value); }
+            if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.bri = parseInt(this.value); }
+            atualizarCoresFundo3D();
+        });
+        
+        document.getElementById('temp-luz').addEventListener('input', function() {
+            ativarAnimacao('touch');
+            if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.ct = parseInt(this.value); }
+            if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.ct = parseInt(this.value); }
+            atualizarCoresFundo3D();
+        });
+
+        document.getElementById('brilho-luz').addEventListener('change', function() { mudarLuzSala('bri', this.value); });
+        document.getElementById('temp-luz').addEventListener('change', function() { mudarLuzSala('ct', this.value); });
+
+        function abrirOpcoes() {
+            document.getElementById('vista-secundaria').style.display = 'flex';
+            document.body.classList.remove('movido'); 
+            origemAnimacao = null;
+        }
+
+        function fecharOpcoes() {
+            document.getElementById('vista-secundaria').style.display = 'none';
+        }
 
         // ==========================================
-        // ROCKY LÓGICA
+        // CÓDIGO DO ROCKY - CORRIGIDO E SEM ALERTS
         // ==========================================
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
@@ -677,7 +925,7 @@
         }
 
         async function carregarMapaRocky() {
-            document.getElementById('rocky-conteudo-lista').style.display = 'none';
+            document.getElementById('rocky-conteudo').style.display = 'none';
             const msg = document.getElementById('msg-carregando');
             msg.innerHTML = 'A comunicar com o servidor e a obter o mapa...';
             msg.style.display = 'block';
@@ -688,11 +936,12 @@
             try {
                 const response = await fetch('http://127.0.0.1:3000/api/rocky/rooms');
                 const data = await response.json();
+                
                 msg.style.display = 'none'; 
 
                 if(data.rooms) {
                     divisoesMapa = data.rooms;
-                    document.getElementById('rocky-conteudo-lista').style.display = 'flex';
+                    document.getElementById('rocky-conteudo').style.display = 'flex';
                     renderizarListasRocky();
                 } else {
                     msg.innerHTML = '<div style="color: #ff4444;">Erro ao ler o mapa JSON do servidor.</div>';
@@ -707,7 +956,9 @@
         function renderizarListasRocky() {
             const listaAsp = document.getElementById('lista-aspirar');
             const listaLav = document.getElementById('lista-lavar');
-            listaAsp.innerHTML = ''; listaLav.innerHTML = '';
+            
+            listaAsp.innerHTML = '';
+            listaLav.innerHTML = '';
 
             divisoesMapa.forEach(room => {
                 const btnAsp = document.createElement('button');
@@ -724,14 +975,33 @@
                 btnLav.onclick = () => toggleSala('lavar', room.segmentId);
                 listaLav.appendChild(btnLav);
             });
+
+            // LIGA O SCROLL SINCRONIZADO
             configurarScrollSincronizado(listaAsp, listaLav);
         }
 
         function configurarScrollSincronizado(esquerda, direita) {
-            esquerda.onscroll = null; direita.onscroll = null;
-            let bloqueioEsquerda = false; let bloqueioDireita = false;
-            esquerda.onscroll = function() { if (!bloqueioEsquerda) { bloqueioDireita = true; direita.scrollTop = this.scrollTop; } bloqueioEsquerda = false; };
-            direita.onscroll = function() { if (!bloqueioDireita) { bloqueioEsquerda = true; esquerda.scrollTop = this.scrollTop; } bloqueioDireita = false; };
+            esquerda.onscroll = null;
+            direita.onscroll = null;
+
+            let bloqueioEsquerda = false;
+            let bloqueioDireita = false;
+
+            esquerda.onscroll = function() {
+                if (!bloqueioEsquerda) {
+                    bloqueioDireita = true;
+                    direita.scrollTop = this.scrollTop;
+                }
+                bloqueioEsquerda = false;
+            };
+
+            direita.onscroll = function() {
+                if (!bloqueioDireita) {
+                    bloqueioEsquerda = true;
+                    esquerda.scrollTop = this.scrollTop;
+                }
+                bloqueioDireita = false;
+            };
         }
 
         function toggleSala(tipo, id) {
@@ -740,24 +1010,36 @@
             const prefixo = tipo === 'aspirar' ? 'btn-asp-' : 'btn-lav-';
             const btn = document.getElementById(prefixo + id);
 
-            if (set.has(id)) { set.delete(id); btn.classList.remove(classNome); } 
-            else { set.add(id); btn.classList.add(classNome); }
+            if (set.has(id)) {
+                set.delete(id);
+                btn.classList.remove(classNome);
+            } else {
+                set.add(id);
+                btn.classList.add(classNome);
+            }
         }
 
         function toggleSelecionarTudo(tipo) {
             const set = tipo === 'aspirar' ? selecaoAspirar : selecaoLavar;
             const classNome = tipo === 'aspirar' ? 'selecionado-asp' : 'selecionado-lav';
             const prefixo = tipo === 'aspirar' ? 'btn-asp-' : 'btn-lav-';
+            
             const todasSelecionadas = divisoesMapa.every(r => set.has(r.segmentId));
 
             divisoesMapa.forEach(room => {
                 const btn = document.getElementById(prefixo + room.segmentId);
-                if (todasSelecionadas) { set.delete(room.segmentId); btn.classList.remove(classNome); } 
-                else { set.add(room.segmentId); btn.classList.add(classNome); }
+                if (todasSelecionadas) {
+                    set.delete(room.segmentId);
+                    btn.classList.remove(classNome);
+                } else {
+                    set.add(room.segmentId);
+                    btn.classList.add(classNome);
+                }
             });
         }
 
         function desenharMapa() {
+            // Em vez de alert, muda o texto temporariamente
             const btn = document.getElementById('btn-area');
             const txtOriginal = btn.innerHTML;
             btn.innerHTML = "Em breve!";
@@ -769,15 +1051,19 @@
             const arrayLavar = Array.from(selecaoLavar);
             
             if (arrayAspirar.length === 0 && arrayLavar.length === 0) {
+                // Em vez de alert, muda o botão para vermelho a avisar
                 const btn = document.getElementById('btn-continuar');
                 const txtOriginal = btn.innerHTML;
                 btn.innerHTML = "⚠️ Escolhe 1 Divisão!";
                 btn.style.background = "rgba(244, 67, 54, 0.4)";
-                setTimeout(() => { btn.innerHTML = txtOriginal; btn.style.background = "rgba(76, 175, 80, 0.4)"; }, 2000);
+                setTimeout(() => { 
+                    btn.innerHTML = txtOriginal; 
+                    btn.style.background = "rgba(76, 175, 80, 0.4)"; 
+                }, 2000);
                 return;
             }
 
-            document.getElementById('rocky-conteudo-lista').style.display = 'none';
+            document.getElementById('rocky-conteudo').style.display = 'none';
             document.getElementById('titulo-rocky').innerText = "Ajustar Intensidade";
             document.getElementById('rocky-conteudo-config').style.display = 'flex';
         }
@@ -785,12 +1071,11 @@
         function voltarParaDivisoes() {
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
-            document.getElementById('rocky-conteudo-lista').style.display = 'flex';
+            document.getElementById('rocky-conteudo').style.display = 'flex';
         }
 
-        // MAIS PRECISO: Sucção adaptada aos 5 níveis Reais (101 a 105)
         const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo', '105': 'Máximo+' };
-        
+
         document.getElementById('slider-succao').addEventListener('input', function() {
             document.getElementById('lbl-succao').innerText = niveisSuccao[this.value];
         });
@@ -809,7 +1094,7 @@
             const txtOriginal = botaoIniciar.innerText;
             
             botaoIniciar.innerText = "A Enviar Ordem...";
-            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; 
+            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; // Laranja
             botaoIniciar.disabled = true;
 
             const payload = {
@@ -820,11 +1105,14 @@
             };
 
             try {
+                // AQUI VAI BATER À PORTA DO NODE.JS
                 const res = await fetch('http://127.0.0.1:3000/api/rocky/clean', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                
+                const data = await res.json();
                 
                 if (res.ok) {
                     botaoIniciar.innerText = "Sucesso! A iniciar...";
@@ -839,6 +1127,7 @@
                 botaoIniciar.style.background = "rgba(244, 67, 54, 0.8)";
             }
 
+            // Volta ao estado original passados 3 segundos
             setTimeout(() => {
                 botaoIniciar.innerText = txtOriginal;
                 botaoIniciar.style.background = "rgba(76, 175, 80, 0.4)";
@@ -846,14 +1135,96 @@
             }, 3000);
         }
 
-        window.receberDadosDaBridge = function(base64Dados) { try { const jsonString = atob(base64Dados); const payload = JSON.parse(jsonString); for (const evento of payload) { if (evento.type === 'update' && evento.data) { for (const item of evento.data) { if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') { if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) { if (document.getElementById('vista-secundaria').style.display !== 'flex' && document.getElementById('vista-rocky').style.display !== 'flex') { ativarAnimacao(item.id); } } } } } } } catch (erro) {} };
-        const ecra = document.getElementById('ecra'); ecra.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky')) { if (!document.fullscreenElement) { if (ecra.requestFullscreen) ecra.requestFullscreen(); else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen(); } ativarAnimacao('touch'); } });
-        function atualizarTempo() { const agora = new Date(); document.getElementById('relogio').innerHTML = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0'); }
-        async function getOutdoorTemp() { try { const url = `https://api.openweathermap.org/data/2.5/weather?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`; const response = await fetch(url); const data = await response.json(); document.getElementById('temp-out').innerText = Math.round(data.main.temp); } catch (e) { document.getElementById('temp-out').innerText = "Err"; } }
-        async function getRainChance() { try { const url = `https://api.openweathermap.org/data/2.5/forecast?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`; const response = await fetch(url); const data = await response.json(); let maxPop = 0; for(let i = 0; i < 4; i++) { if(data.list[i] && data.list[i].pop > maxPop) maxPop = data.list[i].pop; } document.getElementById('chuva-hoje').innerText = `🌧️ Chuva nas próximas 12h: ${Math.round(maxPop * 100)}%`; } catch (e) { document.getElementById('chuva-hoje').innerText = `🌧️ Chuva: Err`; } }
-        async function getIndoorTemp() { try { const url = `http://${HUE_IP}/api/${HUE_TOKEN}/sensors/34`; const response = await fetch(url); const data = await response.json(); document.getElementById('temp-in').innerText = Math.round(data.state.temperature / 100); } catch (e) { document.getElementById('temp-in').innerText = "Err"; } }
-        if (navigator.getBattery) { navigator.getBattery().then(function(battery) { function atualizarBateria() { document.getElementById('txt-bateria').innerText = Math.round(battery.level * 100) + '%'; } atualizarBateria(); battery.addEventListener('levelchange', atualizarBateria); }); }
-        setInterval(atualizarTempo, 1000); setInterval(getOutdoorTemp, 600000); setInterval(getRainChance, 600000); setInterval(getIndoorTemp, 60000); atualizarTempo(); getOutdoorTemp(); getRainChance(); getIndoorTemp();
+        // ==========================================
+        // DADOS DO SISTEMA GERAL E LISTENERS
+        // ==========================================
+        window.receberDadosDaBridge = function(base64Dados) {
+            try {
+                const jsonString = atob(base64Dados);
+                const payload = JSON.parse(jsonString);
+
+                for (const evento of payload) {
+                    if (evento.type === 'update' && evento.data) {
+                        for (const item of evento.data) {
+                            if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
+                                if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
+                                    if (document.getElementById('vista-secundaria').style.display !== 'flex' && document.getElementById('vista-rocky').style.display !== 'flex') {
+                                        ativarAnimacao(item.id); 
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (erro) {}
+        };
+
+        const ecra = document.getElementById('ecra');
+        ecra.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky')) {
+                if (!document.fullscreenElement) {
+                    if (ecra.requestFullscreen) ecra.requestFullscreen();
+                    else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
+                }
+                ativarAnimacao('touch'); 
+            }
+        });
+
+        function atualizarTempo() {
+            const agora = new Date();
+            document.getElementById('relogio').innerHTML = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
+        }
+
+        async function getOutdoorTemp() {
+            try {
+                const url = `https://api.openweathermap.org/data/2.5/weather?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
+                const response = await fetch(url);
+                const data = await response.json();
+                document.getElementById('temp-out').innerText = Math.round(data.main.temp);
+            } catch (e) { document.getElementById('temp-out').innerText = "Err"; }
+        }
+
+        async function getRainChance() {
+            try {
+                const url = `https://api.openweathermap.org/data/2.5/forecast?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
+                const response = await fetch(url);
+                const data = await response.json();
+                let maxPop = 0;
+                for(let i = 0; i < 4; i++) { 
+                    if(data.list[i] && data.list[i].pop > maxPop) maxPop = data.list[i].pop; 
+                }
+                document.getElementById('chuva-hoje').innerText = `🌧️ Chuva nas próximas 12h: ${Math.round(maxPop * 100)}%`;
+            } catch (e) { document.getElementById('chuva-hoje').innerText = `🌧️ Chuva: Err`; }
+        }
+
+        async function getIndoorTemp() {
+            try {
+                const url = `http://${HUE_IP}/api/${HUE_TOKEN}/sensors/34`;
+                const response = await fetch(url);
+                const data = await response.json();
+                document.getElementById('temp-in').innerText = Math.round(data.state.temperature / 100);
+            } catch (e) { document.getElementById('temp-in').innerText = "Err"; }
+        }
+
+        if (navigator.getBattery) {
+            navigator.getBattery().then(function(battery) {
+                function atualizarBateria() {
+                    document.getElementById('txt-bateria').innerText = Math.round(battery.level * 100) + '%';
+                }
+                atualizarBateria(); 
+                battery.addEventListener('levelchange', atualizarBateria);
+            });
+        }
+
+        setInterval(atualizarTempo, 1000);
+        setInterval(getOutdoorTemp, 600000); 
+        setInterval(getRainChance, 600000);  
+        setInterval(getIndoorTemp, 60000);   
+        
+        atualizarTempo();
+        getOutdoorTemp();
+        getRainChance();
+        getIndoorTemp();
     </script>
 </body>
 </html>
