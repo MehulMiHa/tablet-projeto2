@@ -349,7 +349,7 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* --- ESTILOS DO PAINEL ROCKY --- */
+        /* --- NOVOS ESTILOS DO PAINEL ROCKY --- */
         #vista-rocky {
             display: none; 
             position: absolute;
@@ -359,7 +359,7 @@
             z-index: 1000;
             flex-direction: column;
             align-items: center;
-            pointer-events: auto; /* CRÍTICO: Garante que a vista inteira recebe cliques */
+            justify-content: flex-start;
         }
 
         #titulo-rocky {
@@ -370,15 +370,13 @@
             text-shadow: 0 0 15px rgba(255,255,255,0.4);
         }
 
-        /* Contém as Listas de Aspirar/Lavar e os botões Área/Continuar */
-        #rocky-conteudo-lista {
+        #rocky-conteudo, #rocky-conteudo-config {
             display: flex;
             width: 92vw;
             flex: 1;
             margin-top: 3vh;
+            overflow: hidden;
             flex-direction: column;
-            z-index: 1001;
-            pointer-events: auto; /* CRÍTICO */
         }
 
         #rocky-colunas {
@@ -412,7 +410,6 @@
             cursor: pointer;
             margin-bottom: 2vh;
             transition: background 0.2s;
-            pointer-events: auto;
         }
         .btn-selecionar-tudo:active { background: rgba(255, 255, 255, 0.3); }
 
@@ -424,7 +421,6 @@
             padding-bottom: 5vh; 
             -ms-overflow-style: none; 
             scrollbar-width: none; 
-            pointer-events: auto;
         }
         .lista-scroll::-webkit-scrollbar { display: none; }
 
@@ -440,7 +436,6 @@
             text-align: center; 
             font-weight: bold;
             transition: all 0.2s ease-out;
-            pointer-events: auto;
         }
 
         .btn-divisao.selecionado-asp {
@@ -457,44 +452,12 @@
             color: #fff;
         }
 
-        /* --- NOVOS ESTILOS PARA AS CONFIGURAÇÕES (SLIDERS ROCKY) --- */
-        /* Contém os Sliders e os botões Voltar/Iniciar */
-        #rocky-conteudo-config {
-            display: none;
-            width: 92vw;
-            flex: 1;
-            flex-direction: column;
-            align-items: center;
-            z-index: 1001;
-            pointer-events: auto; /* CRÍTICO */
-        }
-
-        .painel-config-rocky {
-            display: flex;
-            width: 100%;
-            justify-content: space-around;
-            align-items: center;
-            margin-top: 5vh;
-        }
-
-        .slider-label {
-            text-align: center;
-            font-size: 2vh;
-            font-weight: bold;
-            margin-top: 3vh;
-            color: #ccc;
-        }
-
-        #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
-        #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
-
-        .rocky-footer {
+        #rocky-footer, #rocky-footer-config {
             display: flex;
             justify-content: space-between;
             width: 92vw;
             padding: 3vh 0;
             margin-top: auto;
-            pointer-events: auto; /* CRÍTICO */
         }
 
         .btn-footer-rocky {
@@ -507,14 +470,33 @@
             border-radius: 20px;
             cursor: pointer;
             backdrop-filter: blur(5px);
-            pointer-events: auto; /* CRÍTICO */
         }
         
         #btn-continuar, #btn-iniciar {
             background: rgba(76, 175, 80, 0.4);
             border-color: #4caf50;
             box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
         }
+
+        /* --- ESTILOS EXTRA PARA O ECRÃ DOS SLIDERS (CONFIGURAÇÕES) --- */
+        .painel-config-rocky {
+            display: flex;
+            width: 100%;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 5vh;
+        }
+        .slider-label {
+            text-align: center;
+            font-size: 2vh;
+            font-weight: bold;
+            margin-top: 3vh;
+            color: #ccc;
+        }
+        #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
+        #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
+
     </style>
 </head>
 <body id="ecra">
@@ -601,16 +583,14 @@
         </div>
     </div>
 
-    <!-- ECRÃ PRINCIPAL DO ROCKY -->
+    <!-- NOVA VISTA DO ROCKY -->
     <div id="vista-rocky">
-        <button onclick="fecharVistaRocky()" style="margin-top: 4vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; pointer-events: auto; z-index: 1005;">⬅ Voltar às Opções</button>
-        
+        <button id="btn-voltar-rocky" onclick="fecharVistaRocky()" style="margin-top: 5vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; cursor: pointer;">⬅ Voltar às Opções</button>
         <div id="titulo-rocky">Onde desejas limpar?</div>
-        
         <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
         
-        <!-- PARTE 1: ESCOLHER DIVISÕES -->
-        <div id="rocky-conteudo-lista">
+        <!-- PARTE 1: AS LISTAS DE DIVISÕES -->
+        <div id="rocky-conteudo" style="display: none;">
             <div id="rocky-colunas">
                 <div class="coluna-acao">
                     <div class="titulo-coluna" style="color: #ffeb3b;">🧹 Aspirar</div>
@@ -625,45 +605,41 @@
                 </div>
             </div>
 
-            <!-- Rodapé 1: Área e Continuar -->
-            <div class="rocky-footer">
-                <button class="btn-footer-rocky" onclick="desenharMapa()">📐 Área</button>
+            <div id="rocky-footer">
+                <button class="btn-footer-rocky" id="btn-area" onclick="desenharMapa()">📐 Área</button>
                 <button class="btn-footer-rocky" id="btn-continuar" onclick="avancarLimpeza()">Continuar ➔</button>
             </div>
         </div>
 
-        <!-- PARTE 2: CONFIGURAÇÕES (SLIDERS) -->
-        <div id="rocky-conteudo-config">
-            <div style="font-size: 2.8vh; font-weight: bold; margin-bottom: 2vh; color: #fff;">Ajustar Intensidade</div>
+        <!-- PARTE 2: OS SLIDERS (INVISÍVEL DE INÍCIO) -->
+        <div id="rocky-conteudo-config" style="display: none; width: 92vw; flex: 1; flex-direction: column; align-items: center;">
             
             <div class="painel-config-rocky">
-                <!-- Coluna Esquerda: Sucção -->
                 <div class="grupo-slider">
                     <span class="icone-luz">🌪️</span>
                     <div class="caixa-slider">
-                        <!-- Valores da API da Roborock: 101, 102, 103, 104 -->
+                        <!-- Valores API Roborock: 101, 102, 103, 104 -->
                         <input type="range" class="slider-girado" id="slider-succao" min="101" max="104" value="102">
                     </div>
                     <div class="slider-label" id="lbl-succao">Normal</div>
                 </div>
 
-                <!-- Coluna Direita: Água -->
                 <div class="grupo-slider">
                     <span class="icone-luz">💧</span>
                     <div class="caixa-slider">
-                        <!-- Valores da API da Roborock: 200, 201, 202, 203 -->
+                        <!-- Valores API Roborock: 200, 201, 202, 203 -->
                         <input type="range" class="slider-girado" id="slider-agua" min="200" max="203" value="202">
                     </div>
                     <div class="slider-label" id="lbl-agua">Médio</div>
                 </div>
             </div>
 
-            <!-- Rodapé 2: Voltar e Iniciar Limpeza -->
-            <div class="rocky-footer">
+            <div id="rocky-footer-config" style="display: flex; justify-content: space-between; width: 92vw; padding: 3vh 0; margin-top: auto;">
                 <button class="btn-footer-rocky" onclick="voltarParaDivisoes()">⬅ Voltar</button>
                 <button class="btn-footer-rocky" id="btn-iniciar" onclick="enviarComandoFinal()">Iniciar Limpeza 🚀</button>
             </div>
         </div>
+
     </div>
 
     <script>
@@ -929,7 +905,7 @@
         }
 
         // ==========================================
-        // FUNÇÕES DO ROCKY (ATUALIZADAS)
+        // CÓDIGO DO ROCKY - CORRIGIDO E SEM ALERTS
         // ==========================================
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
@@ -949,7 +925,7 @@
         }
 
         async function carregarMapaRocky() {
-            document.getElementById('rocky-conteudo-lista').style.display = 'none';
+            document.getElementById('rocky-conteudo').style.display = 'none';
             const msg = document.getElementById('msg-carregando');
             msg.innerHTML = 'A comunicar com o servidor e a obter o mapa...';
             msg.style.display = 'block';
@@ -965,7 +941,7 @@
 
                 if(data.rooms) {
                     divisoesMapa = data.rooms;
-                    document.getElementById('rocky-conteudo-lista').style.display = 'flex';
+                    document.getElementById('rocky-conteudo').style.display = 'flex';
                     renderizarListasRocky();
                 } else {
                     msg.innerHTML = '<div style="color: #ff4444;">Erro ao ler o mapa JSON do servidor.</div>';
@@ -1000,6 +976,7 @@
                 listaLav.appendChild(btnLav);
             });
 
+            // LIGA O SCROLL SINCRONIZADO
             configurarScrollSincronizado(listaAsp, listaLav);
         }
 
@@ -1062,7 +1039,11 @@
         }
 
         function desenharMapa() {
-            alert("No próximo passo vamos programar o Node.js para ir buscar o 'roborock map-image' e renderizar a imagem aqui!");
+            // Em vez de alert, muda o texto temporariamente
+            const btn = document.getElementById('btn-area');
+            const txtOriginal = btn.innerHTML;
+            btn.innerHTML = "Em breve!";
+            setTimeout(() => { btn.innerHTML = txtOriginal; }, 2000);
         }
 
         function avancarLimpeza() {
@@ -1070,19 +1051,27 @@
             const arrayLavar = Array.from(selecaoLavar);
             
             if (arrayAspirar.length === 0 && arrayLavar.length === 0) {
-                alert("Por favor, seleciona pelo menos uma divisão para limpar.");
+                // Em vez de alert, muda o botão para vermelho a avisar
+                const btn = document.getElementById('btn-continuar');
+                const txtOriginal = btn.innerHTML;
+                btn.innerHTML = "⚠️ Escolhe 1 Divisão!";
+                btn.style.background = "rgba(244, 67, 54, 0.4)";
+                setTimeout(() => { 
+                    btn.innerHTML = txtOriginal; 
+                    btn.style.background = "rgba(76, 175, 80, 0.4)"; 
+                }, 2000);
                 return;
             }
 
-            document.getElementById('rocky-conteudo-lista').style.display = 'none';
-            document.getElementById('titulo-rocky').innerText = ""; 
+            document.getElementById('rocky-conteudo').style.display = 'none';
+            document.getElementById('titulo-rocky').innerText = "Ajustar Intensidade";
             document.getElementById('rocky-conteudo-config').style.display = 'flex';
         }
 
         function voltarParaDivisoes() {
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
-            document.getElementById('rocky-conteudo-lista').style.display = 'flex';
+            document.getElementById('rocky-conteudo').style.display = 'flex';
         }
 
         const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo' };
@@ -1103,8 +1092,10 @@
             const agua = parseInt(document.getElementById('slider-agua').value);
 
             const botaoIniciar = document.getElementById('btn-iniciar');
+            const txtOriginal = botaoIniciar.innerText;
+            
             botaoIniciar.innerText = "A Enviar Ordem...";
-            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; 
+            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; // Laranja
             botaoIniciar.disabled = true;
 
             const payload = {
@@ -1115,7 +1106,7 @@
             };
 
             try {
-                // AQUI ENVIA AS ORDENS REAIS AO NODE.JS!
+                // AQUI VAI BATER À PORTA DO NODE.JS
                 const res = await fetch('http://127.0.0.1:3000/api/rocky/clean', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1125,19 +1116,24 @@
                 const data = await res.json();
                 
                 if (res.ok) {
-                    alert("A ordem foi enviada com sucesso! O Rocky vai arrancar.");
-                    fecharVistaRocky();
+                    botaoIniciar.innerText = "Sucesso! A iniciar...";
+                    botaoIniciar.style.background = "rgba(76, 175, 80, 0.8)";
+                    setTimeout(() => { fecharVistaRocky(); }, 2000);
                 } else {
-                    alert("Aviso: Falta a nova lógica no servidor Node.js que vamos colar no próximo passo!");
+                    botaoIniciar.innerText = "Falta lógica Node.js!";
+                    botaoIniciar.style.background = "rgba(244, 67, 54, 0.8)";
                 }
             } catch(e) {
-                alert("Erro a contactar o servidor! O Node.js está ligado?");
+                botaoIniciar.innerText = "Erro: Servidor Offline";
+                botaoIniciar.style.background = "rgba(244, 67, 54, 0.8)";
             }
 
-            // Repõe o botão
-            botaoIniciar.innerText = "Iniciar Limpeza 🚀";
-            botaoIniciar.style.background = "rgba(76, 175, 80, 0.4)";
-            botaoIniciar.disabled = false;
+            // Volta ao estado original passados 3 segundos
+            setTimeout(() => {
+                botaoIniciar.innerText = txtOriginal;
+                botaoIniciar.style.background = "rgba(76, 175, 80, 0.4)";
+                botaoIniciar.disabled = false;
+            }, 3000);
         }
 
         // ==========================================
