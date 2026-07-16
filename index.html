@@ -376,6 +376,7 @@
             margin-top: 3vh;
             overflow: hidden;
             flex-direction: column;
+            z-index: 1001;
         }
 
         #rocky-colunas {
@@ -458,6 +459,7 @@
             flex: 1;
             flex-direction: column;
             align-items: center;
+            z-index: 1001;
         }
 
         .painel-config-rocky {
@@ -476,7 +478,6 @@
             color: #ccc;
         }
 
-        /* Cores específicas para os novos sliders do Rocky */
         #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
         #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
 
@@ -486,6 +487,9 @@
             width: 92vw;
             padding: 3vh 0;
             margin-top: auto;
+            position: relative;
+            z-index: 1005; /* Garante que os botões ficam por cima */
+            pointer-events: auto;
         }
 
         .btn-footer-rocky {
@@ -498,6 +502,7 @@
             border-radius: 20px;
             cursor: pointer;
             backdrop-filter: blur(5px);
+            pointer-events: auto;
         }
         
         #btn-continuar, #btn-iniciar {
@@ -593,11 +598,11 @@
 
     <!-- ECRÃ PRINCIPAL DO ROCKY -->
     <div id="vista-rocky">
-        <button onclick="fecharVistaRocky()" style="margin-top: 4vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px;">⬅ Voltar às Opções</button>
+        <button onclick="fecharVistaRocky()" style="margin-top: 4vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; z-index: 1005;">⬅ Voltar às Opções</button>
         
         <div id="titulo-rocky">Onde desejas limpar?</div>
         
-        <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
+        <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center; z-index: 1005;"></div>
         
         <!-- PARTE 1: ESCOLHER DIVISÕES -->
         <div id="rocky-conteudo" style="display: none;">
@@ -991,7 +996,6 @@
             configurarScrollSincronizado(listaAsp, listaLav);
         }
 
-        // Lógica para partilhar o Scroll (Sincronizado)
         function configurarScrollSincronizado(esquerda, direita) {
             esquerda.onscroll = null;
             direita.onscroll = null;
@@ -1051,7 +1055,7 @@
         }
 
         function desenharMapa() {
-            alert("Sim, é super possível! A biblioteca do aspirador tem o comando 'roborock map-image' que saca o mapa desenhado da casa.\n\nNo próximo passo, vamos criar uma nova rota no Node.js para puxar essa imagem, e colocá-la aqui na app em tempo real!");
+            alert("Em breve o mapa da tua casa será renderizado aqui!");
         }
 
         function avancarLimpeza() {
@@ -1063,20 +1067,17 @@
                 return;
             }
 
-            // Oculta listas, mostra ecrã de sliders
             document.getElementById('rocky-conteudo').style.display = 'none';
             document.getElementById('titulo-rocky').innerText = ""; 
             document.getElementById('vista-rocky-config').style.display = 'flex';
         }
 
         function voltarParaDivisoes() {
-            // Volta atrás para as listas
             document.getElementById('vista-rocky-config').style.display = 'none';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             document.getElementById('rocky-conteudo').style.display = 'flex';
         }
 
-        // Lógica dos Sliders do Rocky
         const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo' };
         const niveisAgua = { '200': 'Desligado', '201': 'Baixo', '202': 'Médio', '203': 'Alto' };
 
@@ -1088,14 +1089,48 @@
             document.getElementById('lbl-agua').innerText = niveisAgua[this.value];
         });
 
-        function enviarComandoFinal() {
+        async function enviarComandoFinal() {
             const arrayAspirar = Array.from(selecaoAspirar);
             const arrayLavar = Array.from(selecaoLavar);
-            const succao = document.getElementById('slider-succao').value;
-            const agua = document.getElementById('slider-agua').value;
+            const succao = parseInt(document.getElementById('slider-succao').value);
+            const agua = parseInt(document.getElementById('slider-agua').value);
 
-            // Este alert é a ponte final antes de ligarmos isto ao Node.js no próximo passo!
-            alert(`A ENVIAR COMANDOS PARA O SERVIDOR:\n\n🧹 Divisões para Aspirar: [${arrayAspirar.join(', ')}]\n💧 Divisões para Lavar: [${arrayLavar.join(', ')}]\n\n🌪️ Força de Sucção definida: ${niveisSuccao[succao]} (${succao})\n💧 Nível de Água definido: ${niveisAgua[agua]} (${agua})`);
+            const botaoIniciar = document.getElementById('btn-iniciar');
+            botaoIniciar.innerText = "A Enviar Ordem...";
+            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; // Laranja de processamento
+            botaoIniciar.disabled = true;
+
+            const payload = {
+                divisoesAspirar: arrayAspirar,
+                divisoesLavar: arrayLavar,
+                nivelSuccao: succao,
+                nivelAgua: agua
+            };
+
+            try {
+                // Envia o JSON com as tuas ordens todas para o servidor que criámos!
+                const res = await fetch('http://127.0.0.1:3000/api/rocky/clean', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    alert("A ordem foi enviada com sucesso! O Rocky vai arrancar.");
+                    fecharVistaRocky();
+                } else {
+                    alert("Erro do servidor: " + data.error);
+                }
+            } catch(e) {
+                alert("Erro a contactar o servidor! O Node.js está ligado?");
+            }
+
+            // Repõe o botão
+            botaoIniciar.innerText = "Iniciar Limpeza 🚀";
+            botaoIniciar.style.background = "rgba(76, 175, 80, 0.4)";
+            botaoIniciar.disabled = false;
         }
 
         // ==========================================
