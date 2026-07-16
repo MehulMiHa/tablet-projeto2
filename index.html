@@ -359,6 +359,7 @@
             z-index: 1000;
             flex-direction: column;
             align-items: center;
+            pointer-events: auto; /* CRÍTICO: Garante que a vista inteira recebe cliques */
         }
 
         #titulo-rocky {
@@ -369,14 +370,15 @@
             text-shadow: 0 0 15px rgba(255,255,255,0.4);
         }
 
-        #rocky-conteudo {
+        /* Contém as Listas de Aspirar/Lavar e os botões Área/Continuar */
+        #rocky-conteudo-lista {
             display: flex;
             width: 92vw;
             flex: 1;
             margin-top: 3vh;
-            overflow: hidden;
             flex-direction: column;
             z-index: 1001;
+            pointer-events: auto; /* CRÍTICO */
         }
 
         #rocky-colunas {
@@ -410,6 +412,7 @@
             cursor: pointer;
             margin-bottom: 2vh;
             transition: background 0.2s;
+            pointer-events: auto;
         }
         .btn-selecionar-tudo:active { background: rgba(255, 255, 255, 0.3); }
 
@@ -421,6 +424,7 @@
             padding-bottom: 5vh; 
             -ms-overflow-style: none; 
             scrollbar-width: none; 
+            pointer-events: auto;
         }
         .lista-scroll::-webkit-scrollbar { display: none; }
 
@@ -436,6 +440,7 @@
             text-align: center; 
             font-weight: bold;
             transition: all 0.2s ease-out;
+            pointer-events: auto;
         }
 
         .btn-divisao.selecionado-asp {
@@ -453,13 +458,15 @@
         }
 
         /* --- NOVOS ESTILOS PARA AS CONFIGURAÇÕES (SLIDERS ROCKY) --- */
-        #vista-rocky-config {
+        /* Contém os Sliders e os botões Voltar/Iniciar */
+        #rocky-conteudo-config {
             display: none;
             width: 92vw;
             flex: 1;
             flex-direction: column;
             align-items: center;
             z-index: 1001;
+            pointer-events: auto; /* CRÍTICO */
         }
 
         .painel-config-rocky {
@@ -481,15 +488,13 @@
         #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
         #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
 
-        #rocky-footer {
+        .rocky-footer {
             display: flex;
             justify-content: space-between;
             width: 92vw;
             padding: 3vh 0;
             margin-top: auto;
-            position: relative;
-            z-index: 1005; /* Garante que os botões ficam por cima */
-            pointer-events: auto;
+            pointer-events: auto; /* CRÍTICO */
         }
 
         .btn-footer-rocky {
@@ -502,7 +507,7 @@
             border-radius: 20px;
             cursor: pointer;
             backdrop-filter: blur(5px);
-            pointer-events: auto;
+            pointer-events: auto; /* CRÍTICO */
         }
         
         #btn-continuar, #btn-iniciar {
@@ -598,14 +603,14 @@
 
     <!-- ECRÃ PRINCIPAL DO ROCKY -->
     <div id="vista-rocky">
-        <button onclick="fecharVistaRocky()" style="margin-top: 4vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; z-index: 1005;">⬅ Voltar às Opções</button>
+        <button onclick="fecharVistaRocky()" style="margin-top: 4vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; pointer-events: auto; z-index: 1005;">⬅ Voltar às Opções</button>
         
         <div id="titulo-rocky">Onde desejas limpar?</div>
         
-        <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center; z-index: 1005;"></div>
+        <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
         
         <!-- PARTE 1: ESCOLHER DIVISÕES -->
-        <div id="rocky-conteudo" style="display: none;">
+        <div id="rocky-conteudo-lista">
             <div id="rocky-colunas">
                 <div class="coluna-acao">
                     <div class="titulo-coluna" style="color: #ffeb3b;">🧹 Aspirar</div>
@@ -620,14 +625,15 @@
                 </div>
             </div>
 
-            <div id="rocky-footer">
+            <!-- Rodapé 1: Área e Continuar -->
+            <div class="rocky-footer">
                 <button class="btn-footer-rocky" onclick="desenharMapa()">📐 Área</button>
                 <button class="btn-footer-rocky" id="btn-continuar" onclick="avancarLimpeza()">Continuar ➔</button>
             </div>
         </div>
 
         <!-- PARTE 2: CONFIGURAÇÕES (SLIDERS) -->
-        <div id="vista-rocky-config">
+        <div id="rocky-conteudo-config">
             <div style="font-size: 2.8vh; font-weight: bold; margin-bottom: 2vh; color: #fff;">Ajustar Intensidade</div>
             
             <div class="painel-config-rocky">
@@ -652,7 +658,8 @@
                 </div>
             </div>
 
-            <div id="rocky-footer">
+            <!-- Rodapé 2: Voltar e Iniciar Limpeza -->
+            <div class="rocky-footer">
                 <button class="btn-footer-rocky" onclick="voltarParaDivisoes()">⬅ Voltar</button>
                 <button class="btn-footer-rocky" id="btn-iniciar" onclick="enviarComandoFinal()">Iniciar Limpeza 🚀</button>
             </div>
@@ -930,7 +937,7 @@
 
         function abrirVistaRocky() {
             document.getElementById('vista-secundaria').style.display = 'none';
-            document.getElementById('vista-rocky-config').style.display = 'none';
+            document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             carregarMapaRocky();
@@ -942,7 +949,7 @@
         }
 
         async function carregarMapaRocky() {
-            document.getElementById('rocky-conteudo').style.display = 'none';
+            document.getElementById('rocky-conteudo-lista').style.display = 'none';
             const msg = document.getElementById('msg-carregando');
             msg.innerHTML = 'A comunicar com o servidor e a obter o mapa...';
             msg.style.display = 'block';
@@ -958,7 +965,7 @@
 
                 if(data.rooms) {
                     divisoesMapa = data.rooms;
-                    document.getElementById('rocky-conteudo').style.display = 'flex';
+                    document.getElementById('rocky-conteudo-lista').style.display = 'flex';
                     renderizarListasRocky();
                 } else {
                     msg.innerHTML = '<div style="color: #ff4444;">Erro ao ler o mapa JSON do servidor.</div>';
@@ -1055,7 +1062,7 @@
         }
 
         function desenharMapa() {
-            alert("Em breve o mapa da tua casa será renderizado aqui!");
+            alert("No próximo passo vamos programar o Node.js para ir buscar o 'roborock map-image' e renderizar a imagem aqui!");
         }
 
         function avancarLimpeza() {
@@ -1067,15 +1074,15 @@
                 return;
             }
 
-            document.getElementById('rocky-conteudo').style.display = 'none';
+            document.getElementById('rocky-conteudo-lista').style.display = 'none';
             document.getElementById('titulo-rocky').innerText = ""; 
-            document.getElementById('vista-rocky-config').style.display = 'flex';
+            document.getElementById('rocky-conteudo-config').style.display = 'flex';
         }
 
         function voltarParaDivisoes() {
-            document.getElementById('vista-rocky-config').style.display = 'none';
+            document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
-            document.getElementById('rocky-conteudo').style.display = 'flex';
+            document.getElementById('rocky-conteudo-lista').style.display = 'flex';
         }
 
         const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo' };
@@ -1097,7 +1104,7 @@
 
             const botaoIniciar = document.getElementById('btn-iniciar');
             botaoIniciar.innerText = "A Enviar Ordem...";
-            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; // Laranja de processamento
+            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; 
             botaoIniciar.disabled = true;
 
             const payload = {
@@ -1108,7 +1115,7 @@
             };
 
             try {
-                // Envia o JSON com as tuas ordens todas para o servidor que criámos!
+                // AQUI ENVIA AS ORDENS REAIS AO NODE.JS!
                 const res = await fetch('http://127.0.0.1:3000/api/rocky/clean', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1121,7 +1128,7 @@
                     alert("A ordem foi enviada com sucesso! O Rocky vai arrancar.");
                     fecharVistaRocky();
                 } else {
-                    alert("Erro do servidor: " + data.error);
+                    alert("Aviso: Falta a nova lógica no servidor Node.js que vamos colar no próximo passo!");
                 }
             } catch(e) {
                 alert("Erro a contactar o servidor! O Node.js está ligado?");
