@@ -349,7 +349,7 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* --- NOVOS ESTILOS DO PAINEL ROCKY --- */
+        /* --- NOVOS ESTILOS DO PAINEL ROCKY (ADICIONADOS AGORA) --- */
         #vista-rocky {
             display: none; 
             position: absolute;
@@ -359,43 +359,122 @@
             z-index: 1000;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
         }
 
         #titulo-rocky {
             font-size: 4vh; 
             font-weight: bold; 
-            margin-top: 6vh; 
+            margin-top: 2vh; 
             color: #ffffff;
             text-shadow: 0 0 15px rgba(255,255,255,0.4);
         }
 
-        #lista-divisoes {
-            display: flex; 
-            flex-direction: column; 
-            gap: 2vh; 
-            margin-top: 4vh; 
-            width: 80vw; 
-            max-height: 65vh; 
-            overflow-y: auto;
+        #rocky-conteudo {
+            display: flex;
+            width: 92vw;
+            flex: 1;
+            margin-top: 3vh;
+            overflow: hidden;
+            flex-direction: column;
         }
+
+        #rocky-colunas {
+            display: flex;
+            width: 100%;
+            gap: 4vw;
+            flex: 1;
+            overflow: hidden; 
+        }
+
+        .coluna-acao {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .titulo-coluna {
+            text-align: center;
+            font-weight: bold;
+            font-size: 2.8vh;
+            margin-bottom: 1.5vh;
+        }
+
+        .btn-selecionar-tudo {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ddd;
+            border: 1px dashed rgba(255,255,255,0.3);
+            font-size: 1.8vh;
+            padding: 1.5vh;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 2vh;
+            transition: background 0.2s;
+        }
+        .btn-selecionar-tudo:active { background: rgba(255, 255, 255, 0.3); }
+
+        .lista-scroll {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5vh;
+            overflow-y: auto;
+            padding-bottom: 5vh; 
+            -ms-overflow-style: none; 
+            scrollbar-width: none; 
+        }
+        .lista-scroll::-webkit-scrollbar { display: none; }
 
         .btn-divisao {
             background: rgba(255, 255, 255, 0.08); 
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.15);
             color: white; 
-            font-size: 2.8vh; 
-            padding: 2.5vh; 
+            font-size: 2vh; 
+            padding: 2.5vh 1vw; 
             border-radius: 15px; 
             cursor: pointer; 
             backdrop-filter: blur(10px);
-            text-align: left; 
-            display: flex;
-            align-items: center;
+            text-align: center; 
+            font-weight: bold;
+            transition: all 0.2s ease-out;
         }
 
-        .btn-divisao:active { 
-            background: rgba(255, 255, 255, 0.2); 
+        .btn-divisao.selecionado-asp {
+            background: rgba(255, 235, 59, 0.2); 
+            border-color: #ffeb3b;
+            box-shadow: 0 0 15px rgba(255, 235, 59, 0.4);
+            color: #fff;
+        }
+
+        .btn-divisao.selecionado-lav {
+            background: rgba(33, 150, 243, 0.3); 
+            border-color: #4fc3f7;
+            box-shadow: 0 0 15px rgba(33, 150, 243, 0.5);
+            color: #fff;
+        }
+
+        #rocky-footer {
+            display: flex;
+            justify-content: space-between;
+            width: 92vw;
+            padding: 3vh 0;
+            margin-top: auto;
+        }
+
+        .btn-footer-rocky {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            font-size: 2.2vh;
+            font-weight: bold;
+            padding: 2vh 4vw;
+            border-radius: 20px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+        
+        #btn-continuar {
+            background: rgba(76, 175, 80, 0.4);
+            border-color: #4caf50;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
         }
     </style>
 </head>
@@ -483,18 +562,39 @@
         </div>
     </div>
 
-    <!-- NOVA VISTA DO ROCKY -->
+    <!-- NOVA VISTA DO ROCKY (ALTERADA AQUI) -->
     <div id="vista-rocky">
-        <button id="btn-voltar" onclick="fecharVistaRocky()" style="margin-top: 5vh;">⬅ Voltar às Opções</button>
+        <button onclick="fecharVistaRocky()" style="margin-top: 4vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px;">⬅ Voltar às Opções</button>
+        
         <div id="titulo-rocky">Onde desejas limpar?</div>
-        <div id="lista-divisoes">
-            <!-- A lista será injetada aqui pelo JavaScript -->
+        
+        <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
+        
+        <div id="rocky-conteudo" style="display: none;">
+            <div id="rocky-colunas">
+                <div class="coluna-acao">
+                    <div class="titulo-coluna" style="color: #ffeb3b;">🧹 Aspirar</div>
+                    <button class="btn-selecionar-tudo" onclick="toggleSelecionarTudo('aspirar')">Selecionar Tudo</button>
+                    <div id="lista-aspirar" class="lista-scroll"></div>
+                </div>
+
+                <div class="coluna-acao">
+                    <div class="titulo-coluna" style="color: #4fc3f7;">💧 Lavar</div>
+                    <button class="btn-selecionar-tudo" onclick="toggleSelecionarTudo('lavar')">Selecionar Tudo</button>
+                    <div id="lista-lavar" class="lista-scroll"></div>
+                </div>
+            </div>
+
+            <div id="rocky-footer">
+                <button class="btn-footer-rocky">📐 Área</button>
+                <button class="btn-footer-rocky" id="btn-continuar" onclick="avancarLimpeza()">Continuar ➔</button>
+            </div>
         </div>
     </div>
 
     <script>
         document.addEventListener('touchmove', function(e) {
-            if (e.target.tagName !== 'INPUT' && !e.target.closest('#lista-divisoes')) {
+            if (e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
                 e.preventDefault();
             }
         }, { passive: false });
@@ -754,7 +854,11 @@
             document.getElementById('vista-secundaria').style.display = 'none';
         }
 
-        // --- FUNÇÕES NOVAS DO ROCKY ---
+        // --- FUNÇÕES NOVAS DO ROCKY (ADICIONADAS AGORA) ---
+        let selecaoAspirar = new Set();
+        let selecaoLavar = new Set();
+        let divisoesMapa = [];
+
         function abrirVistaRocky() {
             document.getElementById('vista-secundaria').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'flex';
@@ -767,36 +871,102 @@
         }
 
         async function carregarMapaRocky() {
-            const container = document.getElementById('lista-divisoes');
-            container.innerHTML = '<div style="text-align: center; font-size: 2vh; color: #aaa;">A comunicar com o servidor e a ativar o MQTT... (pode demorar uns 5 segundos)</div>';
+            document.getElementById('rocky-conteudo').style.display = 'none';
+            const msg = document.getElementById('msg-carregando');
+            msg.innerHTML = 'A comunicar com o servidor e a obter o mapa...';
+            msg.style.display = 'block';
             
+            selecaoAspirar.clear();
+            selecaoLavar.clear();
+
             try {
-                // Aqui o HTML vai bater à porta do nosso servidor Node.js
                 const response = await fetch('http://127.0.0.1:3000/api/rocky/rooms');
                 const data = await response.json();
                 
-                container.innerHTML = ''; 
+                msg.style.display = 'none'; 
 
                 if(data.rooms) {
-                    data.rooms.forEach(room => {
-                        const btn = document.createElement('button');
-                        btn.className = 'btn-divisao';
-                        btn.innerHTML = `🧹 ${room.rawName}`;
-                        
-                        btn.onclick = () => {
-                            alert(`O botão clicado vai futuramente mandar o Rocky para: ${room.rawName} (ID: ${room.segmentId})`);
-                            // AQUI vamos adicionar no próximo passo o comando de envio!
-                        };
-                        
-                        container.appendChild(btn);
-                    });
+                    divisoesMapa = data.rooms;
+                    document.getElementById('rocky-conteudo').style.display = 'flex';
+                    renderizarListasRocky();
                 } else {
-                    container.innerHTML = '<div style="color: #ff4444; text-align: center;">Erro ao ler o mapa JSON.</div>';
+                    msg.innerHTML = '<div style="color: #ff4444;">Erro ao ler o mapa JSON do servidor.</div>';
+                    msg.style.display = 'block';
                 }
-
             } catch(e) {
-                container.innerHTML = '<div style="color: #ff4444; text-align: center;">Não foi possível contactar o servidor Rocky na porta 3000. Tens o script a correr no Termux?</div>';
+                msg.innerHTML = '<div style="color: #ff4444;">Não foi possível contactar o servidor Rocky. O Node.js está ligado?</div>';
+                msg.style.display = 'block';
             }
+        }
+
+        function renderizarListasRocky() {
+            const listaAsp = document.getElementById('lista-aspirar');
+            const listaLav = document.getElementById('lista-lavar');
+            
+            listaAsp.innerHTML = '';
+            listaLav.innerHTML = '';
+
+            divisoesMapa.forEach(room => {
+                const btnAsp = document.createElement('button');
+                btnAsp.className = 'btn-divisao';
+                btnAsp.innerHTML = room.rawName;
+                btnAsp.id = `btn-asp-${room.segmentId}`;
+                btnAsp.onclick = () => toggleSala('aspirar', room.segmentId);
+                listaAsp.appendChild(btnAsp);
+
+                const btnLav = document.createElement('button');
+                btnLav.className = 'btn-divisao';
+                btnLav.innerHTML = room.rawName;
+                btnLav.id = `btn-lav-${room.segmentId}`;
+                btnLav.onclick = () => toggleSala('lavar', room.segmentId);
+                listaLav.appendChild(btnLav);
+            });
+        }
+
+        function toggleSala(tipo, id) {
+            const set = tipo === 'aspirar' ? selecaoAspirar : selecaoLavar;
+            const classNome = tipo === 'aspirar' ? 'selecionado-asp' : 'selecionado-lav';
+            const prefixo = tipo === 'aspirar' ? 'btn-asp-' : 'btn-lav-';
+            const btn = document.getElementById(prefixo + id);
+
+            if (set.has(id)) {
+                set.delete(id);
+                btn.classList.remove(classNome);
+            } else {
+                set.add(id);
+                btn.classList.add(classNome);
+            }
+        }
+
+        function toggleSelecionarTudo(tipo) {
+            const set = tipo === 'aspirar' ? selecaoAspirar : selecaoLavar;
+            const classNome = tipo === 'aspirar' ? 'selecionado-asp' : 'selecionado-lav';
+            const prefixo = tipo === 'aspirar' ? 'btn-asp-' : 'btn-lav-';
+            
+            const todasSelecionadas = divisoesMapa.every(r => set.has(r.segmentId));
+
+            divisoesMapa.forEach(room => {
+                const btn = document.getElementById(prefixo + room.segmentId);
+                if (todasSelecionadas) {
+                    set.delete(room.segmentId);
+                    btn.classList.remove(classNome);
+                } else {
+                    set.add(room.segmentId);
+                    btn.classList.add(classNome);
+                }
+            });
+        }
+
+        function avancarLimpeza() {
+            const arrayAspirar = Array.from(selecaoAspirar);
+            const arrayLavar = Array.from(selecaoLavar);
+            
+            if (arrayAspirar.length === 0 && arrayLavar.length === 0) {
+                alert("Por favor, seleciona pelo menos uma divisão para limpar.");
+                return;
+            }
+
+            alert(`A enviar para o servidor:\n\n🧹 Divisões a Aspirar: [ ${arrayAspirar.join(', ')} ]\n💧 Divisões a Lavar: [ ${arrayLavar.join(', ')} ]`);
         }
 
         window.receberDadosDaBridge = function(base64Dados) {
