@@ -349,7 +349,7 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* --- NOVOS ESTILOS DO PAINEL ROCKY (ADICIONADOS AGORA) --- */
+        /* --- ESTILOS DO PAINEL ROCKY --- */
         #vista-rocky {
             display: none; 
             position: absolute;
@@ -451,6 +451,35 @@
             color: #fff;
         }
 
+        /* --- NOVOS ESTILOS PARA AS CONFIGURAÇÕES (SLIDERS ROCKY) --- */
+        #vista-rocky-config {
+            display: none;
+            width: 92vw;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .painel-config-rocky {
+            display: flex;
+            width: 100%;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 5vh;
+        }
+
+        .slider-label {
+            text-align: center;
+            font-size: 2vh;
+            font-weight: bold;
+            margin-top: 3vh;
+            color: #ccc;
+        }
+
+        /* Cores específicas para os novos sliders do Rocky */
+        #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
+        #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
+
         #rocky-footer {
             display: flex;
             justify-content: space-between;
@@ -471,7 +500,7 @@
             backdrop-filter: blur(5px);
         }
         
-        #btn-continuar {
+        #btn-continuar, #btn-iniciar {
             background: rgba(76, 175, 80, 0.4);
             border-color: #4caf50;
             box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
@@ -562,7 +591,7 @@
         </div>
     </div>
 
-    <!-- NOVA VISTA DO ROCKY (ALTERADA AQUI) -->
+    <!-- ECRÃ PRINCIPAL DO ROCKY -->
     <div id="vista-rocky">
         <button onclick="fecharVistaRocky()" style="margin-top: 4vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px;">⬅ Voltar às Opções</button>
         
@@ -570,6 +599,7 @@
         
         <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
         
+        <!-- PARTE 1: ESCOLHER DIVISÕES -->
         <div id="rocky-conteudo" style="display: none;">
             <div id="rocky-colunas">
                 <div class="coluna-acao">
@@ -586,8 +616,40 @@
             </div>
 
             <div id="rocky-footer">
-                <button class="btn-footer-rocky">📐 Área</button>
+                <button class="btn-footer-rocky" onclick="desenharMapa()">📐 Área</button>
                 <button class="btn-footer-rocky" id="btn-continuar" onclick="avancarLimpeza()">Continuar ➔</button>
+            </div>
+        </div>
+
+        <!-- PARTE 2: CONFIGURAÇÕES (SLIDERS) -->
+        <div id="vista-rocky-config">
+            <div style="font-size: 2.8vh; font-weight: bold; margin-bottom: 2vh; color: #fff;">Ajustar Intensidade</div>
+            
+            <div class="painel-config-rocky">
+                <!-- Coluna Esquerda: Sucção -->
+                <div class="grupo-slider">
+                    <span class="icone-luz">🌪️</span>
+                    <div class="caixa-slider">
+                        <!-- Valores da API da Roborock: 101, 102, 103, 104 -->
+                        <input type="range" class="slider-girado" id="slider-succao" min="101" max="104" value="102">
+                    </div>
+                    <div class="slider-label" id="lbl-succao">Normal</div>
+                </div>
+
+                <!-- Coluna Direita: Água -->
+                <div class="grupo-slider">
+                    <span class="icone-luz">💧</span>
+                    <div class="caixa-slider">
+                        <!-- Valores da API da Roborock: 200, 201, 202, 203 -->
+                        <input type="range" class="slider-girado" id="slider-agua" min="200" max="203" value="202">
+                    </div>
+                    <div class="slider-label" id="lbl-agua">Médio</div>
+                </div>
+            </div>
+
+            <div id="rocky-footer">
+                <button class="btn-footer-rocky" onclick="voltarParaDivisoes()">⬅ Voltar</button>
+                <button class="btn-footer-rocky" id="btn-iniciar" onclick="enviarComandoFinal()">Iniciar Limpeza 🚀</button>
             </div>
         </div>
     </div>
@@ -854,14 +916,18 @@
             document.getElementById('vista-secundaria').style.display = 'none';
         }
 
-        // --- FUNÇÕES NOVAS DO ROCKY (ADICIONADAS AGORA) ---
+        // ==========================================
+        // FUNÇÕES DO ROCKY (ATUALIZADAS)
+        // ==========================================
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
         let divisoesMapa = [];
 
         function abrirVistaRocky() {
             document.getElementById('vista-secundaria').style.display = 'none';
+            document.getElementById('vista-rocky-config').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'flex';
+            document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             carregarMapaRocky();
         }
 
@@ -921,6 +987,33 @@
                 btnLav.onclick = () => toggleSala('lavar', room.segmentId);
                 listaLav.appendChild(btnLav);
             });
+
+            configurarScrollSincronizado(listaAsp, listaLav);
+        }
+
+        // Lógica para partilhar o Scroll (Sincronizado)
+        function configurarScrollSincronizado(esquerda, direita) {
+            esquerda.onscroll = null;
+            direita.onscroll = null;
+
+            let bloqueioEsquerda = false;
+            let bloqueioDireita = false;
+
+            esquerda.onscroll = function() {
+                if (!bloqueioEsquerda) {
+                    bloqueioDireita = true;
+                    direita.scrollTop = this.scrollTop;
+                }
+                bloqueioEsquerda = false;
+            };
+
+            direita.onscroll = function() {
+                if (!bloqueioDireita) {
+                    bloqueioEsquerda = true;
+                    esquerda.scrollTop = this.scrollTop;
+                }
+                bloqueioDireita = false;
+            };
         }
 
         function toggleSala(tipo, id) {
@@ -957,6 +1050,10 @@
             });
         }
 
+        function desenharMapa() {
+            alert("Sim, é super possível! A biblioteca do aspirador tem o comando 'roborock map-image' que saca o mapa desenhado da casa.\n\nNo próximo passo, vamos criar uma nova rota no Node.js para puxar essa imagem, e colocá-la aqui na app em tempo real!");
+        }
+
         function avancarLimpeza() {
             const arrayAspirar = Array.from(selecaoAspirar);
             const arrayLavar = Array.from(selecaoLavar);
@@ -966,9 +1063,44 @@
                 return;
             }
 
-            alert(`A enviar para o servidor:\n\n🧹 Divisões a Aspirar: [ ${arrayAspirar.join(', ')} ]\n💧 Divisões a Lavar: [ ${arrayLavar.join(', ')} ]`);
+            // Oculta listas, mostra ecrã de sliders
+            document.getElementById('rocky-conteudo').style.display = 'none';
+            document.getElementById('titulo-rocky').innerText = ""; 
+            document.getElementById('vista-rocky-config').style.display = 'flex';
         }
 
+        function voltarParaDivisoes() {
+            // Volta atrás para as listas
+            document.getElementById('vista-rocky-config').style.display = 'none';
+            document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
+            document.getElementById('rocky-conteudo').style.display = 'flex';
+        }
+
+        // Lógica dos Sliders do Rocky
+        const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo' };
+        const niveisAgua = { '200': 'Desligado', '201': 'Baixo', '202': 'Médio', '203': 'Alto' };
+
+        document.getElementById('slider-succao').addEventListener('input', function() {
+            document.getElementById('lbl-succao').innerText = niveisSuccao[this.value];
+        });
+
+        document.getElementById('slider-agua').addEventListener('input', function() {
+            document.getElementById('lbl-agua').innerText = niveisAgua[this.value];
+        });
+
+        function enviarComandoFinal() {
+            const arrayAspirar = Array.from(selecaoAspirar);
+            const arrayLavar = Array.from(selecaoLavar);
+            const succao = document.getElementById('slider-succao').value;
+            const agua = document.getElementById('slider-agua').value;
+
+            // Este alert é a ponte final antes de ligarmos isto ao Node.js no próximo passo!
+            alert(`A ENVIAR COMANDOS PARA O SERVIDOR:\n\n🧹 Divisões para Aspirar: [${arrayAspirar.join(', ')}]\n💧 Divisões para Lavar: [${arrayLavar.join(', ')}]\n\n🌪️ Força de Sucção definida: ${niveisSuccao[succao]} (${succao})\n💧 Nível de Água definido: ${niveisAgua[agua]} (${agua})`);
+        }
+
+        // ==========================================
+        // DADOS DO SISTEMA GERAL E LISTENERS
+        // ==========================================
         window.receberDadosDaBridge = function(base64Dados) {
             try {
                 const jsonString = atob(base64Dados);
