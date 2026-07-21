@@ -618,8 +618,8 @@
                 <div class="grupo-slider" id="container-succao">
                     <span class="icone-luz">🌪️</span>
                     <div class="caixa-slider">
-                        <!-- Valores API Roborock: 101, 102, 103, 104, 105 -->
-                        <input type="range" class="slider-girado" id="slider-succao" min="101" max="105" value="102">
+                        <!-- Valores API Roborock: 101, 102, 103, 104 -->
+                        <input type="range" class="slider-girado" id="slider-succao" min="101" max="104" value="102">
                     </div>
                     <div class="slider-label" id="lbl-succao">Normal</div>
                 </div>
@@ -1089,7 +1089,7 @@
             document.getElementById('rocky-conteudo').style.display = 'flex';
         }
 
-        const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo', '105': 'Máximo+' };
+        const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo' };
 
         document.getElementById('slider-succao').addEventListener('input', function() {
             document.getElementById('lbl-succao').innerText = niveisSuccao[this.value];
