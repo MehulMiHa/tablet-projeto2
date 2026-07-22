@@ -312,8 +312,8 @@
             position: absolute;
             top: 0; left: 0;
             width: 100vw; height: 100vh;
-            /* Fundo de ecrã inteiro com camada escura por cima para legibilidade */
-            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url('fundo.jpg');
+            /* Filtro de escurecimento reduzido para o dobro do brilho da imagem */
+            background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.4)), url('fundo.jpg');
             background-size: cover;
             background-position: center;
             z-index: 1000;
@@ -339,12 +339,12 @@
             flex-direction: column;
         }
 
-        #rocky-colunas {
+        /* Nova estrutura para as colunas - Sem JS! */
+        #rocky-headers {
             display: flex;
             width: 100%;
             gap: 4vw;
-            flex: 1;
-            overflow: hidden; 
+            margin-bottom: 2vh;
         }
 
         .coluna-acao {
@@ -368,34 +368,46 @@
             padding: 1.5vh;
             border-radius: 10px;
             cursor: pointer;
-            margin-bottom: 2vh;
             transition: background 0.2s;
+            width: 100%;
         }
         .btn-selecionar-tudo:active { background: rgba(255, 255, 255, 0.3); }
 
+        /* Apenas UMA lista unificada para o scroll ficar perfeito */
         .lista-scroll {
             display: flex;
             flex-direction: column;
-            gap: 1.5vh;
+            gap: 2vh; /* Aumento do espaço vertical entre botões */
             overflow-y: auto;
+            width: 100%;
             padding-bottom: 5vh; 
             -ms-overflow-style: none; 
             scrollbar-width: none; 
         }
         .lista-scroll::-webkit-scrollbar { display: none; }
 
+        .linha-divisao {
+            display: flex;
+            width: 100%;
+            gap: 4vw; /* O mesmo gap exato dos cabeçalhos */
+            justify-content: space-between;
+        }
+
+        /* Botões mais finos e pequenos */
         .btn-divisao {
+            flex: 1;
             background: rgba(255, 255, 255, 0.08); 
             border: 2px solid rgba(255, 255, 255, 0.15);
             color: white; 
-            font-size: 2vh; 
-            padding: 2.5vh 1vw; 
-            border-radius: 15px; 
+            font-size: 1.8vh; /* Fonte menor */
+            padding: 1.8vh 1vw; /* Menos altura para ficarem elegantes */
+            border-radius: 12px; /* Menos redondo para combinar com a nova altura */
             cursor: pointer; 
             backdrop-filter: blur(10px);
             text-align: center; 
             font-weight: bold;
             transition: all 0.2s ease-out;
+            margin: 0;
         }
 
         .btn-divisao.selecionado-asp {
@@ -532,7 +544,7 @@
         </div>
     </div>
 
-    <!-- NOVOS BOTÕES (Substitui as Opções Avançadas) -->
+    <!-- NOVOS BOTÕES -->
     <div id="botoes-rodape-container">
         <button class="btn-rodape">💡 Luz Avançada</button>
         <button class="btn-rodape" onclick="abrirVistaRocky()">🤖 Rocky</button>
@@ -546,19 +558,21 @@
         
         <!-- PARTE 1: AS LISTAS DE DIVISÕES -->
         <div id="rocky-conteudo" style="display: none;">
-            <div id="rocky-colunas">
+            
+            <!-- Cabeçalhos das Colunas Fixos -->
+            <div id="rocky-headers">
                 <div class="coluna-acao">
                     <div class="titulo-coluna" style="color: #ffeb3b;">🧹 Aspirar</div>
                     <button class="btn-selecionar-tudo" onclick="toggleSelecionarTudo('aspirar')">Selecionar Tudo</button>
-                    <div id="lista-aspirar" class="lista-scroll"></div>
                 </div>
-
                 <div class="coluna-acao">
                     <div class="titulo-coluna" style="color: #4fc3f7;">💧 Lavar</div>
                     <button class="btn-selecionar-tudo" onclick="toggleSelecionarTudo('lavar')">Selecionar Tudo</button>
-                    <div id="lista-lavar" class="lista-scroll"></div>
                 </div>
             </div>
+
+            <!-- Única Lista com Scroll Nativ0 e Perfeito -->
+            <div id="lista-unificada-scroll" class="lista-scroll" style="flex: 1;"></div>
 
             <div id="rocky-footer">
                 <button class="btn-footer-rocky" id="btn-area" onclick="desenharMapa()">📐 Área</button>
@@ -851,7 +865,7 @@
 
 
         // ==========================================
-        // CÓDIGO DO ROCKY - CORRIGIDO E SEM ALERTS
+        // CÓDIGO DO ROCKY - CORRIGIDO (Scroll 100% Fluído)
         // ==========================================
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
@@ -862,7 +876,6 @@
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             
-            // Pausa o fecho automático para a pessoa configurar em paz
             if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
 
             carregarMapaRocky();
@@ -904,54 +917,30 @@
         }
 
         function renderizarListasRocky() {
-            const listaAsp = document.getElementById('lista-aspirar');
-            const listaLav = document.getElementById('lista-lavar');
-            
-            listaAsp.innerHTML = '';
-            listaLav.innerHTML = '';
+            const listaContainer = document.getElementById('lista-unificada-scroll');
+            listaContainer.innerHTML = '';
 
             divisoesMapa.forEach(room => {
+                // Cria uma linha divisória que agrupa os dois botões
+                const linha = document.createElement('div');
+                linha.className = 'linha-divisao';
+
                 const btnAsp = document.createElement('button');
                 btnAsp.className = 'btn-divisao';
                 btnAsp.innerHTML = room.rawName;
                 btnAsp.id = `btn-asp-${room.segmentId}`;
                 btnAsp.onclick = () => toggleSala('aspirar', room.segmentId);
-                listaAsp.appendChild(btnAsp);
-
+                
                 const btnLav = document.createElement('button');
                 btnLav.className = 'btn-divisao';
                 btnLav.innerHTML = room.rawName;
                 btnLav.id = `btn-lav-${room.segmentId}`;
                 btnLav.onclick = () => toggleSala('lavar', room.segmentId);
-                listaLav.appendChild(btnLav);
+                
+                linha.appendChild(btnAsp);
+                linha.appendChild(btnLav);
+                listaContainer.appendChild(linha);
             });
-
-            // LIGA O SCROLL SINCRONIZADO
-            configurarScrollSincronizado(listaAsp, listaLav);
-        }
-
-        function configurarScrollSincronizado(esquerda, direita) {
-            esquerda.onscroll = null;
-            direita.onscroll = null;
-
-            let bloqueioEsquerda = false;
-            let bloqueioDireita = false;
-
-            esquerda.onscroll = function() {
-                if (!bloqueioEsquerda) {
-                    bloqueioDireita = true;
-                    direita.scrollTop = this.scrollTop;
-                }
-                bloqueioEsquerda = false;
-            };
-
-            direita.onscroll = function() {
-                if (!bloqueioDireita) {
-                    bloqueioEsquerda = true;
-                    esquerda.scrollTop = this.scrollTop;
-                }
-                bloqueioDireita = false;
-            };
         }
 
         function toggleSala(tipo, id) {
@@ -1011,7 +1000,6 @@
                 return;
             }
 
-            // Ocultar e Mostrar as Barras consoante a escolha!
             const containerSuccao = document.getElementById('container-succao');
             const containerAgua = document.getElementById('container-agua');
 
@@ -1068,7 +1056,6 @@
             };
 
             try {
-                // AQUI VAI BATER À PORTA DO NODE.JS
                 const res = await fetch('http://127.0.0.1:3000/api/rocky/clean', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1090,7 +1077,6 @@
                 botaoIniciar.style.background = "rgba(244, 67, 54, 0.8)";
             }
 
-            // Volta ao estado original passados 3 segundos
             setTimeout(() => {
                 botaoIniciar.innerText = txtOriginal;
                 botaoIniciar.style.background = "rgba(76, 175, 80, 0.4)";
