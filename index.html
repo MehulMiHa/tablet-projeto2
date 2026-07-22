@@ -62,11 +62,11 @@
             align-items: center;
         }
 
-        /* CORREÇÃO DAS TEMPERATURAS SEM USAR 'GAP' */
+        /* CORREÇÃO DAS TEMPERATURAS - Distância reduzida para quase metade */
         #temps-top {
             display: flex;
             justify-content: space-between; 
-            width: 62vw; /* Largura perfeita para alinhar sobre as 2 horas e os 2 minutos */
+            width: 40vw; /* Largura reduzida para aproximar o OUT e o IN */
             font-size: 3vh;
             font-weight: bold;
             margin-bottom: 4vh; 
@@ -104,13 +104,12 @@
             pointer-events: none;
         }
 
-        /* CORREÇÃO DO PAINEL DAS LUZES SEM USAR 'GAP' */
         #painel-luzes {
             position: absolute;
             bottom: 16vh; 
             display: flex;
             justify-content: space-between;
-            width: 88vw; /* Força os elementos a espalharem-se pelo ecrã */
+            width: 88vw; 
             align-items: center; 
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
@@ -274,7 +273,6 @@
             border-top: 2px solid #fff;
         }
 
-        /* CORREÇÃO DOS BOTÕES LADO A LADO SEM USAR 'GAP' */
         #botoes-rodape-container {
             position: absolute;
             bottom: 2vh; 
@@ -306,7 +304,7 @@
         }
 
         .btn-rodape:nth-child(2) {
-            margin-left: 6vw; /* Adiciona o espaço do lado esquerdo do segundo botão */
+            margin-left: 6vw; 
         }
 
         .btn-rodape:active {
@@ -346,7 +344,6 @@
             flex-direction: column;
         }
 
-        /* CORREÇÃO DO ESPAÇO ENTRE AS COLUNAS DO ROCKY (SEM GAP) */
         #rocky-headers {
             display: flex;
             width: 100%;
@@ -354,8 +351,9 @@
             margin-bottom: 2vh;
         }
 
+        /* CORREÇÃO DO ESPAÇO ENTRE AS COLUNAS DO ROCKY - Menos buraco no meio */
         .coluna-acao {
-            width: 43%; /* Fixar tamanho obriga a sobrar espaço no meio de propósito */
+            width: 47%; /* Botões mais largos engolem o espaço vazio do meio */
             display: flex;
             flex-direction: column;
         }
@@ -394,12 +392,12 @@
         .linha-divisao {
             display: flex;
             width: 100%;
-            justify-content: space-between; /* Substitui o gap horizontal */
-            margin-bottom: 2vh; /* Substitui o gap vertical */
+            justify-content: space-between; 
+            margin-bottom: 2vh; 
         }
 
         .btn-divisao {
-            width: 43%; /* Fixar tamanho aqui espelha os cabeçalhos! O meio fica livre */
+            width: 47%; /* Acompanha as colunas de cima, deixando apenas 6% de folga no meio */
             background: rgba(255, 255, 255, 0.08); 
             border: 2px solid rgba(255, 255, 255, 0.15);
             color: white; 
@@ -547,13 +545,11 @@
         </div>
     </div>
 
-    <!-- NOVOS BOTÕES -->
     <div id="botoes-rodape-container">
         <button class="btn-rodape">💡 Luz Avançada</button>
         <button class="btn-rodape" onclick="abrirVistaRocky()">🤖 Rocky</button>
     </div>
 
-    <!-- NOVA VISTA DO ROCKY -->
     <div id="vista-rocky">
         <button id="btn-voltar-rocky" onclick="fecharVistaRocky()" style="margin-top: 5vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; cursor: pointer;">⬅ Voltar ao Relógio</button>
         <div id="titulo-rocky">Onde desejas limpar?</div>
