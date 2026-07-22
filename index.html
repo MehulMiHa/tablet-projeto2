@@ -270,7 +270,7 @@
             border-top: 2px solid #fff;
         }
 
-        /* --- NOVOS BOTÕES INFERIORES LADO A LADO --- */
+        /* --- NOVOS BOTÕES --- */
         #botoes-rodape-container {
             position: absolute;
             bottom: 2vh; 
@@ -306,13 +306,12 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
-        /* --- ESTILOS DO PAINEL ROCKY ATUALIZADOS --- */
+        /* --- ESTILOS DO PAINEL ROCKY --- */
         #vista-rocky {
             display: none; 
             position: absolute;
             top: 0; left: 0;
             width: 100vw; height: 100vh;
-            /* Filtro de escurecimento reduzido para o dobro do brilho da imagem */
             background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.4)), url('fundo.jpg');
             background-size: cover;
             background-position: center;
@@ -339,11 +338,11 @@
             flex-direction: column;
         }
 
-        /* Nova estrutura para as colunas - Sem JS! */
+        /* O ESPAÇO ENTRE AS COLUNAS AUMENTADO AQUI PARA 8vw */
         #rocky-headers {
             display: flex;
             width: 100%;
-            gap: 4vw;
+            gap: 8vw; 
             margin-bottom: 2vh;
         }
 
@@ -373,11 +372,10 @@
         }
         .btn-selecionar-tudo:active { background: rgba(255, 255, 255, 0.3); }
 
-        /* Apenas UMA lista unificada para o scroll ficar perfeito */
         .lista-scroll {
             display: flex;
             flex-direction: column;
-            gap: 2vh; /* Aumento do espaço vertical entre botões */
+            gap: 2vh; 
             overflow-y: auto;
             width: 100%;
             padding-bottom: 5vh; 
@@ -386,22 +384,22 @@
         }
         .lista-scroll::-webkit-scrollbar { display: none; }
 
+        /* O ESPAÇO ENTRE OS BOTÕES AUMENTADO AQUI TAMBÉM PARA 8vw */
         .linha-divisao {
             display: flex;
             width: 100%;
-            gap: 4vw; /* O mesmo gap exato dos cabeçalhos */
+            gap: 8vw; 
             justify-content: space-between;
         }
 
-        /* Botões mais finos e pequenos */
         .btn-divisao {
             flex: 1;
             background: rgba(255, 255, 255, 0.08); 
             border: 2px solid rgba(255, 255, 255, 0.15);
             color: white; 
-            font-size: 1.8vh; /* Fonte menor */
-            padding: 1.8vh 1vw; /* Menos altura para ficarem elegantes */
-            border-radius: 12px; /* Menos redondo para combinar com a nova altura */
+            font-size: 1.8vh; 
+            padding: 1.8vh 1vw; 
+            border-radius: 12px; 
             cursor: pointer; 
             backdrop-filter: blur(10px);
             text-align: center; 
@@ -556,10 +554,8 @@
         <div id="titulo-rocky">Onde desejas limpar?</div>
         <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
         
-        <!-- PARTE 1: AS LISTAS DE DIVISÕES -->
         <div id="rocky-conteudo" style="display: none;">
             
-            <!-- Cabeçalhos das Colunas Fixos -->
             <div id="rocky-headers">
                 <div class="coluna-acao">
                     <div class="titulo-coluna" style="color: #ffeb3b;">🧹 Aspirar</div>
@@ -571,7 +567,6 @@
                 </div>
             </div>
 
-            <!-- Única Lista com Scroll Nativ0 e Perfeito -->
             <div id="lista-unificada-scroll" class="lista-scroll" style="flex: 1;"></div>
 
             <div id="rocky-footer">
@@ -580,7 +575,6 @@
             </div>
         </div>
 
-        <!-- PARTE 2: OS SLIDERS (INVISÍVEL DE INÍCIO) -->
         <div id="rocky-conteudo-config" style="display: none; width: 92vw; flex: 1; flex-direction: column; align-items: center;">
             
             <div class="painel-config-rocky">
@@ -865,7 +859,7 @@
 
 
         // ==========================================
-        // CÓDIGO DO ROCKY - CORRIGIDO (Scroll 100% Fluído)
+        // CÓDIGO DO ROCKY - CORRIGIDO
         // ==========================================
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
@@ -921,7 +915,6 @@
             listaContainer.innerHTML = '';
 
             divisoesMapa.forEach(room => {
-                // Cria uma linha divisória que agrupa os dois botões
                 const linha = document.createElement('div');
                 linha.className = 'linha-divisao';
 
@@ -1126,7 +1119,8 @@
 
         async function getOutdoorTemp() {
             try {
-                const url = `https://api.openweathermap.org/data/2.5/weather?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
+                // Coordenadas exatas para não puxar a temperatura do aeroporto (Portela)
+                const url = `https://api.openweathermap.org/data/2.5/weather?lat=38.816&lon=-9.155&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
                 const response = await fetch(url);
                 const data = await response.json();
                 document.getElementById('temp-out').innerText = Math.round(data.main.temp);
@@ -1135,7 +1129,8 @@
 
         async function getRainChance() {
             try {
-                const url = `https://api.openweathermap.org/data/2.5/forecast?q=Santo+Antonio+dos+Cavaleiros,PT&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
+                // Coordenadas exatas para a previsão da chuva
+                const url = `https://api.openweathermap.org/data/2.5/forecast?lat=38.816&lon=-9.155&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
                 const response = await fetch(url);
                 const data = await response.json();
                 let maxPop = 0;
