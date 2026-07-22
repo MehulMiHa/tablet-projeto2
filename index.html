@@ -51,12 +51,14 @@
             opacity: 1; 
             transform: translateY(5vh) perspective(1000px) rotateX(0deg) scale(0.85); 
             transition: opacity 1.6s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
-            pointer-events: auto;
         }
 
+        /* ----------------------------------------------------- */
+        /* VISUAIS (Desenhos puros, nunca recebem cliques agora) */
+        /* ----------------------------------------------------- */
         .luz-vector {
             transition: stroke 0.3s ease, filter 0.3s ease;
-            cursor: pointer;
+            pointer-events: none !important; /* Desliga o toque no desenho para evitar bugs SVG */
         }
 
         /* Cores no Modo Avançado */
@@ -67,6 +69,20 @@
         
         body.luz-avancada .luz-vector.selecionada {
             stroke: rgba(255, 255, 255, 1) !important; 
+        }
+
+        /* ----------------------------------------------------- */
+        /* HITBOXES (Retângulos invisíveis perfeitos para toque) */
+        /* ----------------------------------------------------- */
+        .hitboxes-layer {
+            pointer-events: none; /* Inativo no relógio normal */
+        }
+        body.luz-avancada .hitboxes-layer {
+            pointer-events: auto; /* Ativo apenas no Selecionador */
+        }
+        .luz-hitbox {
+            fill: transparent; /* Invisível mas capta cliques como uma parede sólida */
+            cursor: pointer;
         }
 
         #bateria-container {
@@ -536,10 +552,10 @@
 <body id="ecra">
     
     <div id="fundo-luzes-container">
-        <!-- O preserveAspectRatio garante as bolas redondas -->
+        <!-- O preserveAspectRatio garante as proporções originais -->
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
-                <!-- Filtro AUMENTADO para 200% para acabar de vez com os quadrados! -->
+                <!-- Filtro AUMENTADO para 200% para não cortar o brilho -->
                 <filter id="brilhoNeon" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="15" result="blur" />
                     <feMerge>
@@ -549,24 +565,42 @@
                 </filter>
             </defs>
             
-            <!-- Sanca: O stroke pointer-events permite clicar só na linha e ignorar o buraco no meio -->
-            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="transparent" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)" style="pointer-events: stroke;"/>
+            <!-- CAMADA 1: VISUAL (Não faz absolutamente nada ao toque, apenas pinta no ecrã) -->
+            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
 
-            <!-- O Filtro é aplicado no grupo para que todas as formas brilhem em conjunto sem cortar -->
-            <g id="desenho-84" fill="transparent" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
+            <!-- O Filtro fica no grupo para partilharem o brilho e não criar quadrados -->
+            <g id="desenho-84" filter="url(#brilhoNeon)">
+                <!-- LINHA 1 -->
+                <circle id="foco-4" class="luz-vector selecionada foco-forma" cx="200" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
+                <circle id="foco-8" class="luz-vector selecionada foco-forma" cx="400" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
+                <!-- LINHA 2 -->
+                <circle id="foco-3" class="luz-vector selecionada foco-forma" cx="200" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
+                <circle id="foco-7" class="luz-vector selecionada foco-forma" cx="400" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
+                <!-- LINHA 3 -->
+                <circle id="foco-2" class="luz-vector selecionada foco-forma" cx="200" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
+                <circle id="foco-6" class="luz-vector selecionada foco-forma" cx="400" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
+                <!-- LINHA 4 -->
+                <circle id="foco-1" class="luz-vector selecionada foco-forma" cx="200" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
+                <circle id="foco-5" class="luz-vector selecionada foco-forma" cx="400" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
+            </g>
+
+            <!-- CAMADA 2: HITBOXES (Retângulos transparentes gigantes para captar os dedos. Ficam por cima dos visuais) -->
+            <g id="hitboxes" class="hitboxes-layer">
+                <!-- A Sanca é o fundo gigante. Apanha qualquer toque que falhe os focos -->
+                <rect id="hitbox-sanca" x="30" y="30" width="540" height="840" rx="15" class="luz-hitbox" />
                 
-                <!-- Raio está a 70 e pointer-events:all permite toque perfeito mesmo no meio da bola transparente -->
-                <circle id="foco-4" class="luz-vector selecionada foco-forma" cx="200" cy="170" r="70" style="pointer-events: all;" />
-                <circle id="foco-8" class="luz-vector selecionada foco-forma" cx="400" cy="170" r="70" style="pointer-events: all;" />
+                <!-- Os Focos são quadrados de 160x160 pixeis (enormes) exatamente centrados nas bolas -->
+                <rect id="hitbox-foco-4" x="120" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-8" x="320" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
                 
-                <circle id="foco-3" class="luz-vector selecionada foco-forma" cx="200" cy="350" r="70" style="pointer-events: all;" />
-                <circle id="foco-7" class="luz-vector selecionada foco-forma" cx="400" cy="350" r="70" style="pointer-events: all;" />
+                <rect id="hitbox-foco-3" x="120" y="270" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-7" x="320" y="270" width="160" height="160" rx="20" class="luz-hitbox" />
                 
-                <circle id="foco-2" class="luz-vector selecionada foco-forma" cx="200" cy="530" r="70" style="pointer-events: all;" />
-                <circle id="foco-6" class="luz-vector selecionada foco-forma" cx="400" cy="530" r="70" style="pointer-events: all;" />
+                <rect id="hitbox-foco-2" x="120" y="450" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-6" x="320" y="450" width="160" height="160" rx="20" class="luz-hitbox" />
                 
-                <circle id="foco-1" class="luz-vector selecionada foco-forma" cx="200" cy="710" r="70" style="pointer-events: all;" />
-                <circle id="foco-5" class="luz-vector selecionada foco-forma" cx="400" cy="710" r="70" style="pointer-events: all;" />
+                <rect id="hitbox-foco-1" x="120" y="630" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-5" x="320" y="630" width="160" height="160" rx="20" class="luz-hitbox" />
             </g>
         </svg>
     </div>
@@ -769,19 +803,23 @@
             document.getElementById('lbl-grupo-ativo').innerText = texto;
         }
 
-        document.querySelectorAll('.luz-vector').forEach(luz => {
-            luz.addEventListener('click', function(e) {
+        // O evento de click agora está nas hitboxes gigantes invisíveis!
+        document.querySelectorAll('.luz-hitbox').forEach(hitbox => {
+            hitbox.addEventListener('click', function(e) {
                 if (!document.body.classList.contains('luz-avancada')) return;
                 
                 e.stopPropagation(); 
                 resetInatividade();
                 
-                if (luzesSelecionadas.has(this.id)) {
-                    luzesSelecionadas.delete(this.id);
-                    this.classList.remove('selecionada');
+                // Pega no id da hitbox (ex: hitbox-foco-1) e transforma no id real visual (ex: foco-1)
+                const realId = this.id.replace('hitbox-', '');
+                
+                if (luzesSelecionadas.has(realId)) {
+                    luzesSelecionadas.delete(realId);
+                    document.getElementById(realId).classList.remove('selecionada');
                 } else {
-                    luzesSelecionadas.add(this.id);
-                    this.classList.add('selecionada');
+                    luzesSelecionadas.add(realId);
+                    document.getElementById(realId).classList.add('selecionada');
                 }
                 
                 atualizarLabelSelecao();
@@ -1309,7 +1347,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-vector') && !e.target.classList.contains('foco-forma')) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-hitbox')) {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
