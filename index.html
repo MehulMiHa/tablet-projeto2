@@ -60,14 +60,16 @@
         /* --- CAMADA 1: VISUAIS INTOCÁVEIS E SINCRONIZADOS --- */
         .visual-forma {
             pointer-events: none !important; 
+            /* Usa a variável CSS definida pelo JavaScript como cor normal */
             stroke: var(--cor-base, rgba(100,100,100,0.4)) !important;
-            transition: stroke 0.15s ease-out; 
+            transition: stroke 0.15s ease-out; /* Retorno super rápido ao normal */
         }
 
-        /* O Heartbeat Tático: Só ativa no body quando tem a classe 'tick-flash' */
-        body.luz-avancada.tick-flash .visual-forma.selecionada {
+        /* O Heartbeat Tático: AGORA ATIVA SEMPRE QUE O ECRÃ ESTÁ ACORDADO (tick-flash) */
+        body.tick-flash .visual-forma.selecionada {
+            /* Alterna para a cor 50% Vermelho matematicamente calculada */
             stroke: var(--cor-mix, rgba(255,0,0,1)) !important;
-            transition: none !important; 
+            transition: none !important; /* Piscar repentino e seco, sem suavidade a entrar */
         }
 
         /* --- CAMADA 2: HITBOXES GIGANTES --- */
@@ -744,9 +746,10 @@
 
         // ==========================================
         // O HEARTBEAT TÁTICO (Piscar Mecânico a 1Hz)
+        // Agora funciona SEMPRE que o ecrã está acordado!
         // ==========================================
         setInterval(() => {
-            if (document.body.classList.contains('luz-avancada')) {
+            if (document.body.classList.contains('movido')) {
                 document.body.classList.add('tick-flash');
                 setTimeout(() => {
                     document.body.classList.remove('tick-flash');
@@ -839,8 +842,8 @@
         // Funções para Abrir e Fechar o modo Avançado com o Backup de Segurança
         function abrirModoAvancado() {
             document.body.classList.add('luz-avancada');
-            luzesBackup = new Set(luzesSelecionadas); // Guarda estado atual
-            luzesSelecionadas.clear(); // Limpa a mesa para começares a selecionar
+            luzesBackup = new Set(luzesSelecionadas); 
+            luzesSelecionadas.clear(); 
             
             document.querySelectorAll('.visual-forma').forEach(luz => {
                 luz.classList.remove('selecionada');
@@ -851,7 +854,6 @@
         function fecharModoAvancado() {
             document.body.classList.remove('luz-avancada');
             
-            // A MAGIA AQUI: Se não selecionaste nada (ou tiraste tudo), ele ignora e volta ao que tinhas antes!
             if (luzesSelecionadas.size === 0 && luzesBackup.size > 0) {
                 luzesSelecionadas = new Set(luzesBackup);
             }
@@ -1148,7 +1150,7 @@
             }
             isFetchingSync = false;
         }
-        setInterval(verificarEstadoSyncBox, 2000); // 2 segundos (seguro para a SyncBox)
+        setInterval(verificarEstadoSyncBox, 2000); 
 
         function atualizarUIBotaoSync() {
             const btnSync = document.getElementById('btn-sync-box');
@@ -1193,16 +1195,12 @@
             }
         }
 
-        // ==========================================
-        // SYNC TEMPO REAL A 0.5 SEGUNDOS COM A HUE
-        // ==========================================
         let isFetchingHue = false;
         async function sincronizarEstadoSala() {
             if(isFetchingHue) return;
             isFetchingHue = true;
 
             try {
-                // Sacamos a informação completa em paralelo para a app ser rapidíssima
                 const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json());
                 const p83 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`).then(r => r.json());
                 const p84 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84`).then(r => r.json());
@@ -1215,10 +1213,8 @@
                 let estado83 = d83 && d83.action ? d83.action : estado84;
                 if (dLuzes) estadosLuzes = dLuzes;
 
-                // 1. As luzes da planta atualizam SEMPRE em tempo real (mesmo que estejas a deslizar botões)
                 atualizarCoresFundo3D();
 
-                // 2. Os botões de brilho/temperatura só atualizam pela ponte se não estiveres a mexer neles!
                 if (!isInteractingUI) {
                     let dadosAtivos = estado84;
                     if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 1) dadosAtivos = estado82;
@@ -1236,7 +1232,7 @@
             } catch (e) {}
             isFetchingHue = false;
         }
-        setInterval(sincronizarEstadoSala, 500); // Roda perfeitamente a cada meio segundo!
+        setInterval(sincronizarEstadoSala, 500); 
 
         function ativarAnimacao(origem = null) {
             const telaFechada = !document.body.classList.contains('movido');
@@ -1269,7 +1265,6 @@
             }
 
             if (telaFechada || (origem && origem !== 'touch')) {
-                // Já não precisa sincronizar tudo forçadamente aqui, o loop de 0.5s trata disso
                 if (!telaFechada) markInteraction(); 
             }
 
