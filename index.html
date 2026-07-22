@@ -46,21 +46,27 @@
             transform: translateY(-5vh) perspective(1000px) rotateX(35deg) scale(1.1);
         }
 
-        /* O MODO "LUZ AVANÇADA" - Desenho +30% Maior, Brilho Máximo (opacity 1) */
+        /* O MODO "SELECIONADOR" */
         body.luz-avancada #fundo-luzes-container {
             opacity: 1; 
-            transform: translateY(5vh) perspective(1000px) rotateX(0deg) scale(0.85); /* Escala aumentada de 0.65 para 0.85 */
+            transform: translateY(5vh) perspective(1000px) rotateX(0deg) scale(0.85); 
             transition: opacity 1.6s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: auto; /* Essencial para permitir os toques nas luzes */
         }
 
         .luz-vector {
             transition: stroke 0.3s ease, filter 0.3s ease;
         }
 
-        /* O MODO "LUZ AVANÇADA" - As cores das luzes desvanecem para o 'desligado' (branco/cinza) */
+        /* Cores no Modo Avançado */
         body.luz-avancada .luz-vector {
-            stroke: rgba(150, 150, 150, 0.5) !important; /* Sobrepõe a cor do JS com um branco semi-transparente */
-            transition: stroke 1.6s ease !important;
+            stroke: rgba(100, 100, 100, 0.3) !important; /* Luzes desmarcadas (Cinzento apagado) */
+            cursor: pointer;
+            transition: stroke 0.3s ease !important;
+        }
+        
+        body.luz-avancada .luz-vector.selecionada {
+            stroke: rgba(255, 255, 255, 1) !important; /* Luzes marcadas (Branco brilhante) */
         }
 
         #bateria-container {
@@ -541,17 +547,17 @@
                 </filter>
             </defs>
             
-            <rect id="desenho-82" class="luz-vector" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
+            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
 
-            <g id="desenho-84" class="luz-vector" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
-                <circle cx="200" cy="170" r="50" />
-                <circle cx="400" cy="170" r="50" />
-                <circle cx="200" cy="350" r="50" />
-                <circle cx="400" cy="350" r="50" />
-                <circle cx="200" cy="530" r="50" />
-                <circle cx="400" cy="530" r="50" />
-                <circle cx="200" cy="710" r="50" />
-                <circle cx="400" cy="710" r="50" />
+            <g id="desenho-84" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
+                <circle id="foco-1" class="luz-vector selecionada" cx="200" cy="170" r="50" />
+                <circle id="foco-2" class="luz-vector selecionada" cx="400" cy="170" r="50" />
+                <circle id="foco-3" class="luz-vector selecionada" cx="200" cy="350" r="50" />
+                <circle id="foco-4" class="luz-vector selecionada" cx="400" cy="350" r="50" />
+                <circle id="foco-5" class="luz-vector selecionada" cx="200" cy="530" r="50" />
+                <circle id="foco-6" class="luz-vector selecionada" cx="400" cy="530" r="50" />
+                <circle id="foco-7" class="luz-vector selecionada" cx="200" cy="710" r="50" />
+                <circle id="foco-8" class="luz-vector selecionada" cx="400" cy="710" r="50" />
             </g>
         </svg>
     </div>
@@ -601,7 +607,7 @@
     </div>
 
     <div id="botoes-rodape-container">
-        <button class="btn-rodape" onclick="toggleLuzAvançada(event)">💡 Luz Avançada</button>
+        <button class="btn-rodape" onclick="toggleLuzAvançada(event)">Selecionador 💡</button>
         <button class="btn-rodape" onclick="abrirVistaRocky(event)">🤖 Rocky</button>
     </div>
 
@@ -676,7 +682,6 @@
         const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
         const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
 
-        let temporizadorAnimacao = null;
         let origemAnimacao = null; 
         let salaEstaLigada = false;
         let isSyncing = false;
@@ -691,6 +696,103 @@
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
 
+        // ==========================================
+        // SISTEMA DE SEGURANÇA 10 SEG INATIVIDADE
+        // ==========================================
+        let timerInatividade = null;
+
+        function resetInatividade() {
+            if (timerInatividade) clearTimeout(timerInatividade);
+            
+            // O temporizador global de 10 segundos! 
+            // Onde quer que estejas na app, aos 10s sem tocar, ele atua.
+            timerInatividade = setTimeout(() => {
+                
+                // Se o painel do Rocky estiver aberto -> Fecha
+                if (document.getElementById('vista-rocky').style.display === 'flex') {
+                    fecharVistaRocky();
+                }
+                
+                // Se o modo Selecionador (Luz Avançada) estiver aberto -> Fecha
+                if (document.body.classList.contains('luz-avancada')) {
+                    document.body.classList.remove('luz-avancada');
+                }
+                
+                // Se o painel principal de sliders estiver aberto -> Fecha
+                if (document.body.classList.contains('movido')) {
+                    document.body.classList.remove('movido');
+                    origemAnimacao = null; 
+                    grupoAtivo = '83'; 
+                    document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
+                }
+
+                atualizarBurnIn();
+            }, 10000);
+        }
+
+        // Cada vez que clicas, interages com o slider ou tocas no ecrã, o timer repõe os 10s.
+        document.addEventListener('touchstart', resetInatividade, {passive: true});
+        document.addEventListener('click', resetInatividade, {passive: true});
+        document.addEventListener('input', resetInatividade, {passive: true});
+
+        // ==========================================
+        // LÓGICA DO SELECIONADOR INTELIGENTE DE LUZES
+        // ==========================================
+        let luzesSelecionadas = new Set(['sanca', 'foco-1', 'foco-2', 'foco-3', 'foco-4', 'foco-5', 'foco-6', 'foco-7', 'foco-8']);
+
+        function atualizarLabelSelecao() {
+            if (!document.body.classList.contains('luz-avancada')) return;
+            
+            const temSanca = luzesSelecionadas.has('sanca');
+            const focos = [];
+            
+            for (let i = 1; i <= 8; i++) {
+                if (luzesSelecionadas.has('foco-' + i)) focos.push(i);
+            }
+            
+            let texto = "";
+            
+            if (temSanca && focos.length === 8) {
+                texto = "SALA";
+            } else if (!temSanca && focos.length === 8) {
+                texto = "FOCOS";
+            } else if (temSanca && focos.length === 0) {
+                texto = "SANCA";
+            } else {
+                let partes = [];
+                if (temSanca) partes.push("SANCA");
+                if (focos.length > 0) partes.push("FOCOS " + focos.join(" "));
+                texto = partes.join(" | ");
+            }
+            
+            if (texto === "") texto = "NENHUMA";
+            
+            document.getElementById('lbl-grupo-ativo').innerText = texto;
+        }
+
+        document.querySelectorAll('.luz-vector').forEach(luz => {
+            luz.addEventListener('click', function(e) {
+                // Só clica se o Selecionador estiver aberto
+                if (!document.body.classList.contains('luz-avancada')) return;
+                
+                e.stopPropagation(); // Impede o ecrã de apanhar o clique e fechar
+                resetInatividade();
+                
+                if (luzesSelecionadas.has(this.id)) {
+                    luzesSelecionadas.delete(this.id);
+                    this.classList.remove('selecionada');
+                } else {
+                    luzesSelecionadas.add(this.id);
+                    this.classList.add('selecionada');
+                }
+                
+                atualizarLabelSelecao();
+            });
+        });
+
+        // ==========================================
+        // ANTI BURN-IN MOTOR (PROTEÇÃO ECRÃ AMOLED)
+        // ==========================================
         function atualizarBurnIn() {
             if (document.body.classList.contains('movido')) return; 
 
@@ -730,7 +832,7 @@
         }
 
         function atualizarCoresFundo3D() {
-            const rect82 = document.getElementById('desenho-82');
+            const rect82 = document.getElementById('sanca');
             const circs84 = document.getElementById('desenho-84');
             
             rect82.style.stroke = calcularCorLuz(estado82);
@@ -836,15 +938,28 @@
 
         window.toggleLuzAvançada = function(e) {
             if (e) e.stopPropagation(); 
-            document.body.classList.add('luz-avancada');
             
-            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
+            // Se já tiver aberto o selecionador
+            if(document.body.classList.contains('luz-avancada')){
+                document.body.classList.remove('luz-avancada');
+                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo];
+            } else {
+                // Entra no selecionador
+                document.body.classList.add('luz-avancada');
+                atualizarLabelSelecao();
+            }
+            
+            resetInatividade();
         };
 
         function ativarAnimacao(origem = null) {
             const telaFechada = !document.body.classList.contains('movido');
             
-            document.body.classList.remove('luz-avancada');
+            // Clicar fora do selecionador volta ao comportamento normal
+            if (document.body.classList.contains('luz-avancada') && (!origem || origem === 'touch')) {
+                document.body.classList.remove('luz-avancada');
+                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
+            }
 
             if (origem) {
                 if (telaFechada || origem !== 'touch') {
@@ -854,7 +969,9 @@
                     else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) grupoAtivo = '84'; 
                     else if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) grupoAtivo = '82'; 
 
-                    document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo];
+                    if (!document.body.classList.contains('luz-avancada')) {
+                        document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo];
+                    }
                 }
             }
             
@@ -867,16 +984,7 @@
             }
 
             document.body.classList.add('movido');
-            
-            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
-            temporizadorAnimacao = setTimeout(() => { 
-                document.body.classList.remove('movido'); 
-                document.body.classList.remove('luz-avancada');
-                origemAnimacao = null; 
-                grupoAtivo = '83'; 
-                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
-                atualizarBurnIn(); 
-            }, 8000);
+            resetInatividade();
         }
 
         function mudarLuzSala(propriedade, valor) {
@@ -947,8 +1055,7 @@
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             
-            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
-
+            resetInatividade();
             carregarMapaRocky();
         };
 
@@ -1000,13 +1107,13 @@
                 btnAsp.className = 'btn-divisao';
                 btnAsp.innerHTML = room.rawName;
                 btnAsp.id = `btn-asp-${room.segmentId}`;
-                btnAsp.onclick = () => toggleSala('aspirar', room.segmentId);
+                btnAsp.onclick = () => { toggleSala('aspirar', room.segmentId); resetInatividade(); };
                 
                 const btnLav = document.createElement('button');
                 btnLav.className = 'btn-divisao';
                 btnLav.innerHTML = room.rawName;
                 btnLav.id = `btn-lav-${room.segmentId}`;
-                btnLav.onclick = () => toggleSala('lavar', room.segmentId);
+                btnLav.onclick = () => { toggleSala('lavar', room.segmentId); resetInatividade(); };
                 
                 linha.appendChild(btnAsp);
                 linha.appendChild(btnLav);
@@ -1030,6 +1137,7 @@
         }
 
         function toggleSelecionarTudo(tipo) {
+            resetInatividade();
             const set = tipo === 'aspirar' ? selecaoAspirar : selecaoLavar;
             const classNome = tipo === 'aspirar' ? 'selecionado-asp' : 'selecionado-lav';
             const prefixo = tipo === 'aspirar' ? 'btn-asp-' : 'btn-lav-';
@@ -1049,6 +1157,7 @@
         }
 
         function desenharMapa() {
+            resetInatividade();
             const btn = document.getElementById('btn-area');
             const txtOriginal = btn.innerHTML;
             btn.innerHTML = "Em breve!";
@@ -1056,6 +1165,7 @@
         }
 
         function avancarLimpeza() {
+            resetInatividade();
             const arrayAspirar = Array.from(selecaoAspirar);
             const arrayLavar = Array.from(selecaoLavar);
             
@@ -1091,6 +1201,7 @@
         }
 
         function voltarParaDivisoes() {
+            resetInatividade();
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             document.getElementById('rocky-conteudo').style.display = 'flex';
@@ -1107,6 +1218,7 @@
         });
 
         async function enviarComandoFinal() {
+            resetInatividade();
             const arrayAspirar = Array.from(selecaoAspirar);
             const arrayLavar = Array.from(selecaoLavar);
             const succao = parseInt(document.getElementById('slider-succao').value);
@@ -1116,7 +1228,7 @@
             const txtOriginal = botaoIniciar.innerText;
             
             botaoIniciar.innerText = "A Enviar Ordem...";
-            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; // Laranja
+            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; 
             botaoIniciar.disabled = true;
 
             const payload = {
@@ -1178,7 +1290,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky')) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-vector')) {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
