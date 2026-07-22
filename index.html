@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
+        /* VARIÁVEIS PARA O MOTOR ANTI BURN-IN */
+        :root {
+            --burn-x: 0vw;
+            --burn-y: 0vh;
+        }
+
         html, body { 
             overscroll-behavior: none; 
             touch-action: none; 
@@ -52,6 +58,9 @@
             color: #aaaaaa; 
             font-weight: bold;
             z-index: 20;
+            /* A bateria sofre um Micro-Shift para não queimar o canto */
+            transform: translate(calc(var(--burn-x) * 0.5), calc(var(--burn-y) * 0.2));
+            transition: transform 0.8s ease;
         }
 
         #relogio-wrapper {
@@ -60,13 +69,14 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            /* O MOTOR BURN-IN LIGADO À POSIÇÃO DO RELÓGIO */
+            transform: translate(var(--burn-x), var(--burn-y));
         }
 
-        /* CORREÇÃO DAS TEMPERATURAS - Distância reduzida para quase metade */
         #temps-top {
             display: flex;
             justify-content: space-between; 
-            width: 40vw; /* Largura reduzida para aproximar o OUT e o IN */
+            width: 40vw; 
             font-size: 3vh;
             font-weight: bold;
             margin-bottom: 4vh; 
@@ -95,7 +105,8 @@
         }
 
         body.movido #relogio-wrapper {
-            transform: translateY(-30vh); 
+            /* IMPORTANTE: Quando tocas, ignora o motor de burn-in e vai para o sítio certo na animação */
+            transform: translate(0vw, -30vh) !important; 
         }
 
         body.movido #temps-top,
@@ -351,9 +362,8 @@
             margin-bottom: 2vh;
         }
 
-        /* CORREÇÃO DO ESPAÇO ENTRE AS COLUNAS DO ROCKY - Menos buraco no meio */
         .coluna-acao {
-            width: 47%; /* Botões mais largos engolem o espaço vazio do meio */
+            width: 47%; 
             display: flex;
             flex-direction: column;
         }
@@ -397,7 +407,7 @@
         }
 
         .btn-divisao {
-            width: 47%; /* Acompanha as colunas de cima, deixando apenas 6% de folga no meio */
+            width: 47%; 
             background: rgba(255, 255, 255, 0.08); 
             border: 2px solid rgba(255, 255, 255, 0.15);
             color: white; 
@@ -452,7 +462,6 @@
             transition: all 0.3s ease;
         }
 
-        /* --- ESTILOS EXTRA PARA O ECRÃ DOS SLIDERS (CONFIGURAÇÕES) --- */
         .painel-config-rocky {
             display: flex;
             width: 100%;
@@ -582,7 +591,6 @@
                 <div class="grupo-slider" id="container-succao">
                     <span class="icone-luz">🌪️</span>
                     <div class="caixa-slider">
-                        <!-- Valores API Roborock: 101, 102, 103, 104 -->
                         <input type="range" class="slider-girado" id="slider-succao" min="101" max="104" value="102">
                     </div>
                     <div class="slider-label" id="lbl-succao">Normal</div>
@@ -591,7 +599,6 @@
                 <div class="grupo-slider" id="container-agua">
                     <span class="icone-luz">💧</span>
                     <div class="caixa-slider">
-                        <!-- Valores API Roborock: 1 a 30 -->
                         <input type="range" class="slider-girado" id="slider-agua" min="1" max="30" value="15">
                     </div>
                     <div class="slider-label" id="lbl-agua">Nível 15</div>
@@ -615,7 +622,6 @@
 
         const HUE_IP = '192.168.1.183';
         const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
-        
         const SYNC_IP = '192.168.1.188'; 
         const SYNC_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODQwNjA1MzUzNDYsImlzcyI6ImhzYi1DNDI5OTYwNzZCMzIiLCJyb2xlIjoidXNlciIsInJpZCI6MTcsInJhbiI6InRhYmxldCIsInJpbiI6ImRhc2hib2FyZCJ9.kz3Ym/nPSs5bkVWqIZSzuyubq5Wiskk6PQeWBRzc0nc='; 
         
@@ -638,6 +644,35 @@
 
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
+
+        // ==========================================
+        // ANTI BURN-IN MOTOR (PROTEÇÃO ECRÃ AMOLED)
+        // ==========================================
+        function atualizarBurnIn() {
+            // Só corre o relógio de posição se o painel de luzes NÃO estiver aberto
+            if (document.body.classList.contains('movido')) return; 
+
+            const agora = Date.now();
+            
+            // MACRO-SHIFT: Viaja de cima a baixo 2 vezes por dia (1 ciclo a cada 12 horas)
+            // Desloca o relógio entre -18vh (bastante acima) e +18vh (bastante abaixo)
+            const cicloVertical = 12 * 60 * 60 * 1000; 
+            const eixoY = Math.sin((agora % cicloVertical) / cicloVertical * Math.PI * 2) * 18;
+
+            // MICRO-SHIFT: Abana subtilmente para os lados (1 ciclo por hora)
+            // Previne que a linha vertical reta de um "1" ou de um "7" fique marcada
+            const cicloHorizontal = 60 * 60 * 1000;
+            const eixoX = Math.sin((agora % cicloHorizontal) / cicloHorizontal * Math.PI * 2) * 3;
+
+            document.documentElement.style.setProperty('--burn-y', `${eixoY}vh`);
+            document.documentElement.style.setProperty('--burn-x', `${eixoX}vw`);
+        }
+        
+        // Ativa imediatamente e reajusta 1 vez por minuto (movimento impercetível ao olho nu)
+        atualizarBurnIn();
+        setInterval(atualizarBurnIn, 60000); 
+
+        // ==========================================
 
         function calcularCorLuz(estado) {
             if (!estado.on) return 'rgba(100, 100, 100, 0.4)'; 
@@ -797,6 +832,7 @@
                 origemAnimacao = null; 
                 grupoAtivo = '83'; 
                 document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
+                atualizarBurnIn(); // Força a variável do motor a atualizar no regresso à base
             }, 8000);
         }
 
