@@ -572,8 +572,10 @@
     <div id="caixa-selecao"></div>
 
     <div id="fundo-luzes-container">
+        <!-- O preserveAspectRatio garante as proporções originais -->
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
+                <!-- Filtro AUMENTADO para 200% para não cortar o brilho -->
                 <filter id="brilhoNeon" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="15" result="blur" />
                     <feMerge>
@@ -583,27 +585,33 @@
                 </filter>
             </defs>
             
+            <!-- CAMADA 1: VISUAL (Não faz absolutamente nada ao toque, apenas pinta no ecrã) -->
             <g style="pointer-events: none;">
                 <rect id="visual-sanca" class="visual-forma selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
 
+                <!-- O Filtro fica no grupo para partilharem o brilho e não criar quadrados -->
                 <g filter="url(#brilhoNeon)">
+                    <!-- LINHA 1 -->
                     <circle id="visual-foco-4" class="visual-forma selecionada foco-forma" cx="200" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-8" class="visual-forma selecionada foco-forma" cx="400" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    
+                    <!-- LINHA 2 -->
                     <circle id="visual-foco-3" class="visual-forma selecionada foco-forma" cx="200" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-7" class="visual-forma selecionada foco-forma" cx="400" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    
+                    <!-- LINHA 3 -->
                     <circle id="visual-foco-2" class="visual-forma selecionada foco-forma" cx="200" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-6" class="visual-forma selecionada foco-forma" cx="400" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    
+                    <!-- LINHA 4 -->
                     <circle id="visual-foco-1" class="visual-forma selecionada foco-forma" cx="200" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-5" class="visual-forma selecionada foco-forma" cx="400" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
                 </g>
             </g>
 
+            <!-- CAMADA 2: HITBOXES (Retângulos transparentes gigantes para captar os dedos. Ficam por cima dos visuais) -->
             <g id="hitboxes" class="hitboxes-layer">
+                <!-- Hitbox da Sanca AUMENTADO: Vai da margem 10 à 580 (apanha mesmo que falhes o desenho por pouco) -->
                 <rect id="hitbox-sanca" x="10" y="10" width="580" height="880" rx="25" class="luz-hitbox" />
                 
+                <!-- Os Focos são quadrados de 160x160 pixeis (enormes) exatamente centrados nas bolas -->
                 <rect id="hitbox-foco-4" x="120" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
                 <rect id="hitbox-foco-8" x="320" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
                 
@@ -724,6 +732,7 @@
 
     <script>
         document.addEventListener('touchmove', function(e) {
+            // Se não estivermos a desenhar a caixa de seleção e não for slider/scroll
             if (!hasDragged && e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
                 e.preventDefault();
             }
@@ -890,11 +899,12 @@
             dragStarted = false;
             
             if (hasDragged) {
-                selectionBox.style.display = 'none';
+                // A COLISÃO É CALCULADA AQUI ANTES DE ESCONDER A CAIXA!
                 processarCaixaDeSelecao();
+                selectionBox.style.display = 'none'; // SÓ DEPOIS ESCONDE A CAIXA
                 
                 blockNextClick = true;
-                setTimeout(() => blockNextClick = false, 50);
+                setTimeout(() => blockNextClick = false, 150); // Aumentei um pouco para evitar falsos toques no Android
             }
         }
 
