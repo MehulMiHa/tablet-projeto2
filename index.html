@@ -724,7 +724,6 @@
 
     <script>
         document.addEventListener('touchmove', function(e) {
-            // Se não estivermos a desenhar a caixa de seleção e não for slider/scroll
             if (!hasDragged && e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
                 e.preventDefault();
             }
@@ -746,6 +745,9 @@
         
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
+
+        // O NOVO MAPA DOS ESTADOS INDIVIDUAIS DE CADA LUZ PARA O DESENHO
+        let estadosLuzes = {};
 
         // ==========================================
         // SISTEMA DE SEGURANÇA 10 SEG INATIVIDADE
@@ -825,7 +827,7 @@
         let dragStarted = false;
         let hasDragged = false;
         let startX = 0, startY = 0;
-        const dragThreshold = 15; // Precisa de arrastar 15px para o tablet perceber que não foi só um clique
+        const dragThreshold = 15; 
         const selectionBox = document.getElementById('caixa-selecao');
         const containerMestre = document.getElementById('fundo-luzes-container');
 
@@ -839,7 +841,6 @@
 
         function dragStart(e) {
             if (!document.body.classList.contains('luz-avancada')) return;
-            // Só ativa o modo "Windows" se tocares por cima das hitboxes das luzes
             if (!e.target.classList.contains('luz-hitbox') && e.target.id !== 'fundo-luzes-container') return;
             
             dragStarted = true;
@@ -858,14 +859,13 @@
             const dx = Math.abs(pos.x - startX);
             const dy = Math.abs(pos.y - startY);
 
-            // Confirmação de que está mesmo a arrastar e a desenhar a caixa
             if (!hasDragged && (dx > dragThreshold || dy > dragThreshold)) {
                 hasDragged = true;
                 selectionBox.style.display = 'block';
             }
 
             if (hasDragged) {
-                if (e.cancelable) e.preventDefault(); // Impede scroll indesejado
+                if (e.cancelable) e.preventDefault(); 
                 
                 const currentX = pos.x;
                 const currentY = pos.y;
@@ -893,7 +893,6 @@
                 selectionBox.style.display = 'none';
                 processarCaixaDeSelecao();
                 
-                // Bloqueia o clique singular a seguir para o desenho não "piscar" e anular a seleção
                 blockNextClick = true;
                 setTimeout(() => blockNextClick = false, 50);
             }
@@ -903,13 +902,11 @@
             const boxRect = selectionBox.getBoundingClientRect();
             const touchedIds = [];
             
-            // Verifica QUAIS FOCOS foram tocados pela caixa (Ignora a Sanca de propósito!)
             for (let i = 1; i <= 8; i++) {
                 const hitbox = document.getElementById('hitbox-foco-' + i);
                 if (!hitbox) continue;
                 const hbRect = hitbox.getBoundingClientRect();
                 
-                // Matemática de colisão de ecrã (Hit-testing)
                 const overlaps = !(
                     boxRect.right < hbRect.left || 
                     boxRect.left > hbRect.right || 
@@ -924,7 +921,6 @@
 
             resetInatividade();
 
-            // A Lógica Pro que pediste: Se todos os que tocou estão selecionados -> Apaga. Senão -> Acende todos.
             const allSelected = touchedIds.every(id => luzesSelecionadas.has(id));
 
             touchedIds.forEach(id => {
@@ -947,7 +943,7 @@
         document.querySelectorAll('.luz-hitbox').forEach(hitbox => {
             hitbox.addEventListener('click', function(e) {
                 if (!document.body.classList.contains('luz-avancada')) return;
-                if (blockNextClick) return; // Se arrastaste a caixa azul, ele ignora este clique!
+                if (blockNextClick) return; 
                 
                 e.stopPropagation(); 
                 resetInatividade();
@@ -967,9 +963,6 @@
             });
         });
 
-        // ==========================================
-        // RESTO DO CÉREBRO
-        // ==========================================
         function enviarComandoHueCerebro(corpo) {
             const temSanca = luzesSelecionadas.has('sanca');
             const focosAtivos = [];
@@ -1016,7 +1009,7 @@
         setInterval(atualizarBurnIn, 60000); 
 
         function calcularCorLuz(estado) {
-            if (!estado.on) return 'rgba(100, 100, 100, 0.4)'; 
+            if (!estado || !estado.on) return 'rgba(100, 100, 100, 0.4)'; 
 
             let ct = estado.ct || 326; 
             let r, g, b;
@@ -1037,11 +1030,24 @@
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
 
+        // AGORA PINTA AS LUZES INDIVIDUAIS DE FORMA PERFEITA E ISOLADA
         function atualizarCoresFundo3D() {
             const rect82 = document.getElementById('visual-sanca');
             if(rect82) rect82.style.stroke = calcularCorLuz(estado82);
             
-            document.querySelectorAll('.foco-forma').forEach(f => f.style.stroke = calcularCorLuz(estado84));
+            for (let i = 1; i <= 8; i++) {
+                const focoId = 'foco-' + i;
+                const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
+                const visual = document.getElementById('visual-' + focoId);
+                
+                if (visual) {
+                    if (estadosLuzes[realId] && estadosLuzes[realId].state) {
+                        visual.style.stroke = calcularCorLuz(estadosLuzes[realId].state);
+                    } else {
+                        visual.style.stroke = calcularCorLuz(estado84);
+                    }
+                }
+            }
         }
 
         window.receberDadosSyncBox = function(jsonString) {
@@ -1108,15 +1114,18 @@
             }
         }
 
+        // NOVO: Saca a informação de TODAS as luzes da casa com 1 só pedido à Ponte
         async function sincronizarEstadoSala() {
             try {
                 const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json());
                 const p84 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84`).then(r => r.json());
+                const pLuzes = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/lights`).then(r => r.json());
                 
-                const [d82, d84] = await Promise.all([p82, p84]);
+                const [d82, d84, dLuzes] = await Promise.all([p82, p84, pLuzes]);
                 
                 if (d82 && d82.action) estado82 = d82.action;
                 if (d84 && d84.action) estado84 = d84.action;
+                if (dLuzes) estadosLuzes = dLuzes;
 
                 atualizarCoresFundo3D();
 
@@ -1134,7 +1143,7 @@
                 if (salaEstaLigada) btn.classList.add('ligado');
                 else btn.classList.remove('ligado');
                 
-                document.getElementById('brilho-luz').value = dadosAtivos.bri;
+                document.getElementById('brilho-luz').value = dadosAtivos.bri || 1;
                 if(dadosAtivos.ct) document.getElementById('temp-luz').value = dadosAtivos.ct; 
 
             } catch (e) {}
@@ -1210,8 +1219,19 @@
                 estado84.on = true;
                 estado84[propriedade] = parseInt(valor);
             }
-            atualizarCoresFundo3D();
 
+            // Simula imediatamente a mudança nas luzes individuais localmente para resposta rápida
+            for (let i = 1; i <= 8; i++) {
+                const focoId = 'foco-' + i;
+                if (luzesSelecionadas.has(focoId)) {
+                    const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
+                    if (!estadosLuzes[realId]) estadosLuzes[realId] = { state: {} };
+                    estadosLuzes[realId].state.on = true;
+                    estadosLuzes[realId].state[propriedade] = parseInt(valor);
+                }
+            }
+
+            atualizarCoresFundo3D();
             enviarComandoHueCerebro(corpo);
         }
 
@@ -1225,22 +1245,53 @@
 
             if (luzesSelecionadas.has('sanca')) estado82.on = salaEstaLigada;
             if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) estado84.on = salaEstaLigada;
-            atualizarCoresFundo3D();
 
+            for (let i = 1; i <= 8; i++) {
+                const focoId = 'foco-' + i;
+                if (luzesSelecionadas.has(focoId)) {
+                    const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
+                    if (!estadosLuzes[realId]) estadosLuzes[realId] = { state: {} };
+                    estadosLuzes[realId].state.on = salaEstaLigada;
+                }
+            }
+
+            atualizarCoresFundo3D();
             enviarComandoHueCerebro({ "on": salaEstaLigada });
         }
 
         document.getElementById('brilho-luz').addEventListener('input', function() {
             ativarAnimacao('touch');
-            if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.bri = parseInt(this.value); }
-            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.bri = parseInt(this.value); }
+            const valor = parseInt(this.value);
+            if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.bri = valor; }
+            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.bri = valor; }
+            
+            for (let i = 1; i <= 8; i++) {
+                const focoId = 'foco-' + i;
+                if (luzesSelecionadas.has(focoId)) {
+                    const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
+                    if (!estadosLuzes[realId]) estadosLuzes[realId] = { state: {} };
+                    estadosLuzes[realId].state.on = true;
+                    estadosLuzes[realId].state.bri = valor;
+                }
+            }
             atualizarCoresFundo3D();
         });
         
         document.getElementById('temp-luz').addEventListener('input', function() {
             ativarAnimacao('touch');
-            if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.ct = parseInt(this.value); }
-            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.ct = parseInt(this.value); }
+            const valor = parseInt(this.value);
+            if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.ct = valor; }
+            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.ct = valor; }
+            
+            for (let i = 1; i <= 8; i++) {
+                const focoId = 'foco-' + i;
+                if (luzesSelecionadas.has(focoId)) {
+                    const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
+                    if (!estadosLuzes[realId]) estadosLuzes[realId] = { state: {} };
+                    estadosLuzes[realId].state.on = true;
+                    estadosLuzes[realId].state.ct = valor;
+                }
+            }
             atualizarCoresFundo3D();
         });
 
@@ -1492,7 +1543,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            if (hasDragged) return; // Se acabou de arrastar, não conta como clique no ecrã para fechar
+            if (hasDragged) return; 
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-hitbox')) {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
