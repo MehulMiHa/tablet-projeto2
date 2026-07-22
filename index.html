@@ -26,6 +26,9 @@
             flex-direction: column;
             justify-content: center; 
             align-items: center;
+            /* BLOQUEIO ANTI-SELEÇÃO DE TEXTO PARA TOQUES PERFEITOS */
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         #fundo-luzes-container {
@@ -51,12 +54,13 @@
             opacity: 1; 
             transform: translateY(5vh) perspective(1000px) rotateX(0deg) scale(0.85); 
             transition: opacity 1.6s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: auto; /* Essencial para ativar os toques de novo! */
         }
 
         /* --- CAMADA 1: VISUAIS INTOCÁVEIS --- */
         .visual-forma {
             transition: stroke 0.3s ease, opacity 0.5s ease;
-            pointer-events: none !important;
+            pointer-events: none !important; /* Desliga totalmente toques nos desenhos puros */
         }
 
         /* Cores e Efeitos no Modo Avançado */
@@ -77,15 +81,14 @@
 
         /* --- CAMADA 2: HITBOXES GIGANTES --- */
         .hitboxes-layer {
-            pointer-events: none; 
+            pointer-events: none; /* INATIVO no modo relógio normal (Corrige o erro do toque no fundo!) */
         }
         body.luz-avancada .hitboxes-layer {
-            pointer-events: auto; 
+            pointer-events: auto; /* ATIVO apenas no modo selecionador */
         }
         .luz-hitbox {
             fill: rgba(0, 0, 0, 0.01); 
             cursor: pointer;
-            pointer-events: all;
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -119,6 +122,7 @@
             flex-direction: column;
             align-items: center;
             transform: translate(var(--burn-x), var(--burn-y));
+            pointer-events: none; /* Garante que o texto nunca engole toques */
         }
 
         #temps-top {
@@ -568,14 +572,12 @@
 </head>
 <body id="ecra">
     
-    <!-- A CAIXA DE ARRASTO DO WINDOWS (Injetada no HTML) -->
+    <!-- A CAIXA DE ARRASTO DO WINDOWS -->
     <div id="caixa-selecao"></div>
 
     <div id="fundo-luzes-container">
-        <!-- O preserveAspectRatio garante as proporções originais -->
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
-                <!-- Filtro AUMENTADO para 200% para não cortar o brilho -->
                 <filter id="brilhoNeon" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="15" result="blur" />
                     <feMerge>
@@ -585,33 +587,29 @@
                 </filter>
             </defs>
             
-            <!-- CAMADA 1: VISUAL (Não faz absolutamente nada ao toque, apenas pinta no ecrã) -->
+            <!-- CAMADA 1: VISUAL (Não faz nada ao toque) -->
             <g style="pointer-events: none;">
                 <rect id="visual-sanca" class="visual-forma selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
 
-                <!-- O Filtro fica no grupo para partilharem o brilho e não criar quadrados -->
                 <g filter="url(#brilhoNeon)">
-                    <!-- LINHA 1 -->
                     <circle id="visual-foco-4" class="visual-forma selecionada foco-forma" cx="200" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-8" class="visual-forma selecionada foco-forma" cx="400" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    <!-- LINHA 2 -->
+                    
                     <circle id="visual-foco-3" class="visual-forma selecionada foco-forma" cx="200" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-7" class="visual-forma selecionada foco-forma" cx="400" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    <!-- LINHA 3 -->
+                    
                     <circle id="visual-foco-2" class="visual-forma selecionada foco-forma" cx="200" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-6" class="visual-forma selecionada foco-forma" cx="400" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    <!-- LINHA 4 -->
+                    
                     <circle id="visual-foco-1" class="visual-forma selecionada foco-forma" cx="200" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-5" class="visual-forma selecionada foco-forma" cx="400" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
                 </g>
             </g>
 
-            <!-- CAMADA 2: HITBOXES (Retângulos transparentes gigantes para captar os dedos. Ficam por cima dos visuais) -->
+            <!-- CAMADA 2: HITBOXES (Retângulos para captar os dedos) -->
             <g id="hitboxes" class="hitboxes-layer">
-                <!-- Hitbox da Sanca AUMENTADO: Vai da margem 10 à 580 (apanha mesmo que falhes o desenho por pouco) -->
                 <rect id="hitbox-sanca" x="10" y="10" width="580" height="880" rx="25" class="luz-hitbox" />
                 
-                <!-- Os Focos são quadrados de 160x160 pixeis (enormes) exatamente centrados nas bolas -->
                 <rect id="hitbox-foco-4" x="120" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
                 <rect id="hitbox-foco-8" x="320" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
                 
@@ -732,7 +730,6 @@
 
     <script>
         document.addEventListener('touchmove', function(e) {
-            // Se não estivermos a desenhar a caixa de seleção e não for slider/scroll
             if (!hasDragged && e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
                 e.preventDefault();
             }
@@ -754,8 +751,6 @@
         
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
-
-        // O NOVO MAPA DOS ESTADOS INDIVIDUAIS DE CADA LUZ PARA O DESENHO
         let estadosLuzes = {};
 
         // ==========================================
@@ -785,9 +780,6 @@
         document.addEventListener('click', resetInatividade, {passive: true});
         document.addEventListener('input', resetInatividade, {passive: true});
 
-        // ==========================================
-        // LÓGICA DO SELECIONADOR INTELIGENTE DE LUZES
-        // ==========================================
         let luzesSelecionadas = new Set(['sanca', 'foco-1', 'foco-2', 'foco-3', 'foco-4', 'foco-5', 'foco-6', 'foco-7', 'foco-8']);
 
         const MAPA_LUZES_INDIVIDUAIS = {
@@ -899,12 +891,11 @@
             dragStarted = false;
             
             if (hasDragged) {
-                // A COLISÃO É CALCULADA AQUI ANTES DE ESCONDER A CAIXA!
                 processarCaixaDeSelecao();
-                selectionBox.style.display = 'none'; // SÓ DEPOIS ESCONDE A CAIXA
+                selectionBox.style.display = 'none'; 
                 
                 blockNextClick = true;
-                setTimeout(() => blockNextClick = false, 150); // Aumentei um pouco para evitar falsos toques no Android
+                setTimeout(() => blockNextClick = false, 150);
             }
         }
 
@@ -948,7 +939,7 @@
         }
 
         // ==========================================
-        // O CLIQUE NORMAL (MANTIDO E PROTEGIDO)
+        // O CLIQUE NORMAL NAS HITBOXES
         // ==========================================
         document.querySelectorAll('.luz-hitbox').forEach(hitbox => {
             hitbox.addEventListener('click', function(e) {
@@ -1040,7 +1031,6 @@
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
 
-        // AGORA PINTA AS LUZES INDIVIDUAIS DE FORMA PERFEITA E ISOLADA
         function atualizarCoresFundo3D() {
             const rect82 = document.getElementById('visual-sanca');
             if(rect82) rect82.style.stroke = calcularCorLuz(estado82);
@@ -1124,7 +1114,6 @@
             }
         }
 
-        // NOVO: Saca a informação de TODAS as luzes da casa com 1 só pedido à Ponte
         async function sincronizarEstadoSala() {
             try {
                 const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json());
@@ -1230,7 +1219,6 @@
                 estado84[propriedade] = parseInt(valor);
             }
 
-            // Simula imediatamente a mudança nas luzes individuais localmente para resposta rápida
             for (let i = 1; i <= 8; i++) {
                 const focoId = 'foco-' + i;
                 if (luzesSelecionadas.has(focoId)) {
@@ -1551,38 +1539,51 @@
             } catch (erro) {}
         };
 
+        // ==========================================
+        // O NOVO SENSOR DE TOQUE UNIVERSAL DO ECRÃ
+        // ==========================================
         const ecra = document.getElementById('ecra');
         let ultimoToque = 0;
 
         function detetarToqueEcra(e) {
             const agora = Date.now();
-            if (agora - ultimoToque < 300) return; // Previne o disparo duplo (touchstart + click) num curto espaço de tempo
+            if (agora - ultimoToque < 300) return; // Previne o disparo duplo 
 
-            // Se o ecrã está "acordado" e foi um arrasto do quadrado azul, ignora
+            // Se o ecrã está "acordado" e foi um arrasto do quadrado azul, ignora para não fechar a luz
             if (document.body.classList.contains('movido') && hasDragged) return; 
 
-            // Se o toque foi num botão, slider, ou hitbox das luzes (no selecionador), deixa o botão fazer o seu trabalho e não tenta acordar a app de novo
+            // 1. SE O ECRÃ ESTIVER A DORMIR (!movido) -> QUALQUER TOQUE ACORDA IMEDIATAMENTE, SEM DESCULPAS.
+            if (!document.body.classList.contains('movido')) {
+                ultimoToque = agora;
+                if (!document.fullscreenElement) {
+                    if (ecra.requestFullscreen) ecra.requestFullscreen();
+                    else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
+                }
+                ativarAnimacao('touch'); 
+                return; // Já acordou, não faz mais nada
+            }
+
+            // 2. SE O ECRÃ JÁ ESTÁ ACORDADO -> Aplica as restrições normais para não fechar sem querer quando tocas nos controlos
             if (e.target.tagName === 'INPUT' || 
                 e.target.tagName === 'BUTTON' || 
                 e.target.classList.contains('metade-switch') || 
                 e.target.id === 'btn-power-sala' || 
                 e.target.id === 'btn-sync-box' || 
+                e.target.id === 'txt-sync' ||
                 e.target.closest('#vista-rocky') || 
                 e.target.classList.contains('luz-hitbox')) {
                 return;
             }
 
             ultimoToque = agora;
-
             if (!document.fullscreenElement) {
                 if (ecra.requestFullscreen) ecra.requestFullscreen();
                 else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
             }
-            
-            ativarAnimacao('touch');
+            ativarAnimacao('touch'); 
         }
 
-        // AGORA REAGE A QUALQUER MICRO-TOQUE OU DESLIZE INSTANTANEAMENTE
+        // Fica atento tanto a deslizes rápidos como a cliques
         ecra.addEventListener('touchstart', detetarToqueEcra, {passive: true});
         ecra.addEventListener('click', detetarToqueEcra);
 
