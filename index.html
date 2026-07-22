@@ -1552,16 +1552,39 @@
         };
 
         const ecra = document.getElementById('ecra');
-        ecra.addEventListener('click', function(e) {
-            if (hasDragged) return; 
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-hitbox')) {
-                if (!document.fullscreenElement) {
-                    if (ecra.requestFullscreen) ecra.requestFullscreen();
-                    else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
-                }
-                ativarAnimacao('touch'); 
+        let ultimoToque = 0;
+
+        function detetarToqueEcra(e) {
+            const agora = Date.now();
+            if (agora - ultimoToque < 300) return; // Previne o disparo duplo (touchstart + click) num curto espaço de tempo
+
+            // Se o ecrã está "acordado" e foi um arrasto do quadrado azul, ignora
+            if (document.body.classList.contains('movido') && hasDragged) return; 
+
+            // Se o toque foi num botão, slider, ou hitbox das luzes (no selecionador), deixa o botão fazer o seu trabalho e não tenta acordar a app de novo
+            if (e.target.tagName === 'INPUT' || 
+                e.target.tagName === 'BUTTON' || 
+                e.target.classList.contains('metade-switch') || 
+                e.target.id === 'btn-power-sala' || 
+                e.target.id === 'btn-sync-box' || 
+                e.target.closest('#vista-rocky') || 
+                e.target.classList.contains('luz-hitbox')) {
+                return;
             }
-        });
+
+            ultimoToque = agora;
+
+            if (!document.fullscreenElement) {
+                if (ecra.requestFullscreen) ecra.requestFullscreen();
+                else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
+            }
+            
+            ativarAnimacao('touch');
+        }
+
+        // AGORA REAGE A QUALQUER MICRO-TOQUE OU DESLIZE INSTANTANEAMENTE
+        ecra.addEventListener('touchstart', detetarToqueEcra, {passive: true});
+        ecra.addEventListener('click', detetarToqueEcra);
 
         function atualizarTempo() {
             const agora = new Date();
