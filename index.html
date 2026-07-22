@@ -60,16 +60,14 @@
         /* --- CAMADA 1: VISUAIS INTOCÁVEIS E SINCRONIZADOS --- */
         .visual-forma {
             pointer-events: none !important; 
-            /* Usa a variável CSS definida pelo JavaScript como cor normal */
             stroke: var(--cor-base, rgba(100,100,100,0.4)) !important;
-            transition: stroke 0.15s ease-out; /* Retorno super rápido ao normal */
+            transition: stroke 0.15s ease-out; 
         }
 
         /* O Heartbeat Tático: Só ativa no body quando tem a classe 'tick-flash' */
         body.luz-avancada.tick-flash .visual-forma.selecionada {
-            /* Alterna para a cor 50% Vermelho matematicamente calculada */
             stroke: var(--cor-mix, rgba(255,0,0,1)) !important;
-            transition: none !important; /* Piscar repentino e seco, sem suavidade a entrar */
+            transition: none !important; 
         }
 
         /* --- CAMADA 2: HITBOXES GIGANTES --- */
@@ -580,7 +578,6 @@
                 </filter>
             </defs>
             
-            <!-- CAMADA 1: VISUAL (Não faz nada ao toque) -->
             <g style="pointer-events: none;">
                 <rect id="visual-sanca" class="visual-forma selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke-width="35" filter="url(#brilhoNeon)"/>
 
@@ -599,7 +596,6 @@
                 </g>
             </g>
 
-            <!-- CAMADA 2: HITBOXES (Retângulos para captar os dedos) -->
             <g id="hitboxes" class="hitboxes-layer">
                 <rect id="hitbox-sanca" x="10" y="10" width="580" height="880" rx="25" class="luz-hitbox" />
                 
@@ -723,7 +719,6 @@
 
     <script>
         document.addEventListener('touchmove', function(e) {
-            // Se não estivermos a desenhar a caixa de seleção e não for slider/scroll
             if (!hasDragged && e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
                 e.preventDefault();
             }
@@ -752,18 +747,15 @@
         // ==========================================
         setInterval(() => {
             if (document.body.classList.contains('luz-avancada')) {
-                // Dá o comando global de "piscar"
                 document.body.classList.add('tick-flash');
-                
-                // Mantém o vermelho aceso por 200 milissegundos e apaga
                 setTimeout(() => {
                     document.body.classList.remove('tick-flash');
                 }, 200); 
             }
-        }, 1000); // Repete a cada 1 segundo perfeitamente
+        }, 1000); 
 
         // ==========================================
-        // SISTEMA DE SEGURANÇA 10 SEG INATIVIDADE
+        // SISTEMA DE SEGURANÇA E TIMEOUTS
         // ==========================================
         let timerInatividade = null;
 
@@ -775,7 +767,7 @@
                     fecharVistaRocky();
                 }
                 if (document.body.classList.contains('luz-avancada')) {
-                    document.body.classList.remove('luz-avancada');
+                    fecharModoAvancado();
                 }
                 if (document.body.classList.contains('movido')) {
                     document.body.classList.remove('movido');
@@ -789,10 +781,21 @@
         document.addEventListener('click', resetInatividade, {passive: true});
         document.addEventListener('input', resetInatividade, {passive: true});
 
+        // Controlo de Interação para não engasgar o Slider
+        let isInteractingUI = false;
+        let interactionTimeout = null;
+
+        function markInteraction() {
+            isInteractingUI = true;
+            if(interactionTimeout) clearTimeout(interactionTimeout);
+            interactionTimeout = setTimeout(() => { isInteractingUI = false; }, 2000); 
+        }
+
         // ==========================================
         // LÓGICA DO SELECIONADOR INTELIGENTE DE LUZES
         // ==========================================
         let luzesSelecionadas = new Set(['sanca', 'foco-1', 'foco-2', 'foco-3', 'foco-4', 'foco-5', 'foco-6', 'foco-7', 'foco-8']);
+        let luzesBackup = new Set(); 
 
         const MAPA_LUZES_INDIVIDUAIS = {
             'foco-1': '11',  
@@ -832,6 +835,45 @@
             
             document.getElementById('lbl-grupo-ativo').innerText = texto;
         }
+
+        // Funções para Abrir e Fechar o modo Avançado com o Backup de Segurança
+        function abrirModoAvancado() {
+            document.body.classList.add('luz-avancada');
+            luzesBackup = new Set(luzesSelecionadas); // Guarda estado atual
+            luzesSelecionadas.clear(); // Limpa a mesa para começares a selecionar
+            
+            document.querySelectorAll('.visual-forma').forEach(luz => {
+                luz.classList.remove('selecionada');
+            });
+            atualizarLabelSelecao();
+        }
+
+        function fecharModoAvancado() {
+            document.body.classList.remove('luz-avancada');
+            
+            // A MAGIA AQUI: Se não selecionaste nada (ou tiraste tudo), ele ignora e volta ao que tinhas antes!
+            if (luzesSelecionadas.size === 0 && luzesBackup.size > 0) {
+                luzesSelecionadas = new Set(luzesBackup);
+            }
+            
+            document.querySelectorAll('.visual-forma').forEach(luz => {
+                const realId = luz.id.replace('visual-', '');
+                if(luzesSelecionadas.has(realId)) luz.classList.add('selecionada');
+                else luz.classList.remove('selecionada');
+            });
+            atualizarLabelSelecao();
+        }
+
+        window.toggleLuzAvançada = function(e) {
+            if (e) e.stopPropagation(); 
+            
+            if(document.body.classList.contains('luz-avancada')){
+                fecharModoAvancado();
+            } else {
+                abrirModoAvancado();
+            }
+            resetInatividade();
+        };
 
         // ==========================================
         // O NOVO MOTOR "CLICK AND DRAG" (TIPO WINDOWS)
@@ -903,12 +945,11 @@
             dragStarted = false;
             
             if (hasDragged) {
-                // A COLISÃO É CALCULADA AQUI ANTES DE ESCONDER A CAIXA!
                 processarCaixaDeSelecao();
-                selectionBox.style.display = 'none'; // SÓ DEPOIS ESCONDE A CAIXA
+                selectionBox.style.display = 'none'; 
                 
                 blockNextClick = true;
-                setTimeout(() => blockNextClick = false, 150); // Aumentei um pouco para evitar falsos toques no Android
+                setTimeout(() => blockNextClick = false, 150); 
             }
         }
 
@@ -1023,11 +1064,10 @@
         setInterval(atualizarBurnIn, 60000); 
 
         function calcularCoresLuz(estado) {
-            // Se estiver apagada, dá o tom base esbranquiçado apagado
             if (!estado || !estado.on) {
                 return { 
                     base: 'rgba(100, 100, 100, 0.4)', 
-                    mix: 'rgba(177, 50, 50, 0.8)' // Tom de mistura manual para apagado
+                    mix: 'rgba(177, 50, 50, 0.8)' 
                 }; 
             }
 
@@ -1048,18 +1088,16 @@
 
             let alpha = (estado.bri / 254) * 0.6 + 0.4;
             
-            // LÓGICA DO 50% ORIGINAL e 50% VERMELHO
             let r_mix = Math.round(r * 0.5 + 255 * 0.5);
             let g_mix = Math.round(g * 0.5 + 0 * 0.5);
             let b_mix = Math.round(b * 0.5 + 0 * 0.5);
 
             return {
                 base: `rgba(${r}, ${g}, ${b}, ${alpha})`,
-                mix: `rgba(${r_mix}, ${g_mix}, ${b_mix}, 1)` // Alpha a 1.0 para o piscar sobressair mais
+                mix: `rgba(${r_mix}, ${g_mix}, ${b_mix}, 1)` 
             };
         }
 
-        // AGORA PINTA AS LUZES INJETANDO AS VARIÁVEIS CSS DE BASE E MISTURA
         function atualizarCoresFundo3D() {
             const rect82 = document.getElementById('visual-sanca');
             if(rect82) {
@@ -1095,7 +1133,10 @@
             } catch (e) {}
         };
 
+        let isFetchingSync = false;
         async function verificarEstadoSyncBox() {
+            if(isFetchingSync) return;
+            isFetchingSync = true;
             if (window.AndroidSync) {
                 window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "GET", false);
             } else {
@@ -1105,7 +1146,9 @@
                     receberDadosSyncBox(JSON.stringify(data));
                 } catch(e) {}
             }
+            isFetchingSync = false;
         }
+        setInterval(verificarEstadoSyncBox, 2000); // 2 segundos (seguro para a SyncBox)
 
         function atualizarUIBotaoSync() {
             const btnSync = document.getElementById('btn-sync-box');
@@ -1120,6 +1163,7 @@
 
         function toggleSyncBox() {
             ativarAnimacao('touch');
+            markInteraction();
             isSyncing = !isSyncing;
             atualizarUIBotaoSync();
 
@@ -1149,63 +1193,56 @@
             }
         }
 
-        // NOVO: Saca a informação de TODAS as luzes da casa com 1 só pedido à Ponte
+        // ==========================================
+        // SYNC TEMPO REAL A 0.5 SEGUNDOS COM A HUE
+        // ==========================================
+        let isFetchingHue = false;
         async function sincronizarEstadoSala() {
+            if(isFetchingHue) return;
+            isFetchingHue = true;
+
             try {
+                // Sacamos a informação completa em paralelo para a app ser rapidíssima
                 const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json());
+                const p83 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`).then(r => r.json());
                 const p84 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84`).then(r => r.json());
                 const pLuzes = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/lights`).then(r => r.json());
                 
-                const [d82, d84, dLuzes] = await Promise.all([p82, p84, pLuzes]);
+                const [d82, d83, d84, dLuzes] = await Promise.all([p82, p83, p84, pLuzes]);
                 
                 if (d82 && d82.action) estado82 = d82.action;
                 if (d84 && d84.action) estado84 = d84.action;
+                let estado83 = d83 && d83.action ? d83.action : estado84;
                 if (dLuzes) estadosLuzes = dLuzes;
 
+                // 1. As luzes da planta atualizam SEMPRE em tempo real (mesmo que estejas a deslizar botões)
                 atualizarCoresFundo3D();
 
-                let dadosAtivos = estado84;
-                if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 1) dadosAtivos = estado82;
-                
-                if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 9) {
-                    const res83 = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`);
-                    const d83 = await res83.json();
-                    if (d83 && d83.action) dadosAtivos = d83.action;
+                // 2. Os botões de brilho/temperatura só atualizam pela ponte se não estiveres a mexer neles!
+                if (!isInteractingUI) {
+                    let dadosAtivos = estado84;
+                    if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 1) dadosAtivos = estado82;
+                    if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 9) dadosAtivos = estado83;
+                    
+                    salaEstaLigada = dadosAtivos.on;
+                    const btn = document.getElementById('btn-power-sala');
+                    if (salaEstaLigada) btn.classList.add('ligado');
+                    else btn.classList.remove('ligado');
+                    
+                    document.getElementById('brilho-luz').value = dadosAtivos.bri || 1;
+                    if(dadosAtivos.ct) document.getElementById('temp-luz').value = dadosAtivos.ct; 
                 }
-                
-                salaEstaLigada = dadosAtivos.on;
-                const btn = document.getElementById('btn-power-sala');
-                if (salaEstaLigada) btn.classList.add('ligado');
-                else btn.classList.remove('ligado');
-                
-                document.getElementById('brilho-luz').value = dadosAtivos.bri || 1;
-                if(dadosAtivos.ct) document.getElementById('temp-luz').value = dadosAtivos.ct; 
 
             } catch (e) {}
-
-            verificarEstadoSyncBox();
+            isFetchingHue = false;
         }
-
-        window.toggleLuzAvançada = function(e) {
-            if (e) e.stopPropagation(); 
-            
-            if(document.body.classList.contains('luz-avancada')){
-                document.body.classList.remove('luz-avancada');
-                atualizarLabelSelecao();
-            } else {
-                document.body.classList.add('luz-avancada');
-                atualizarLabelSelecao();
-            }
-            
-            resetInatividade();
-        };
+        setInterval(sincronizarEstadoSala, 500); // Roda perfeitamente a cada meio segundo!
 
         function ativarAnimacao(origem = null) {
             const telaFechada = !document.body.classList.contains('movido');
             
             if (document.body.classList.contains('luz-avancada') && (!origem || origem === 'touch')) {
-                document.body.classList.remove('luz-avancada');
-                atualizarLabelSelecao();
+                fecharModoAvancado();
             }
 
             if (origem && origem !== 'touch') {
@@ -1232,7 +1269,8 @@
             }
 
             if (telaFechada || (origem && origem !== 'touch')) {
-                sincronizarEstadoSala();
+                // Já não precisa sincronizar tudo forçadamente aqui, o loop de 0.5s trata disso
+                if (!telaFechada) markInteraction(); 
             }
 
             document.body.classList.add('movido');
@@ -1240,6 +1278,7 @@
         }
 
         function mudarLuzSala(propriedade, valor) {
+            markInteraction();
             const corpo = { "on": true };
             corpo[propriedade] = parseInt(valor);
 
@@ -1255,7 +1294,6 @@
                 estado84[propriedade] = parseInt(valor);
             }
 
-            // Simula imediatamente a mudança nas luzes individuais localmente para resposta rápida
             for (let i = 1; i <= 8; i++) {
                 const focoId = 'foco-' + i;
                 if (luzesSelecionadas.has(focoId)) {
@@ -1272,6 +1310,7 @@
 
         function togglePowerSala() {
             ativarAnimacao('touch');
+            markInteraction();
             salaEstaLigada = !salaEstaLigada;
             
             const btn = document.getElementById('btn-power-sala');
@@ -1296,6 +1335,7 @@
 
         document.getElementById('brilho-luz').addEventListener('input', function() {
             ativarAnimacao('touch');
+            markInteraction();
             const valor = parseInt(this.value);
             if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.bri = valor; }
             if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.bri = valor; }
@@ -1314,6 +1354,7 @@
         
         document.getElementById('temp-luz').addEventListener('input', function() {
             ativarAnimacao('touch');
+            markInteraction();
             const valor = parseInt(this.value);
             if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.ct = valor; }
             if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.ct = valor; }
@@ -1350,7 +1391,7 @@
         function fecharVistaRocky() {
             document.getElementById('vista-rocky').style.display = 'none';
             document.body.classList.remove('movido'); 
-            document.body.classList.remove('luz-avancada');
+            if (document.body.classList.contains('luz-avancada')) fecharModoAvancado();
             origemAnimacao = null;
         }
 
@@ -1581,12 +1622,10 @@
 
         function detetarToqueEcra(e) {
             const agora = Date.now();
-            if (agora - ultimoToque < 300) return; // Previne o disparo duplo 
+            if (agora - ultimoToque < 300) return; 
 
-            // Se o ecrã está "acordado" e foi um arrasto do quadrado azul, ignora para não fechar a luz
             if (document.body.classList.contains('movido') && hasDragged) return; 
 
-            // 1. SE O ECRÃ ESTIVER A DORMIR (!movido) -> QUALQUER TOQUE ACORDA IMEDIATAMENTE, SEM DESCULPAS.
             if (!document.body.classList.contains('movido')) {
                 ultimoToque = agora;
                 if (!document.fullscreenElement) {
@@ -1594,10 +1633,9 @@
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
                 }
                 ativarAnimacao('touch'); 
-                return; // Já acordou, não faz mais nada
+                return; 
             }
 
-            // 2. SE O ECRÃ JÁ ESTÁ ACORDADO -> Aplica as restrições normais para não fechar sem querer quando tocas nos controlos
             if (e.target.tagName === 'INPUT' || 
                 e.target.tagName === 'BUTTON' || 
                 e.target.classList.contains('metade-switch') || 
@@ -1617,7 +1655,6 @@
             ativarAnimacao('touch'); 
         }
 
-        // Fica atento tanto a deslizes rápidos como a cliques
         ecra.addEventListener('touchstart', detetarToqueEcra, {passive: true});
         ecra.addEventListener('click', detetarToqueEcra);
 
