@@ -338,11 +338,11 @@
             flex-direction: column;
         }
 
-        /* O ESPAÇO ENTRE AS COLUNAS AUMENTADO AQUI PARA 8vw */
+        /* O ESPAÇO ENTRE AS COLUNAS AUMENTADO PARA 20vw (um dedo largo ou mais) */
         #rocky-headers {
             display: flex;
             width: 100%;
-            gap: 8vw; 
+            gap: 20vw; 
             margin-bottom: 2vh;
         }
 
@@ -384,11 +384,11 @@
         }
         .lista-scroll::-webkit-scrollbar { display: none; }
 
-        /* O ESPAÇO ENTRE OS BOTÕES AUMENTADO AQUI TAMBÉM PARA 8vw */
+        /* O ESPAÇO ENTRE OS BOTÕES AUMENTADO PARA 20vw TAMBÉM */
         .linha-divisao {
             display: flex;
             width: 100%;
-            gap: 8vw; 
+            gap: 20vw; 
             justify-content: space-between;
         }
 
@@ -859,7 +859,7 @@
 
 
         // ==========================================
-        // CÓDIGO DO ROCKY - CORRIGIDO
+        // CÓDIGO DO ROCKY
         // ==========================================
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
@@ -1119,7 +1119,6 @@
 
         async function getOutdoorTemp() {
             try {
-                // Coordenadas exatas para não puxar a temperatura do aeroporto (Portela)
                 const url = `https://api.openweathermap.org/data/2.5/weather?lat=38.816&lon=-9.155&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
                 const response = await fetch(url);
                 const data = await response.json();
@@ -1129,7 +1128,6 @@
 
         async function getRainChance() {
             try {
-                // Coordenadas exatas para a previsão da chuva
                 const url = `https://api.openweathermap.org/data/2.5/forecast?lat=38.816&lon=-9.155&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
                 const response = await fetch(url);
                 const data = await response.json();
