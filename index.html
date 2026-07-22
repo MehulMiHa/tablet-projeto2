@@ -55,18 +55,24 @@
 
         /* --- CAMADA 1: VISUAIS INTOCÁVEIS --- */
         .visual-forma {
-            transition: stroke 0.3s ease, filter 0.3s ease;
+            transition: stroke 0.3s ease, opacity 0.5s ease;
             pointer-events: none !important; /* Desliga totalmente toques nos desenhos puros */
         }
 
-        /* Cores no Modo Avançado */
+        /* Cores e Efeitos no Modo Avançado (Mantêm a cor original, mas respiram/piscam) */
         body.luz-avancada .visual-forma {
-            stroke: rgba(100, 100, 100, 0.3) !important; 
-            transition: stroke 0.3s ease !important;
+            opacity: 0.3; /* Não selecionadas ficam adormecidas no fundo */
         }
         
         body.luz-avancada .visual-forma.selecionada {
-            stroke: rgba(255, 255, 255, 1) !important; 
+            opacity: 1; 
+            animation: respirar-selecionado 2s infinite ease-in-out; /* O pulsar premium */
+        }
+
+        @keyframes respirar-selecionado {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
 
         /* --- CAMADA 2: HITBOXES GIGANTES --- */
@@ -552,8 +558,10 @@
 <body id="ecra">
     
     <div id="fundo-luzes-container">
+        <!-- O preserveAspectRatio garante as proporções originais -->
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
+                <!-- Filtro AUMENTADO para 200% para não cortar o brilho -->
                 <filter id="brilhoNeon" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="15" result="blur" />
                     <feMerge>
@@ -563,35 +571,44 @@
                 </filter>
             </defs>
             
+            <!-- CAMADA 1: VISUAL (Não faz absolutamente nada ao toque, apenas pinta no ecrã) -->
             <g style="pointer-events: none;">
                 <rect id="visual-sanca" class="visual-forma selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
 
+                <!-- O Filtro fica no grupo para partilharem o brilho e não criar quadrados -->
                 <g filter="url(#brilhoNeon)">
+                    <!-- LINHA 1 -->
                     <circle id="visual-foco-4" class="visual-forma selecionada foco-forma" cx="200" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-8" class="visual-forma selecionada foco-forma" cx="400" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <!-- LINHA 2 -->
                     <circle id="visual-foco-3" class="visual-forma selecionada foco-forma" cx="200" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-7" class="visual-forma selecionada foco-forma" cx="400" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <!-- LINHA 3 -->
                     <circle id="visual-foco-2" class="visual-forma selecionada foco-forma" cx="200" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-6" class="visual-forma selecionada foco-forma" cx="400" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <!-- LINHA 4 -->
                     <circle id="visual-foco-1" class="visual-forma selecionada foco-forma" cx="200" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-5" class="visual-forma selecionada foco-forma" cx="400" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
                 </g>
             </g>
 
+            <!-- CAMADA 2: HITBOXES (Retângulos transparentes gigantes para captar os dedos. Ficam por cima dos visuais) -->
             <g id="hitboxes" class="hitboxes-layer">
-                <rect id="hitbox-sanca" x="30" y="30" width="540" height="840" rx="15" class="luz-hitbox" />
+                <!-- Hitbox da Sanca AUMENTADO: Vai da margem 10 à 580 (apanha mesmo que falhes o desenho por pouco) -->
+                <rect id="hitbox-sanca" x="10" y="10" width="580" height="880" rx="25" class="luz-hitbox" />
                 
-                <rect id="hitbox-foco-4" x="100" y="80" width="200" height="180" class="luz-hitbox" />
-                <rect id="hitbox-foco-8" x="300" y="80" width="200" height="180" class="luz-hitbox" />
+                <!-- Os Focos são quadrados de 160x160 pixeis (enormes) exatamente centrados nas bolas -->
+                <rect id="hitbox-foco-4" x="120" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-8" x="320" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
                 
-                <rect id="hitbox-foco-3" x="100" y="260" width="200" height="180" class="luz-hitbox" />
-                <rect id="hitbox-foco-7" x="300" y="260" width="200" height="180" class="luz-hitbox" />
+                <rect id="hitbox-foco-3" x="120" y="270" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-7" x="320" y="270" width="160" height="160" rx="20" class="luz-hitbox" />
                 
-                <rect id="hitbox-foco-2" x="100" y="440" width="200" height="180" class="luz-hitbox" />
-                <rect id="hitbox-foco-6" x="300" y="440" width="200" height="180" class="luz-hitbox" />
+                <rect id="hitbox-foco-2" x="120" y="450" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-6" x="320" y="450" width="160" height="160" rx="20" class="luz-hitbox" />
                 
-                <rect id="hitbox-foco-1" x="100" y="620" width="200" height="180" class="luz-hitbox" />
-                <rect id="hitbox-foco-5" x="300" y="620" width="200" height="180" class="luz-hitbox" />
+                <rect id="hitbox-foco-1" x="120" y="630" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-5" x="320" y="630" width="160" height="160" rx="20" class="luz-hitbox" />
             </g>
         </svg>
     </div>
@@ -802,6 +819,7 @@
                 e.stopPropagation(); 
                 resetInatividade();
                 
+                // Pega no id da hitbox (ex: hitbox-foco-1) e transforma no id real visual (ex: foco-1)
                 const realId = this.id.replace('hitbox-', '');
                 const visual = document.getElementById('visual-' + realId);
                 
