@@ -102,13 +102,11 @@
             transition: opacity 0.5s ease;
         }
 
-        /* COMPORTAMENTO NORMAL DO RELÓGIO (Sobe um bocado, como antes) */
         body.movido #relogio-wrapper {
             transform: translate(var(--burn-x), -30vh); 
             opacity: 1;
         }
 
-        /* O MODO "LUZ AVANÇADA" - O Relógio desaparece muito devagar para cima */
         body.luz-avancada #relogio-wrapper {
             transition: transform 1.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.6s ease;
             transform: translate(var(--burn-x), -100vh); 
@@ -125,8 +123,8 @@
             position: absolute;
             bottom: 16vh; 
             display: flex;
-            justify-content: space-between;
-            width: 88vw; 
+            justify-content: center; 
+            width: 100vw; 
             align-items: center; 
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
@@ -198,6 +196,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            margin: 0 4vw; /* REDUZIDO: Traz as barras muito mais para perto do centro */
         }
 
         #lbl-grupo-ativo {
@@ -208,15 +207,20 @@
             color: #ffffff;
             text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
             white-space: nowrap;
-            /* Transição super suave para acompanhar o novo relógio lento */
             transition: color 0.3s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
             margin-bottom: 2.5vh; 
             text-align: center;
         }
 
-        /* O MODO "LUZ AVANÇADA" - O Texto sobe e fica em destaque onde estava o relógio */
         body.luz-avancada #lbl-grupo-ativo {
-            transform: translateY(-38vh) scale(1.5);
+            transform: translateY(-28vh) scale(1.5); /* DESCIDO: Fica mais em baixo, à altura de 1 dedo */
+        }
+
+        /* NOVO: Esconde os botões centrais na animação "Luz Avançada" */
+        body.luz-avancada #btn-sync-box,
+        body.luz-avancada #btn-power-sala {
+            opacity: 0;
+            pointer-events: none;
         }
 
         #btn-sync-box {
@@ -230,7 +234,7 @@
             margin-bottom: 3vh; 
             cursor: pointer;
             text-align: center;
-            transition: all 0.3s ease;
+            transition: all 0.3s ease, opacity 0.5s ease; /* Adicionada opacidade suave */
             backdrop-filter: blur(5px);
             width: max-content;
         }
@@ -254,7 +258,7 @@
             align-items: center;
             cursor: pointer;
             overflow: hidden;
-            transition: all 0.2s;
+            transition: all 0.2s, opacity 0.5s ease; /* Adicionada opacidade suave */
         }
 
         .metade-switch {
@@ -296,7 +300,6 @@
             border-top: 2px solid #fff;
         }
 
-        /* CORRIGIDO: Botões invisíveis no ecrã de relógio */
         #botoes-rodape-container {
             position: absolute;
             bottom: 2vh; 
@@ -308,13 +311,11 @@
             transition: opacity 0.5s ease-in;
         }
 
-        /* Só aparecem quando tocas na tela e abres as luzes */
         body.movido #botoes-rodape-container {
             opacity: 1;
             pointer-events: auto;
         }
         
-        /* Oculta os botões também quando se entra no modo Luz Avançada para ficar clean */
         body.luz-avancada #botoes-rodape-container {
             opacity: 0;
             pointer-events: none;
@@ -665,9 +666,6 @@
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
 
-        // ==========================================
-        // ANTI BURN-IN MOTOR (PROTEÇÃO ECRÃ AMOLED)
-        // ==========================================
         function atualizarBurnIn() {
             if (document.body.classList.contains('movido')) return; 
 
@@ -683,8 +681,6 @@
         
         atualizarBurnIn();
         setInterval(atualizarBurnIn, 60000); 
-
-        // ==========================================
 
         function calcularCorLuz(estado) {
             if (!estado.on) return 'rgba(100, 100, 100, 0.4)'; 
@@ -813,20 +809,16 @@
             verificarEstadoSyncBox();
         }
 
-        // NOVO: Função para o Botão "Luz Avançada"
         window.toggleLuzAvançada = function(e) {
             if (e) e.stopPropagation(); 
-            // Adiciona a classe que ativa a animação lenta e a troca com a Etiqueta
             document.body.classList.add('luz-avancada');
             
-            // Impede que o ecrã feche sozinho nestes menus avançados
             if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
         };
 
         function ativarAnimacao(origem = null) {
             const telaFechada = !document.body.classList.contains('movido');
             
-            // Sempre que há um toque no ecrã (fora dos menus), tira a "Luz Avançada" e o relógio volta
             document.body.classList.remove('luz-avancada');
 
             if (origem) {
@@ -858,7 +850,7 @@
                 origemAnimacao = null; 
                 grupoAtivo = '83'; 
                 document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
-                atualizarBurnIn(); // Força a variável do motor a atualizar no regresso à base
+                atualizarBurnIn(); 
             }, 8000);
         }
 
@@ -920,10 +912,6 @@
         document.getElementById('brilho-luz').addEventListener('change', function() { mudarLuzSala('bri', this.value); });
         document.getElementById('temp-luz').addEventListener('change', function() { mudarLuzSala('ct', this.value); });
 
-
-        // ==========================================
-        // CÓDIGO DO ROCKY
-        // ==========================================
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
         let divisoesMapa = [];
@@ -1142,9 +1130,6 @@
             }, 3000);
         }
 
-        // ==========================================
-        // DADOS DO SISTEMA GERAL E LISTENERS
-        // ==========================================
         window.receberDadosDaBridge = function(base64Dados) {
             try {
                 const jsonString = atob(base64Dados);
