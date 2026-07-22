@@ -56,17 +56,17 @@
         /* --- CAMADA 1: VISUAIS INTOCÁVEIS --- */
         .visual-forma {
             transition: stroke 0.3s ease, opacity 0.5s ease;
-            pointer-events: none !important; /* Desliga totalmente toques nos desenhos puros */
+            pointer-events: none !important;
         }
 
-        /* Cores e Efeitos no Modo Avançado (Mantêm a cor original, mas respiram/piscam) */
+        /* Cores e Efeitos no Modo Avançado */
         body.luz-avancada .visual-forma {
-            opacity: 0.3; /* Não selecionadas ficam adormecidas no fundo */
+            opacity: 0.3; 
         }
         
         body.luz-avancada .visual-forma.selecionada {
             opacity: 1; 
-            animation: respirar-selecionado 2s infinite ease-in-out; /* O pulsar premium */
+            animation: respirar-selecionado 2s infinite ease-in-out; 
         }
 
         @keyframes respirar-selecionado {
@@ -77,16 +77,27 @@
 
         /* --- CAMADA 2: HITBOXES GIGANTES --- */
         .hitboxes-layer {
-            pointer-events: none; /* Desligado no relógio */
+            pointer-events: none; 
         }
         body.luz-avancada .hitboxes-layer {
-            pointer-events: auto; /* Ligado no Selecionador! */
+            pointer-events: auto; 
         }
         .luz-hitbox {
-            fill: rgba(0, 0, 0, 0.01); /* 1% Preto! Força o tablet a detetar toques em 100% da área */
+            fill: rgba(0, 0, 0, 0.01); 
             cursor: pointer;
             pointer-events: all;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        /* A CAIXA TIPO "WINDOWS" */
+        #caixa-selecao {
+            position: fixed;
+            background: rgba(72, 219, 251, 0.2); 
+            border: 2px solid rgba(72, 219, 251, 0.8);
+            border-radius: 6px;
+            pointer-events: none;
+            display: none;
+            z-index: 9999;
         }
 
         #bateria-container {
@@ -179,7 +190,7 @@
             transition: opacity 0.6s ease-out 0.2s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
         }
 
-        /* MAGIA PURA: O painel tem de desligar cliques em Luz Avançada para não tapar os Focos centrais! */
+        /* O painel desliga-se para os arrastos no ecrã passarem para o SVG */
         body.luz-avancada #painel-luzes {
             pointer-events: none !important;
         }
@@ -557,11 +568,12 @@
 </head>
 <body id="ecra">
     
+    <!-- A CAIXA DE ARRASTO DO WINDOWS (Injetada no HTML) -->
+    <div id="caixa-selecao"></div>
+
     <div id="fundo-luzes-container">
-        <!-- O preserveAspectRatio garante as proporções originais -->
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
-                <!-- Filtro AUMENTADO para 200% para não cortar o brilho -->
                 <filter id="brilhoNeon" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="15" result="blur" />
                     <feMerge>
@@ -571,33 +583,27 @@
                 </filter>
             </defs>
             
-            <!-- CAMADA 1: VISUAL (Não faz absolutamente nada ao toque, apenas pinta no ecrã) -->
             <g style="pointer-events: none;">
                 <rect id="visual-sanca" class="visual-forma selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
 
-                <!-- O Filtro fica no grupo para partilharem o brilho e não criar quadrados -->
                 <g filter="url(#brilhoNeon)">
-                    <!-- LINHA 1 -->
                     <circle id="visual-foco-4" class="visual-forma selecionada foco-forma" cx="200" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-8" class="visual-forma selecionada foco-forma" cx="400" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    <!-- LINHA 2 -->
+                    
                     <circle id="visual-foco-3" class="visual-forma selecionada foco-forma" cx="200" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-7" class="visual-forma selecionada foco-forma" cx="400" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    <!-- LINHA 3 -->
+                    
                     <circle id="visual-foco-2" class="visual-forma selecionada foco-forma" cx="200" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-6" class="visual-forma selecionada foco-forma" cx="400" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
-                    <!-- LINHA 4 -->
+                    
                     <circle id="visual-foco-1" class="visual-forma selecionada foco-forma" cx="200" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
                     <circle id="visual-foco-5" class="visual-forma selecionada foco-forma" cx="400" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
                 </g>
             </g>
 
-            <!-- CAMADA 2: HITBOXES (Retângulos transparentes gigantes para captar os dedos. Ficam por cima dos visuais) -->
             <g id="hitboxes" class="hitboxes-layer">
-                <!-- Hitbox da Sanca AUMENTADO: Vai da margem 10 à 580 (apanha mesmo que falhes o desenho por pouco) -->
                 <rect id="hitbox-sanca" x="10" y="10" width="580" height="880" rx="25" class="luz-hitbox" />
                 
-                <!-- Os Focos são quadrados de 160x160 pixeis (enormes) exatamente centrados nas bolas -->
                 <rect id="hitbox-foco-4" x="120" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
                 <rect id="hitbox-foco-8" x="320" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
                 
@@ -718,7 +724,8 @@
 
     <script>
         document.addEventListener('touchmove', function(e) {
-            if (e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
+            // Se não estivermos a desenhar a caixa de seleção e não for slider/scroll
+            if (!hasDragged && e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
                 e.preventDefault();
             }
         }, { passive: false });
@@ -811,15 +818,140 @@
             document.getElementById('lbl-grupo-ativo').innerText = texto;
         }
 
-        // LÓGICA COM OS NOVOS HITBOXES INVISÍVEIS!
+        // ==========================================
+        // O NOVO MOTOR "CLICK AND DRAG" (TIPO WINDOWS)
+        // ==========================================
+        let blockNextClick = false;
+        let dragStarted = false;
+        let hasDragged = false;
+        let startX = 0, startY = 0;
+        const dragThreshold = 15; // Precisa de arrastar 15px para o tablet perceber que não foi só um clique
+        const selectionBox = document.getElementById('caixa-selecao');
+        const containerMestre = document.getElementById('fundo-luzes-container');
+
+        function getPointerPos(e) {
+            if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        containerMestre.addEventListener('mousedown', dragStart);
+        containerMestre.addEventListener('touchstart', dragStart, {passive: false});
+
+        function dragStart(e) {
+            if (!document.body.classList.contains('luz-avancada')) return;
+            // Só ativa o modo "Windows" se tocares por cima das hitboxes das luzes
+            if (!e.target.classList.contains('luz-hitbox') && e.target.id !== 'fundo-luzes-container') return;
+            
+            dragStarted = true;
+            hasDragged = false;
+            const pos = getPointerPos(e);
+            startX = pos.x;
+            startY = pos.y;
+        }
+
+        window.addEventListener('mousemove', dragMove);
+        window.addEventListener('touchmove', dragMove, {passive: false});
+
+        function dragMove(e) {
+            if (!dragStarted) return;
+            const pos = getPointerPos(e);
+            const dx = Math.abs(pos.x - startX);
+            const dy = Math.abs(pos.y - startY);
+
+            // Confirmação de que está mesmo a arrastar e a desenhar a caixa
+            if (!hasDragged && (dx > dragThreshold || dy > dragThreshold)) {
+                hasDragged = true;
+                selectionBox.style.display = 'block';
+            }
+
+            if (hasDragged) {
+                if (e.cancelable) e.preventDefault(); // Impede scroll indesejado
+                
+                const currentX = pos.x;
+                const currentY = pos.y;
+                
+                const left = Math.min(startX, currentX);
+                const top = Math.min(startY, currentY);
+                const width = Math.abs(currentX - startX);
+                const height = Math.abs(currentY - startY);
+                
+                selectionBox.style.left = left + 'px';
+                selectionBox.style.top = top + 'px';
+                selectionBox.style.width = width + 'px';
+                selectionBox.style.height = height + 'px';
+            }
+        }
+
+        window.addEventListener('mouseup', dragEnd);
+        window.addEventListener('touchend', dragEnd);
+
+        function dragEnd(e) {
+            if (!dragStarted) return;
+            dragStarted = false;
+            
+            if (hasDragged) {
+                selectionBox.style.display = 'none';
+                processarCaixaDeSelecao();
+                
+                // Bloqueia o clique singular a seguir para o desenho não "piscar" e anular a seleção
+                blockNextClick = true;
+                setTimeout(() => blockNextClick = false, 50);
+            }
+        }
+
+        function processarCaixaDeSelecao() {
+            const boxRect = selectionBox.getBoundingClientRect();
+            const touchedIds = [];
+            
+            // Verifica QUAIS FOCOS foram tocados pela caixa (Ignora a Sanca de propósito!)
+            for (let i = 1; i <= 8; i++) {
+                const hitbox = document.getElementById('hitbox-foco-' + i);
+                if (!hitbox) continue;
+                const hbRect = hitbox.getBoundingClientRect();
+                
+                // Matemática de colisão de ecrã (Hit-testing)
+                const overlaps = !(
+                    boxRect.right < hbRect.left || 
+                    boxRect.left > hbRect.right || 
+                    boxRect.bottom < hbRect.top || 
+                    boxRect.top > hbRect.bottom
+                );
+                
+                if (overlaps) touchedIds.push('foco-' + i);
+            }
+
+            if (touchedIds.length === 0) return;
+
+            resetInatividade();
+
+            // A Lógica Pro que pediste: Se todos os que tocou estão selecionados -> Apaga. Senão -> Acende todos.
+            const allSelected = touchedIds.every(id => luzesSelecionadas.has(id));
+
+            touchedIds.forEach(id => {
+                const visual = document.getElementById('visual-' + id);
+                if (allSelected) {
+                    luzesSelecionadas.delete(id);
+                    if(visual) visual.classList.remove('selecionada');
+                } else {
+                    luzesSelecionadas.add(id);
+                    if(visual) visual.classList.add('selecionada');
+                }
+            });
+            
+            atualizarLabelSelecao();
+        }
+
+        // ==========================================
+        // O CLIQUE NORMAL (MANTIDO E PROTEGIDO)
+        // ==========================================
         document.querySelectorAll('.luz-hitbox').forEach(hitbox => {
             hitbox.addEventListener('click', function(e) {
                 if (!document.body.classList.contains('luz-avancada')) return;
+                if (blockNextClick) return; // Se arrastaste a caixa azul, ele ignora este clique!
                 
                 e.stopPropagation(); 
                 resetInatividade();
                 
-                // Pega no id da hitbox (ex: hitbox-foco-1) e transforma no id real visual (ex: foco-1)
                 const realId = this.id.replace('hitbox-', '');
                 const visual = document.getElementById('visual-' + realId);
                 
@@ -835,6 +967,9 @@
             });
         });
 
+        // ==========================================
+        // RESTO DO CÉREBRO
+        // ==========================================
         function enviarComandoHueCerebro(corpo) {
             const temSanca = luzesSelecionadas.has('sanca');
             const focosAtivos = [];
@@ -1357,7 +1492,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            // Garante que clicar fora de tudo aciona a animação de relógio
+            if (hasDragged) return; // Se acabou de arrastar, não conta como clique no ecrã para fechar
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-hitbox')) {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
