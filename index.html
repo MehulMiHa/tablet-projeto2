@@ -54,22 +54,18 @@
             pointer-events: auto;
         }
 
-        /* Hitboxes & Formas */
         .luz-vector {
+            transition: stroke 0.3s ease, filter 0.3s ease;
             cursor: pointer;
         }
 
-        .forma {
-            transition: stroke 0.3s ease, filter 0.3s ease;
-        }
-
         /* Cores no Modo Avançado */
-        body.luz-avancada .luz-vector .forma {
+        body.luz-avancada .luz-vector {
             stroke: rgba(100, 100, 100, 0.3) !important; 
             transition: stroke 0.3s ease !important;
         }
         
-        body.luz-avancada .luz-vector.selecionada .forma {
+        body.luz-avancada .luz-vector.selecionada {
             stroke: rgba(255, 255, 255, 1) !important; 
         }
 
@@ -539,7 +535,6 @@
 </head>
 <body id="ecra">
     
-    <!-- ESTRUTURA SVG REFEITA PARA TOQUES PERFEITOS E GRELHA CORRETA -->
     <div id="fundo-luzes-container">
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
@@ -552,53 +547,22 @@
                 </filter>
             </defs>
             
-            <g id="sanca" class="luz-vector selecionada">
-                <!-- Sanca: Forma Visível -->
-                <rect class="forma" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                <!-- Sanca: Hitbox (Borda invisível de 120px para não tapar o meio) -->
-                <rect x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="rgba(0,0,0,0)" stroke-width="120" style="pointer-events: stroke;"/>
-            </g>
+            <!-- TRUQUE MÁGICO 1: pointer-events: stroke faz com que o ecrã ignore o buraco do meio da sanca -->
+            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)" style="pointer-events: stroke;"/>
 
-            <g id="desenho-84">
-                <!-- LINHA 1: Foco 4 (Esq) | Foco 8 (Dir) -->
-                <g id="foco-4" class="luz-vector selecionada">
-                    <circle class="forma foco-forma" cx="200" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                    <circle cx="200" cy="170" r="110" fill="rgba(0,0,0,0)" stroke="none" style="pointer-events: fill;"/>
-                </g>
-                <g id="foco-8" class="luz-vector selecionada">
-                    <circle class="forma foco-forma" cx="400" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                    <circle cx="400" cy="170" r="110" fill="rgba(0,0,0,0)" stroke="none" style="pointer-events: fill;"/>
-                </g>
-
-                <!-- LINHA 2: Foco 3 (Esq) | Foco 7 (Dir) -->
-                <g id="foco-3" class="luz-vector selecionada">
-                    <circle class="forma foco-forma" cx="200" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                    <circle cx="200" cy="350" r="110" fill="rgba(0,0,0,0)" stroke="none" style="pointer-events: fill;"/>
-                </g>
-                <g id="foco-7" class="luz-vector selecionada">
-                    <circle class="forma foco-forma" cx="400" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                    <circle cx="400" cy="350" r="110" fill="rgba(0,0,0,0)" stroke="none" style="pointer-events: fill;"/>
-                </g>
-
-                <!-- LINHA 3: Foco 2 (Esq) | Foco 6 (Dir) -->
-                <g id="foco-2" class="luz-vector selecionada">
-                    <circle class="forma foco-forma" cx="200" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                    <circle cx="200" cy="530" r="110" fill="rgba(0,0,0,0)" stroke="none" style="pointer-events: fill;"/>
-                </g>
-                <g id="foco-6" class="luz-vector selecionada">
-                    <circle class="forma foco-forma" cx="400" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                    <circle cx="400" cy="530" r="110" fill="rgba(0,0,0,0)" stroke="none" style="pointer-events: fill;"/>
-                </g>
-
-                <!-- LINHA 4: Foco 1 (Esq) | Foco 5 (Dir) -->
-                <g id="foco-1" class="luz-vector selecionada">
-                    <circle class="forma foco-forma" cx="200" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                    <circle cx="200" cy="710" r="110" fill="rgba(0,0,0,0)" stroke="none" style="pointer-events: fill;"/>
-                </g>
-                <g id="foco-5" class="luz-vector selecionada">
-                    <circle class="forma foco-forma" cx="400" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
-                    <circle cx="400" cy="710" r="110" fill="rgba(0,0,0,0)" stroke="none" style="pointer-events: fill;"/>
-                </g>
+            <!-- TRUQUE MÁGICO 2: pointer-events: all faz com que clicar na zona transparente do foco ative o foco perfeito! O Filtro fica no grupo para NÃO CRIAR QUADRADOS! -->
+            <g id="desenho-84" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
+                <circle id="foco-4" class="luz-vector selecionada" cx="200" cy="170" r="70" style="pointer-events: all;" />
+                <circle id="foco-8" class="luz-vector selecionada" cx="400" cy="170" r="70" style="pointer-events: all;" />
+                
+                <circle id="foco-3" class="luz-vector selecionada" cx="200" cy="350" r="70" style="pointer-events: all;" />
+                <circle id="foco-7" class="luz-vector selecionada" cx="400" cy="350" r="70" style="pointer-events: all;" />
+                
+                <circle id="foco-2" class="luz-vector selecionada" cx="200" cy="530" r="70" style="pointer-events: all;" />
+                <circle id="foco-6" class="luz-vector selecionada" cx="400" cy="530" r="70" style="pointer-events: all;" />
+                
+                <circle id="foco-1" class="luz-vector selecionada" cx="200" cy="710" r="70" style="pointer-events: all;" />
+                <circle id="foco-5" class="luz-vector selecionada" cx="400" cy="710" r="70" style="pointer-events: all;" />
             </g>
         </svg>
     </div>
@@ -762,9 +726,7 @@
         // ==========================================
         let luzesSelecionadas = new Set(['sanca', 'foco-1', 'foco-2', 'foco-3', 'foco-4', 'foco-5', 'foco-6', 'foco-7', 'foco-8']);
 
-        /* MAPA LIGADO AO JSON DA PHILIPS HUE QUE FORNECESTE! */
         const MAPA_LUZES_INDIVIDUAIS = {
-            'sanca': '1', /* Assumi que a sanca é o ID 1, a fita principal. Ajusta se for outro */
             'foco-1': '11',  
             'foco-2': '10',  
             'foco-3': '9',   
@@ -836,18 +798,12 @@
             } else if (temSanca && focosAtivos.length === 0) {
                 fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
             } else {
-                // Se for apenas UM foco específico, envia diretamente para o ID real da lâmpada!
-                if (!temSanca && focosAtivos.length === 1) {
-                    const idRealHue = MAPA_LUZES_INDIVIDUAIS['foco-' + focosAtivos[0]];
-                    if (idRealHue) {
-                        fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/lights/${idRealHue}/state`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
-                        return;
-                    }
+                if (temSanca) {
+                    fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
                 }
-                // Caso misto (várias luzes avulsas), envia individualmente
-                luzesSelecionadas.forEach(idDesenho => {
-                    const idRealHue = MAPA_LUZES_INDIVIDUAIS[idDesenho];
-                    if(idRealHue) {
+                focosAtivos.forEach(numFoco => {
+                    const idRealHue = MAPA_LUZES_INDIVIDUAIS['foco-' + numFoco];
+                    if (idRealHue) {
                         fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/lights/${idRealHue}/state`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
                     }
                 });
@@ -896,10 +852,11 @@
         }
 
         function atualizarCoresFundo3D() {
-            const rect82 = document.querySelector('#sanca .forma');
-            if(rect82) rect82.style.stroke = calcularCorLuz(estado82);
+            const rect82 = document.getElementById('sanca');
+            const circs84 = document.getElementById('desenho-84');
             
-            document.querySelectorAll('.foco-forma').forEach(f => f.style.stroke = calcularCorLuz(estado84));
+            if(rect82) rect82.style.stroke = calcularCorLuz(estado82);
+            if(circs84) circs84.style.stroke = calcularCorLuz(estado84);
         }
 
         window.receberDadosSyncBox = function(jsonString) {
@@ -1349,7 +1306,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.closest('.luz-vector')) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-vector')) {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
