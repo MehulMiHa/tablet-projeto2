@@ -270,92 +270,52 @@
             border-top: 2px solid #fff;
         }
 
-        #btn-opcoes {
+        /* --- NOVOS BOTÕES INFERIORES LADO A LADO --- */
+        #botoes-rodape-container {
             position: absolute;
-            bottom: 1.5vh; 
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            font-size: 1.5vh;
-            font-weight: bold;
-            padding: 1vh 4vw;
-            border-radius: 30px;
-            backdrop-filter: blur(10px);
-            cursor: pointer;
+            bottom: 2vh; 
+            display: flex;
+            gap: 4vw;
             z-index: 15;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.5s ease-in;
         }
 
-        body.movido #btn-opcoes {
+        body.movido #botoes-rodape-container {
             opacity: 1;
             pointer-events: auto;
         }
 
-        #vista-secundaria {
-            display: none; 
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-image: url('fundo.jpg');
-            background-size: cover;
-            background-position: center;
-            z-index: 999;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-        }
-
-        #btn-voltar {
-            margin-top: 8vh;
-            background: rgba(0, 0, 0, 0.6);
-            border: 2px solid rgba(255, 255, 255, 0.5);
+        .btn-rodape {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             color: white;
-            font-size: 2.5vh;
+            font-size: 2vh;
             font-weight: bold;
-            padding: 2vh 5vw;
-            border-radius: 40px;
+            padding: 1.5vh 5vw;
+            border-radius: 30px;
             backdrop-filter: blur(10px);
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: background 0.3s, transform 0.1s;
         }
 
-        #menu-botoes-avancados {
-            display: flex;
-            flex-direction: column;
-            gap: 4vh;
-            margin-top: 12vh;
-            width: 70vw;
-        }
-
-        .btn-avancado {
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            font-size: 4vh;
-            font-weight: bold;
-            padding: 4vh 0;
-            border-radius: 20px;
-            backdrop-filter: blur(15px);
-            cursor: pointer;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-            transition: transform 0.1s, background 0.3s;
-        }
-
-        .btn-avancado:active {
+        .btn-rodape:active {
             transform: scale(0.95);
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.2);
         }
 
-        /* --- NOVOS ESTILOS DO PAINEL ROCKY --- */
+        /* --- ESTILOS DO PAINEL ROCKY ATUALIZADOS --- */
         #vista-rocky {
             display: none; 
             position: absolute;
             top: 0; left: 0;
             width: 100vw; height: 100vh;
-            background-color: #0d0d0d;
+            /* Fundo de ecrã inteiro com camada escura por cima para legibilidade */
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url('fundo.jpg');
+            background-size: cover;
+            background-position: center;
             z-index: 1000;
             flex-direction: column;
             align-items: center;
@@ -572,20 +532,15 @@
         </div>
     </div>
 
-    <button id="btn-opcoes" onclick="abrirOpcoes()">⚙️ Opções Avançadas</button>
-
-    <div id="vista-secundaria">
-        <button id="btn-voltar" onclick="fecharOpcoes()">⬅ Voltar ao Relógio</button>
-        
-        <div id="menu-botoes-avancados">
-            <button class="btn-avancado">💡 Luzes</button>
-            <button class="btn-avancado" onclick="abrirVistaRocky()">🤖 Rocky</button>
-        </div>
+    <!-- NOVOS BOTÕES (Substitui as Opções Avançadas) -->
+    <div id="botoes-rodape-container">
+        <button class="btn-rodape">💡 Luz Avançada</button>
+        <button class="btn-rodape" onclick="abrirVistaRocky()">🤖 Rocky</button>
     </div>
 
     <!-- NOVA VISTA DO ROCKY -->
     <div id="vista-rocky">
-        <button id="btn-voltar-rocky" onclick="fecharVistaRocky()" style="margin-top: 5vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; cursor: pointer;">⬅ Voltar às Opções</button>
+        <button id="btn-voltar-rocky" onclick="fecharVistaRocky()" style="margin-top: 5vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; cursor: pointer;">⬅ Voltar ao Relógio</button>
         <div id="titulo-rocky">Onde desejas limpar?</div>
         <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
         
@@ -894,15 +849,6 @@
         document.getElementById('brilho-luz').addEventListener('change', function() { mudarLuzSala('bri', this.value); });
         document.getElementById('temp-luz').addEventListener('change', function() { mudarLuzSala('ct', this.value); });
 
-        function abrirOpcoes() {
-            document.getElementById('vista-secundaria').style.display = 'flex';
-            document.body.classList.remove('movido'); 
-            origemAnimacao = null;
-        }
-
-        function fecharOpcoes() {
-            document.getElementById('vista-secundaria').style.display = 'none';
-        }
 
         // ==========================================
         // CÓDIGO DO ROCKY - CORRIGIDO E SEM ALERTS
@@ -912,16 +858,20 @@
         let divisoesMapa = [];
 
         function abrirVistaRocky() {
-            document.getElementById('vista-secundaria').style.display = 'none';
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
+            
+            // Pausa o fecho automático para a pessoa configurar em paz
+            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
+
             carregarMapaRocky();
         }
 
         function fecharVistaRocky() {
             document.getElementById('vista-rocky').style.display = 'none';
-            document.getElementById('vista-secundaria').style.display = 'flex';
+            document.body.classList.remove('movido'); 
+            origemAnimacao = null;
         }
 
         async function carregarMapaRocky() {
@@ -1039,7 +989,6 @@
         }
 
         function desenharMapa() {
-            // Em vez de alert, muda o texto temporariamente
             const btn = document.getElementById('btn-area');
             const txtOriginal = btn.innerHTML;
             btn.innerHTML = "Em breve!";
@@ -1051,7 +1000,6 @@
             const arrayLavar = Array.from(selecaoLavar);
             
             if (arrayAspirar.length === 0 && arrayLavar.length === 0) {
-                // Em vez de alert, muda o botão para vermelho a avisar
                 const btn = document.getElementById('btn-continuar');
                 const txtOriginal = btn.innerHTML;
                 btn.innerHTML = "⚠️ Escolhe 1 Divisão!";
@@ -1163,7 +1111,7 @@
                         for (const item of evento.data) {
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
-                                    if (document.getElementById('vista-secundaria').style.display !== 'flex' && document.getElementById('vista-rocky').style.display !== 'flex') {
+                                    if (document.getElementById('vista-rocky').style.display !== 'flex') {
                                         ativarAnimacao(item.id); 
                                     }
                                 }
