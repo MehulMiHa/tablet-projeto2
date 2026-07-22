@@ -536,9 +536,11 @@
 <body id="ecra">
     
     <div id="fundo-luzes-container">
+        <!-- O preserveAspectRatio garante as bolas redondas -->
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
-                <filter id="brilhoNeon" x="-20%" y="-20%" width="140%" height="140%">
+                <!-- Filtro AUMENTADO para 200% para acabar de vez com os quadrados! -->
+                <filter id="brilhoNeon" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="15" result="blur" />
                     <feMerge>
                         <feMergeNode in="blur" />
@@ -547,22 +549,24 @@
                 </filter>
             </defs>
             
-            <!-- TRUQUE MÁGICO 1: pointer-events: stroke faz com que o ecrã ignore o buraco do meio da sanca -->
-            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)" style="pointer-events: stroke;"/>
+            <!-- Sanca: O stroke pointer-events permite clicar só na linha e ignorar o buraco no meio -->
+            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="transparent" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)" style="pointer-events: stroke;"/>
 
-            <!-- TRUQUE MÁGICO 2: pointer-events: all faz com que clicar na zona transparente do foco ative o foco perfeito! O Filtro fica no grupo para NÃO CRIAR QUADRADOS! -->
-            <g id="desenho-84" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
-                <circle id="foco-4" class="luz-vector selecionada" cx="200" cy="170" r="70" style="pointer-events: all;" />
-                <circle id="foco-8" class="luz-vector selecionada" cx="400" cy="170" r="70" style="pointer-events: all;" />
+            <!-- O Filtro é aplicado no grupo para que todas as formas brilhem em conjunto sem cortar -->
+            <g id="desenho-84" fill="transparent" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
                 
-                <circle id="foco-3" class="luz-vector selecionada" cx="200" cy="350" r="70" style="pointer-events: all;" />
-                <circle id="foco-7" class="luz-vector selecionada" cx="400" cy="350" r="70" style="pointer-events: all;" />
+                <!-- Raio está a 70 e pointer-events:all permite toque perfeito mesmo no meio da bola transparente -->
+                <circle id="foco-4" class="luz-vector selecionada foco-forma" cx="200" cy="170" r="70" style="pointer-events: all;" />
+                <circle id="foco-8" class="luz-vector selecionada foco-forma" cx="400" cy="170" r="70" style="pointer-events: all;" />
                 
-                <circle id="foco-2" class="luz-vector selecionada" cx="200" cy="530" r="70" style="pointer-events: all;" />
-                <circle id="foco-6" class="luz-vector selecionada" cx="400" cy="530" r="70" style="pointer-events: all;" />
+                <circle id="foco-3" class="luz-vector selecionada foco-forma" cx="200" cy="350" r="70" style="pointer-events: all;" />
+                <circle id="foco-7" class="luz-vector selecionada foco-forma" cx="400" cy="350" r="70" style="pointer-events: all;" />
                 
-                <circle id="foco-1" class="luz-vector selecionada" cx="200" cy="710" r="70" style="pointer-events: all;" />
-                <circle id="foco-5" class="luz-vector selecionada" cx="400" cy="710" r="70" style="pointer-events: all;" />
+                <circle id="foco-2" class="luz-vector selecionada foco-forma" cx="200" cy="530" r="70" style="pointer-events: all;" />
+                <circle id="foco-6" class="luz-vector selecionada foco-forma" cx="400" cy="530" r="70" style="pointer-events: all;" />
+                
+                <circle id="foco-1" class="luz-vector selecionada foco-forma" cx="200" cy="710" r="70" style="pointer-events: all;" />
+                <circle id="foco-5" class="luz-vector selecionada foco-forma" cx="400" cy="710" r="70" style="pointer-events: all;" />
             </g>
         </svg>
     </div>
@@ -853,10 +857,9 @@
 
         function atualizarCoresFundo3D() {
             const rect82 = document.getElementById('sanca');
-            const circs84 = document.getElementById('desenho-84');
-            
             if(rect82) rect82.style.stroke = calcularCorLuz(estado82);
-            if(circs84) circs84.style.stroke = calcularCorLuz(estado84);
+            
+            document.querySelectorAll('.foco-forma').forEach(f => f.style.stroke = calcularCorLuz(estado84));
         }
 
         window.receberDadosSyncBox = function(jsonString) {
@@ -1306,7 +1309,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-vector')) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-vector') && !e.target.classList.contains('foco-forma')) {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
                     else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
