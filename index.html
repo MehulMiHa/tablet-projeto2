@@ -64,7 +64,7 @@
         }
 
         #relogio-wrapper {
-            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease;
             z-index: 10;
             display: flex;
             flex-direction: column;
@@ -105,8 +105,9 @@
         }
 
         body.movido #relogio-wrapper {
-            /* IMPORTANTE: Quando tocas, ignora o motor de burn-in e vai para o sítio certo na animação */
-            transform: translate(0vw, -30vh) !important; 
+            /* IMPORTANTE: Dispara o relógio totalmente para fora do ecrã e desvanece */
+            transform: translate(var(--burn-x), -100vh) !important; 
+            opacity: 0;
         }
 
         body.movido #temps-top,
@@ -115,12 +116,13 @@
             pointer-events: none;
         }
 
+        /* CORREÇÃO DO ESPAÇAMENTO DOS SLIDERS */
         #painel-luzes {
             position: absolute;
             bottom: 16vh; 
             display: flex;
-            justify-content: space-between;
-            width: 88vw; 
+            justify-content: center; /* Centraliza tudo */
+            width: 100vw; 
             align-items: center; 
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
@@ -192,6 +194,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            margin: 0 10vw; /* As margens que criam a distância perfeita para os sliders laterais */
         }
 
         #lbl-grupo-ativo {
@@ -290,14 +293,10 @@
             display: flex;
             justify-content: center;
             z-index: 15;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease-in;
-        }
-
-        body.movido #botoes-rodape-container {
-            opacity: 1;
+            /* Botões sempre visíveis agora */
+            opacity: 1; 
             pointer-events: auto;
+            transition: opacity 0.5s ease-in;
         }
 
         .btn-rodape {
@@ -555,8 +554,8 @@
     </div>
 
     <div id="botoes-rodape-container">
-        <button class="btn-rodape">💡 Luz Avançada</button>
-        <button class="btn-rodape" onclick="abrirVistaRocky()">🤖 Rocky</button>
+        <button class="btn-rodape" onclick="toggleLuzAvançada(event)">💡 Luz Avançada</button>
+        <button class="btn-rodape" onclick="abrirVistaRocky(event)">🤖 Rocky</button>
     </div>
 
     <div id="vista-rocky">
@@ -649,18 +648,12 @@
         // ANTI BURN-IN MOTOR (PROTEÇÃO ECRÃ AMOLED)
         // ==========================================
         function atualizarBurnIn() {
-            // Só corre o relógio de posição se o painel de luzes NÃO estiver aberto
+            // Só corre o relógio se o painel de luzes NÃO estiver aberto
             if (document.body.classList.contains('movido')) return; 
 
             const agora = Date.now();
-            
-            // MACRO-SHIFT: Viaja de cima a baixo 2 vezes por dia (1 ciclo a cada 12 horas)
-            // Desloca o relógio entre -18vh (bastante acima) e +18vh (bastante abaixo)
             const cicloVertical = 12 * 60 * 60 * 1000; 
             const eixoY = Math.sin((agora % cicloVertical) / cicloVertical * Math.PI * 2) * 18;
-
-            // MICRO-SHIFT: Abana subtilmente para os lados (1 ciclo por hora)
-            // Previne que a linha vertical reta de um "1" ou de um "7" fique marcada
             const cicloHorizontal = 60 * 60 * 1000;
             const eixoX = Math.sin((agora % cicloHorizontal) / cicloHorizontal * Math.PI * 2) * 3;
 
@@ -668,7 +661,6 @@
             document.documentElement.style.setProperty('--burn-x', `${eixoX}vw`);
         }
         
-        // Ativa imediatamente e reajusta 1 vez por minuto (movimento impercetível ao olho nu)
         atualizarBurnIn();
         setInterval(atualizarBurnIn, 60000); 
 
@@ -801,6 +793,23 @@
             verificarEstadoSyncBox();
         }
 
+        // LÓGICA DO CLIQUE NO BOTÃO "LUZ AVANÇADA"
+        window.toggleLuzAvançada = function(e) {
+            e.stopPropagation(); // Evita que o clique seja apanhado pelo fundo
+            if (document.body.classList.contains('movido')) {
+                // Se já estiver aberto, volta a fechar e repõe o relógio
+                document.body.classList.remove('movido');
+                if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
+                origemAnimacao = null;
+                grupoAtivo = '83';
+                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
+                atualizarBurnIn();
+            } else {
+                // Dispara o relógio
+                ativarAnimacao('touch');
+            }
+        };
+
         function ativarAnimacao(origem = null) {
             const telaFechada = !document.body.classList.contains('movido');
 
@@ -902,7 +911,8 @@
         let selecaoLavar = new Set();
         let divisoesMapa = [];
 
-        function abrirVistaRocky() {
+        window.abrirVistaRocky = function(e) {
+            if (e) e.stopPropagation(); // Evita que clique no Rocky abra as luzes também
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
@@ -910,7 +920,7 @@
             if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
 
             carregarMapaRocky();
-        }
+        };
 
         function fecharVistaRocky() {
             document.getElementById('vista-rocky').style.display = 'none';
