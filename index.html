@@ -46,6 +46,13 @@
             transform: translateY(-5vh) perspective(1000px) rotateX(35deg) scale(1.1);
         }
 
+        /* O MODO "LUZ AVANÇADA" - O Fundo 3D endireita-se e fica pequeno abaixo da SALA */
+        body.luz-avancada #fundo-luzes-container {
+            opacity: 0.9; 
+            transform: translateY(2vh) perspective(1000px) rotateX(0deg) scale(0.35); /* Fica perfeitamente plano e mais pequeno */
+            transition: opacity 1.6s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
         .luz-vector {
             transition: stroke 0.3s ease, filter 0.3s ease;
         }
@@ -144,6 +151,21 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            transition: transform 1.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.6s ease; /* Adicionada animação suave para sumirem */
+        }
+
+        /* O MODO "LUZ AVANÇADA" - A barra da esquerda foge para a esquerda */
+        body.luz-avancada #painel-luzes .grupo-slider:first-child {
+            transform: translateX(-40vw);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* O MODO "LUZ AVANÇADA" - A barra da direita foge para a direita */
+        body.luz-avancada #painel-luzes .grupo-slider:last-child {
+            transform: translateX(40vw);
+            opacity: 0;
+            pointer-events: none;
         }
 
         .icone-luz {
@@ -196,7 +218,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin: 0 4vw; /* REDUZIDO: Traz as barras muito mais para perto do centro */
+            margin: 0 4vw; 
         }
 
         #lbl-grupo-ativo {
@@ -213,10 +235,9 @@
         }
 
         body.luz-avancada #lbl-grupo-ativo {
-            transform: translateY(-28vh) scale(1.5); /* DESCIDO: Fica mais em baixo, à altura de 1 dedo */
+            transform: translateY(-28vh) scale(1.5); 
         }
 
-        /* NOVO: Esconde os botões centrais na animação "Luz Avançada" */
         body.luz-avancada #btn-sync-box,
         body.luz-avancada #btn-power-sala {
             opacity: 0;
@@ -234,7 +255,7 @@
             margin-bottom: 3vh; 
             cursor: pointer;
             text-align: center;
-            transition: all 0.3s ease, opacity 0.5s ease; /* Adicionada opacidade suave */
+            transition: all 0.3s ease, opacity 0.5s ease; 
             backdrop-filter: blur(5px);
             width: max-content;
         }
@@ -258,7 +279,7 @@
             align-items: center;
             cursor: pointer;
             overflow: hidden;
-            transition: all 0.2s, opacity 0.5s ease; /* Adicionada opacidade suave */
+            transition: all 0.2s, opacity 0.5s ease; 
         }
 
         .metade-switch {
