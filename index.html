@@ -46,15 +46,21 @@
             transform: translateY(-5vh) perspective(1000px) rotateX(35deg) scale(1.1);
         }
 
-        /* O MODO "LUZ AVANÇADA" - Desenho MAIOR (+80%), Brilho MÁXIMO, Proporção Perfeita */
+        /* O MODO "LUZ AVANÇADA" - Desenho +30% Maior, Brilho Máximo (opacity 1) */
         body.luz-avancada #fundo-luzes-container {
-            opacity: 1; /* Sem transparência */
-            transform: translateY(5vh) perspective(1000px) rotateX(0deg) scale(0.65); /* Escala aumentada e centrado abaixo do texto */
+            opacity: 1; 
+            transform: translateY(5vh) perspective(1000px) rotateX(0deg) scale(0.85); /* Escala aumentada de 0.65 para 0.85 */
             transition: opacity 1.6s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
         .luz-vector {
             transition: stroke 0.3s ease, filter 0.3s ease;
+        }
+
+        /* O MODO "LUZ AVANÇADA" - As cores das luzes desvanecem para o 'desligado' (branco/cinza) */
+        body.luz-avancada .luz-vector {
+            stroke: rgba(150, 150, 150, 0.5) !important; /* Sobrepõe a cor do JS com um branco semi-transparente */
+            transition: stroke 1.6s ease !important;
         }
 
         #bateria-container {
@@ -523,7 +529,6 @@
 </head>
 <body id="ecra">
     
-    <!-- SVG AGORA COM PROPORÇÕES PERFEITAS E 10% MAIS LARGO -->
     <div id="fundo-luzes-container">
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
