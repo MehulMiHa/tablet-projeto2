@@ -53,36 +53,34 @@
             transition: opacity 1.6s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        /* ----------------------------------------------------- */
-        /* VISUAIS (Desenhos puros, nunca recebem cliques agora) */
-        /* ----------------------------------------------------- */
-        .luz-vector {
+        /* --- CAMADA 1: VISUAIS INTOCÁVEIS --- */
+        .visual-forma {
             transition: stroke 0.3s ease, filter 0.3s ease;
-            pointer-events: none !important; /* Desliga o toque no desenho para evitar bugs SVG */
+            pointer-events: none !important; /* Desliga totalmente toques nos desenhos puros */
         }
 
         /* Cores no Modo Avançado */
-        body.luz-avancada .luz-vector {
+        body.luz-avancada .visual-forma {
             stroke: rgba(100, 100, 100, 0.3) !important; 
             transition: stroke 0.3s ease !important;
         }
         
-        body.luz-avancada .luz-vector.selecionada {
+        body.luz-avancada .visual-forma.selecionada {
             stroke: rgba(255, 255, 255, 1) !important; 
         }
 
-        /* ----------------------------------------------------- */
-        /* HITBOXES (Retângulos invisíveis perfeitos para toque) */
-        /* ----------------------------------------------------- */
+        /* --- CAMADA 2: HITBOXES GIGANTES --- */
         .hitboxes-layer {
-            pointer-events: none; /* Inativo no relógio normal */
+            pointer-events: none; /* Desligado no relógio */
         }
         body.luz-avancada .hitboxes-layer {
-            pointer-events: auto; /* Ativo apenas no Selecionador */
+            pointer-events: auto; /* Ligado no Selecionador! */
         }
         .luz-hitbox {
-            fill: transparent; /* Invisível mas capta cliques como uma parede sólida */
+            fill: rgba(0, 0, 0, 0.01); /* 1% Preto! Força o tablet a detetar toques em 100% da área */
             cursor: pointer;
+            pointer-events: all;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #bateria-container {
@@ -175,6 +173,11 @@
             transition: opacity 0.6s ease-out 0.2s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
         }
 
+        /* MAGIA PURA: O painel tem de desligar cliques em Luz Avançada para não tapar os Focos centrais! */
+        body.luz-avancada #painel-luzes {
+            pointer-events: none !important;
+        }
+
         .grupo-slider {
             display: flex;
             flex-direction: column;
@@ -185,13 +188,11 @@
         body.luz-avancada #painel-luzes .grupo-slider:first-child {
             transform: translateX(-40vw);
             opacity: 0;
-            pointer-events: none;
         }
 
         body.luz-avancada #painel-luzes .grupo-slider:last-child {
             transform: translateX(40vw);
             opacity: 0;
-            pointer-events: none;
         }
 
         .icone-luz {
@@ -267,7 +268,6 @@
         body.luz-avancada #btn-sync-box,
         body.luz-avancada #btn-power-sala {
             opacity: 0;
-            pointer-events: none;
         }
 
         #btn-sync-box {
@@ -552,10 +552,8 @@
 <body id="ecra">
     
     <div id="fundo-luzes-container">
-        <!-- O preserveAspectRatio garante as proporções originais -->
         <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
             <defs>
-                <!-- Filtro AUMENTADO para 200% para não cortar o brilho -->
                 <filter id="brilhoNeon" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="15" result="blur" />
                     <feMerge>
@@ -565,42 +563,35 @@
                 </filter>
             </defs>
             
-            <!-- CAMADA 1: VISUAL (Não faz absolutamente nada ao toque, apenas pinta no ecrã) -->
-            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
+            <g style="pointer-events: none;">
+                <rect id="visual-sanca" class="visual-forma selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
 
-            <!-- O Filtro fica no grupo para partilharem o brilho e não criar quadrados -->
-            <g id="desenho-84" filter="url(#brilhoNeon)">
-                <!-- LINHA 1 -->
-                <circle id="foco-4" class="luz-vector selecionada foco-forma" cx="200" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
-                <circle id="foco-8" class="luz-vector selecionada foco-forma" cx="400" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
-                <!-- LINHA 2 -->
-                <circle id="foco-3" class="luz-vector selecionada foco-forma" cx="200" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
-                <circle id="foco-7" class="luz-vector selecionada foco-forma" cx="400" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
-                <!-- LINHA 3 -->
-                <circle id="foco-2" class="luz-vector selecionada foco-forma" cx="200" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
-                <circle id="foco-6" class="luz-vector selecionada foco-forma" cx="400" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
-                <!-- LINHA 4 -->
-                <circle id="foco-1" class="luz-vector selecionada foco-forma" cx="200" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
-                <circle id="foco-5" class="luz-vector selecionada foco-forma" cx="400" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
+                <g filter="url(#brilhoNeon)">
+                    <circle id="visual-foco-4" class="visual-forma selecionada foco-forma" cx="200" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <circle id="visual-foco-8" class="visual-forma selecionada foco-forma" cx="400" cy="170" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <circle id="visual-foco-3" class="visual-forma selecionada foco-forma" cx="200" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <circle id="visual-foco-7" class="visual-forma selecionada foco-forma" cx="400" cy="350" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <circle id="visual-foco-2" class="visual-forma selecionada foco-forma" cx="200" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <circle id="visual-foco-6" class="visual-forma selecionada foco-forma" cx="400" cy="530" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <circle id="visual-foco-1" class="visual-forma selecionada foco-forma" cx="200" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
+                    <circle id="visual-foco-5" class="visual-forma selecionada foco-forma" cx="400" cy="710" r="50" fill="none" stroke="#222" stroke-width="35" />
+                </g>
             </g>
 
-            <!-- CAMADA 2: HITBOXES (Retângulos transparentes gigantes para captar os dedos. Ficam por cima dos visuais) -->
             <g id="hitboxes" class="hitboxes-layer">
-                <!-- A Sanca é o fundo gigante. Apanha qualquer toque que falhe os focos -->
                 <rect id="hitbox-sanca" x="30" y="30" width="540" height="840" rx="15" class="luz-hitbox" />
                 
-                <!-- Os Focos são quadrados de 160x160 pixeis (enormes) exatamente centrados nas bolas -->
-                <rect id="hitbox-foco-4" x="120" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
-                <rect id="hitbox-foco-8" x="320" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-4" x="100" y="80" width="200" height="180" class="luz-hitbox" />
+                <rect id="hitbox-foco-8" x="300" y="80" width="200" height="180" class="luz-hitbox" />
                 
-                <rect id="hitbox-foco-3" x="120" y="270" width="160" height="160" rx="20" class="luz-hitbox" />
-                <rect id="hitbox-foco-7" x="320" y="270" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-3" x="100" y="260" width="200" height="180" class="luz-hitbox" />
+                <rect id="hitbox-foco-7" x="300" y="260" width="200" height="180" class="luz-hitbox" />
                 
-                <rect id="hitbox-foco-2" x="120" y="450" width="160" height="160" rx="20" class="luz-hitbox" />
-                <rect id="hitbox-foco-6" x="320" y="450" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-2" x="100" y="440" width="200" height="180" class="luz-hitbox" />
+                <rect id="hitbox-foco-6" x="300" y="440" width="200" height="180" class="luz-hitbox" />
                 
-                <rect id="hitbox-foco-1" x="120" y="630" width="160" height="160" rx="20" class="luz-hitbox" />
-                <rect id="hitbox-foco-5" x="320" y="630" width="160" height="160" rx="20" class="luz-hitbox" />
+                <rect id="hitbox-foco-1" x="100" y="620" width="200" height="180" class="luz-hitbox" />
+                <rect id="hitbox-foco-5" x="300" y="620" width="200" height="180" class="luz-hitbox" />
             </g>
         </svg>
     </div>
@@ -803,7 +794,7 @@
             document.getElementById('lbl-grupo-ativo').innerText = texto;
         }
 
-        // O evento de click agora está nas hitboxes gigantes invisíveis!
+        // LÓGICA COM OS NOVOS HITBOXES INVISÍVEIS!
         document.querySelectorAll('.luz-hitbox').forEach(hitbox => {
             hitbox.addEventListener('click', function(e) {
                 if (!document.body.classList.contains('luz-avancada')) return;
@@ -811,15 +802,15 @@
                 e.stopPropagation(); 
                 resetInatividade();
                 
-                // Pega no id da hitbox (ex: hitbox-foco-1) e transforma no id real visual (ex: foco-1)
                 const realId = this.id.replace('hitbox-', '');
+                const visual = document.getElementById('visual-' + realId);
                 
                 if (luzesSelecionadas.has(realId)) {
                     luzesSelecionadas.delete(realId);
-                    document.getElementById(realId).classList.remove('selecionada');
+                    if(visual) visual.classList.remove('selecionada');
                 } else {
                     luzesSelecionadas.add(realId);
-                    document.getElementById(realId).classList.add('selecionada');
+                    if(visual) visual.classList.add('selecionada');
                 }
                 
                 atualizarLabelSelecao();
@@ -894,7 +885,7 @@
         }
 
         function atualizarCoresFundo3D() {
-            const rect82 = document.getElementById('sanca');
+            const rect82 = document.getElementById('visual-sanca');
             if(rect82) rect82.style.stroke = calcularCorLuz(estado82);
             
             document.querySelectorAll('.foco-forma').forEach(f => f.style.stroke = calcularCorLuz(estado84));
@@ -1030,8 +1021,9 @@
                     for(let i=1; i<=8; i++) luzesSelecionadas.add('foco-'+i);
                 }
                 
-                document.querySelectorAll('.luz-vector').forEach(luz => {
-                    if(luzesSelecionadas.has(luz.id)) luz.classList.add('selecionada');
+                document.querySelectorAll('.visual-forma').forEach(luz => {
+                    const realId = luz.id.replace('visual-', '');
+                    if(luzesSelecionadas.has(realId)) luz.classList.add('selecionada');
                     else luz.classList.remove('selecionada');
                 });
             }
@@ -1347,6 +1339,7 @@
 
         const ecra = document.getElementById('ecra');
         ecra.addEventListener('click', function(e) {
+            // Garante que clicar fora de tudo aciona a animação de relógio
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('metade-switch') && e.target.id !== 'btn-power-sala' && e.target.id !== 'btn-sync-box' && e.target.id !== 'txt-sync' && !e.target.closest('#vista-rocky') && !e.target.classList.contains('luz-hitbox')) {
                 if (!document.fullscreenElement) {
                     if (ecra.requestFullscreen) ecra.requestFullscreen();
