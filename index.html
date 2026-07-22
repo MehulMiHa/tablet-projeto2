@@ -58,18 +58,16 @@
             color: #aaaaaa; 
             font-weight: bold;
             z-index: 20;
-            /* A bateria sofre um Micro-Shift para não queimar o canto */
             transform: translate(calc(var(--burn-x) * 0.5), calc(var(--burn-y) * 0.2));
             transition: transform 0.8s ease;
         }
 
         #relogio-wrapper {
-            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease;
+            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease;
             z-index: 10;
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* O MOTOR BURN-IN LIGADO À POSIÇÃO DO RELÓGIO */
             transform: translate(var(--burn-x), var(--burn-y));
         }
 
@@ -104,9 +102,16 @@
             transition: opacity 0.5s ease;
         }
 
+        /* COMPORTAMENTO NORMAL DO RELÓGIO (Sobe um bocado, como antes) */
         body.movido #relogio-wrapper {
-            /* IMPORTANTE: Dispara o relógio totalmente para fora do ecrã e desvanece */
-            transform: translate(var(--burn-x), -100vh) !important; 
+            transform: translate(var(--burn-x), -30vh); 
+            opacity: 1;
+        }
+
+        /* O MODO "LUZ AVANÇADA" - O Relógio desaparece muito devagar para cima */
+        body.luz-avancada #relogio-wrapper {
+            transition: transform 1.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.6s ease;
+            transform: translate(var(--burn-x), -100vh); 
             opacity: 0;
         }
 
@@ -116,13 +121,12 @@
             pointer-events: none;
         }
 
-        /* CORREÇÃO DO ESPAÇAMENTO DOS SLIDERS */
         #painel-luzes {
             position: absolute;
             bottom: 16vh; 
             display: flex;
-            justify-content: center; /* Centraliza tudo */
-            width: 100vw; 
+            justify-content: space-between;
+            width: 88vw; 
             align-items: center; 
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
@@ -194,7 +198,6 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin: 0 10vw; /* As margens que criam a distância perfeita para os sliders laterais */
         }
 
         #lbl-grupo-ativo {
@@ -205,9 +208,15 @@
             color: #ffffff;
             text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
             white-space: nowrap;
-            transition: color 0.3s ease;
+            /* Transição super suave para acompanhar o novo relógio lento */
+            transition: color 0.3s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
             margin-bottom: 2.5vh; 
             text-align: center;
+        }
+
+        /* O MODO "LUZ AVANÇADA" - O Texto sobe e fica em destaque onde estava o relógio */
+        body.luz-avancada #lbl-grupo-ativo {
+            transform: translateY(-38vh) scale(1.5);
         }
 
         #btn-sync-box {
@@ -287,16 +296,28 @@
             border-top: 2px solid #fff;
         }
 
+        /* CORRIGIDO: Botões invisíveis no ecrã de relógio */
         #botoes-rodape-container {
             position: absolute;
             bottom: 2vh; 
             display: flex;
             justify-content: center;
             z-index: 15;
-            /* Botões sempre visíveis agora */
-            opacity: 1; 
-            pointer-events: auto;
+            opacity: 0;
+            pointer-events: none;
             transition: opacity 0.5s ease-in;
+        }
+
+        /* Só aparecem quando tocas na tela e abres as luzes */
+        body.movido #botoes-rodape-container {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        /* Oculta os botões também quando se entra no modo Luz Avançada para ficar clean */
+        body.luz-avancada #botoes-rodape-container {
+            opacity: 0;
+            pointer-events: none;
         }
 
         .btn-rodape {
@@ -648,7 +669,6 @@
         // ANTI BURN-IN MOTOR (PROTEÇÃO ECRÃ AMOLED)
         // ==========================================
         function atualizarBurnIn() {
-            // Só corre o relógio se o painel de luzes NÃO estiver aberto
             if (document.body.classList.contains('movido')) return; 
 
             const agora = Date.now();
@@ -793,25 +813,21 @@
             verificarEstadoSyncBox();
         }
 
-        // LÓGICA DO CLIQUE NO BOTÃO "LUZ AVANÇADA"
+        // NOVO: Função para o Botão "Luz Avançada"
         window.toggleLuzAvançada = function(e) {
-            e.stopPropagation(); // Evita que o clique seja apanhado pelo fundo
-            if (document.body.classList.contains('movido')) {
-                // Se já estiver aberto, volta a fechar e repõe o relógio
-                document.body.classList.remove('movido');
-                if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
-                origemAnimacao = null;
-                grupoAtivo = '83';
-                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
-                atualizarBurnIn();
-            } else {
-                // Dispara o relógio
-                ativarAnimacao('touch');
-            }
+            if (e) e.stopPropagation(); 
+            // Adiciona a classe que ativa a animação lenta e a troca com a Etiqueta
+            document.body.classList.add('luz-avancada');
+            
+            // Impede que o ecrã feche sozinho nestes menus avançados
+            if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
         };
 
         function ativarAnimacao(origem = null) {
             const telaFechada = !document.body.classList.contains('movido');
+            
+            // Sempre que há um toque no ecrã (fora dos menus), tira a "Luz Avançada" e o relógio volta
+            document.body.classList.remove('luz-avancada');
 
             if (origem) {
                 if (telaFechada || origem !== 'touch') {
@@ -838,6 +854,7 @@
             if (temporizadorAnimacao) clearTimeout(temporizadorAnimacao);
             temporizadorAnimacao = setTimeout(() => { 
                 document.body.classList.remove('movido'); 
+                document.body.classList.remove('luz-avancada');
                 origemAnimacao = null; 
                 grupoAtivo = '83'; 
                 document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
@@ -912,7 +929,7 @@
         let divisoesMapa = [];
 
         window.abrirVistaRocky = function(e) {
-            if (e) e.stopPropagation(); // Evita que clique no Rocky abra as luzes também
+            if (e) e.stopPropagation(); 
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
@@ -925,6 +942,7 @@
         function fecharVistaRocky() {
             document.getElementById('vista-rocky').style.display = 'none';
             document.body.classList.remove('movido'); 
+            document.body.classList.remove('luz-avancada');
             origemAnimacao = null;
         }
 
