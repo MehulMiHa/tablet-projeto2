@@ -51,22 +51,23 @@
             opacity: 1; 
             transform: translateY(5vh) perspective(1000px) rotateX(0deg) scale(0.85); 
             transition: opacity 1.6s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
-            pointer-events: auto; /* Essencial para permitir os toques nas luzes */
+            pointer-events: auto;
         }
 
         .luz-vector {
             transition: stroke 0.3s ease, filter 0.3s ease;
+            pointer-events: fill; 
         }
 
         /* Cores no Modo Avançado */
         body.luz-avancada .luz-vector {
-            stroke: rgba(100, 100, 100, 0.3) !important; /* Luzes desmarcadas (Cinzento apagado) */
+            stroke: rgba(100, 100, 100, 0.3) !important; 
             cursor: pointer;
             transition: stroke 0.3s ease !important;
         }
         
         body.luz-avancada .luz-vector.selecionada {
-            stroke: rgba(255, 255, 255, 1) !important; /* Luzes marcadas (Branco brilhante) */
+            stroke: rgba(255, 255, 255, 1) !important; 
         }
 
         #bateria-container {
@@ -547,17 +548,17 @@
                 </filter>
             </defs>
             
-            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
+            <rect id="sanca" class="luz-vector selecionada" x="30" y="30" width="540" height="840" rx="15" fill="transparent" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)"/>
 
-            <g id="desenho-84" fill="none" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
-                <circle id="foco-1" class="luz-vector selecionada" cx="200" cy="170" r="50" />
-                <circle id="foco-2" class="luz-vector selecionada" cx="400" cy="170" r="50" />
-                <circle id="foco-3" class="luz-vector selecionada" cx="200" cy="350" r="50" />
-                <circle id="foco-4" class="luz-vector selecionada" cx="400" cy="350" r="50" />
-                <circle id="foco-5" class="luz-vector selecionada" cx="200" cy="530" r="50" />
-                <circle id="foco-6" class="luz-vector selecionada" cx="400" cy="530" r="50" />
-                <circle id="foco-7" class="luz-vector selecionada" cx="200" cy="710" r="50" />
-                <circle id="foco-8" class="luz-vector selecionada" cx="400" cy="710" r="50" />
+            <g id="desenho-84" fill="transparent" stroke="#222" stroke-width="35" filter="url(#brilhoNeon)">
+                <circle id="foco-1" class="luz-vector selecionada" cx="200" cy="170" r="70" />
+                <circle id="foco-2" class="luz-vector selecionada" cx="400" cy="170" r="70" />
+                <circle id="foco-3" class="luz-vector selecionada" cx="200" cy="350" r="70" />
+                <circle id="foco-4" class="luz-vector selecionada" cx="400" cy="350" r="70" />
+                <circle id="foco-5" class="luz-vector selecionada" cx="200" cy="530" r="70" />
+                <circle id="foco-6" class="luz-vector selecionada" cx="400" cy="530" r="70" />
+                <circle id="foco-7" class="luz-vector selecionada" cx="200" cy="710" r="70" />
+                <circle id="foco-8" class="luz-vector selecionada" cx="400" cy="710" r="70" />
             </g>
         </svg>
     </div>
@@ -685,14 +686,7 @@
         let origemAnimacao = null; 
         let salaEstaLigada = false;
         let isSyncing = false;
-        let grupoAtivo = '83'; 
-
-        const nomesGrupos = {
-            '83': 'SALA',
-            '82': 'SANCA',
-            '84': 'FOCOS'
-        };
-
+        
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
 
@@ -704,33 +698,21 @@
         function resetInatividade() {
             if (timerInatividade) clearTimeout(timerInatividade);
             
-            // O temporizador global de 10 segundos! 
-            // Onde quer que estejas na app, aos 10s sem tocar, ele atua.
             timerInatividade = setTimeout(() => {
-                
-                // Se o painel do Rocky estiver aberto -> Fecha
                 if (document.getElementById('vista-rocky').style.display === 'flex') {
                     fecharVistaRocky();
                 }
-                
-                // Se o modo Selecionador (Luz Avançada) estiver aberto -> Fecha
                 if (document.body.classList.contains('luz-avancada')) {
                     document.body.classList.remove('luz-avancada');
                 }
-                
-                // Se o painel principal de sliders estiver aberto -> Fecha
                 if (document.body.classList.contains('movido')) {
                     document.body.classList.remove('movido');
                     origemAnimacao = null; 
-                    grupoAtivo = '83'; 
-                    document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
                 }
-
                 atualizarBurnIn();
             }, 10000);
         }
 
-        // Cada vez que clicas, interages com o slider ou tocas no ecrã, o timer repõe os 10s.
         document.addEventListener('touchstart', resetInatividade, {passive: true});
         document.addEventListener('click', resetInatividade, {passive: true});
         document.addEventListener('input', resetInatividade, {passive: true});
@@ -740,9 +722,20 @@
         // ==========================================
         let luzesSelecionadas = new Set(['sanca', 'foco-1', 'foco-2', 'foco-3', 'foco-4', 'foco-5', 'foco-6', 'foco-7', 'foco-8']);
 
+        /* ATENÇÃO: Substitui aqui pelos IDs reais que vais buscar ao teu browser! */
+        const MAPA_LUZES_INDIVIDUAIS = {
+            'sanca': '9',       
+            'foco-1': '11',  
+            'foco-2': '10',  
+            'foco-3': '9',   
+            'foco-4': '7',   
+            'foco-5': '6',   
+            'foco-6': '8',   
+            'foco-7': '15',  
+            'foco-8': '14'   
+        };
+
         function atualizarLabelSelecao() {
-            if (!document.body.classList.contains('luz-avancada')) return;
-            
             const temSanca = luzesSelecionadas.has('sanca');
             const focos = [];
             
@@ -765,17 +758,16 @@
                 texto = partes.join(" | ");
             }
             
-            if (texto === "") texto = "NENHUMA";
+            if (texto === "") texto = "NENHUMA LUZ";
             
             document.getElementById('lbl-grupo-ativo').innerText = texto;
         }
 
         document.querySelectorAll('.luz-vector').forEach(luz => {
             luz.addEventListener('click', function(e) {
-                // Só clica se o Selecionador estiver aberto
                 if (!document.body.classList.contains('luz-avancada')) return;
                 
-                e.stopPropagation(); // Impede o ecrã de apanhar o clique e fechar
+                e.stopPropagation(); 
                 resetInatividade();
                 
                 if (luzesSelecionadas.has(this.id)) {
@@ -789,6 +781,38 @@
                 atualizarLabelSelecao();
             });
         });
+
+        function enviarComandoHueCerebro(corpo) {
+            const temSanca = luzesSelecionadas.has('sanca');
+            const focosAtivos = [];
+            for (let i = 1; i <= 8; i++) {
+                if (luzesSelecionadas.has('foco-' + i)) focosAtivos.push(i);
+            }
+
+            if (temSanca && focosAtivos.length === 8) {
+                fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
+            } else if (!temSanca && focosAtivos.length === 8) {
+                fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
+            } else if (temSanca && focosAtivos.length === 0) {
+                fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
+            } else {
+                // Se for apenas UM foco específico (ex: Foco 1), envia diretamente para o ID real da lâmpada!
+                if (!temSanca && focosAtivos.length === 1) {
+                    const idRealHue = MAPA_LUZES_INDIVIDUAIS['foco-' + focosAtivos[0]];
+                    if (idRealHue) {
+                        fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/lights/${idRealHue}/state`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
+                        return;
+                    }
+                }
+                // Caso misto (várias luzes avulsas), envia individualmente para cada uma
+                luzesSelecionadas.forEach(idDesenho => {
+                    const idRealHue = MAPA_LUZES_INDIVIDUAIS[idDesenho];
+                    if(idRealHue) {
+                        fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/lights/${idRealHue}/state`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
+                    }
+                });
+            }
+        }
 
         // ==========================================
         // ANTI BURN-IN MOTOR (PROTEÇÃO ECRÃ AMOLED)
@@ -915,9 +939,10 @@
 
                 atualizarCoresFundo3D();
 
-                let dadosAtivos = (grupoAtivo === '84') ? estado84 : ((grupoAtivo === '82') ? estado82 : d82);
+                let dadosAtivos = estado84;
+                if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 1) dadosAtivos = estado82;
                 
-                if (grupoAtivo === '83') {
+                if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 9) {
                     const res83 = await fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`);
                     const d83 = await res83.json();
                     if (d83 && d83.action) dadosAtivos = d83.action;
@@ -939,12 +964,10 @@
         window.toggleLuzAvançada = function(e) {
             if (e) e.stopPropagation(); 
             
-            // Se já tiver aberto o selecionador
             if(document.body.classList.contains('luz-avancada')){
                 document.body.classList.remove('luz-avancada');
-                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo];
+                atualizarLabelSelecao();
             } else {
-                // Entra no selecionador
                 document.body.classList.add('luz-avancada');
                 atualizarLabelSelecao();
             }
@@ -955,25 +978,28 @@
         function ativarAnimacao(origem = null) {
             const telaFechada = !document.body.classList.contains('movido');
             
-            // Clicar fora do selecionador volta ao comportamento normal
             if (document.body.classList.contains('luz-avancada') && (!origem || origem === 'touch')) {
                 document.body.classList.remove('luz-avancada');
-                document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos['83'];
+                atualizarLabelSelecao();
             }
 
-            if (origem) {
-                if (telaFechada || origem !== 'touch') {
-                    origemAnimacao = origem; 
-                    
-                    if (origem === 'touch') grupoAtivo = '83'; 
-                    else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) grupoAtivo = '84'; 
-                    else if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) grupoAtivo = '82'; 
-
-                    if (!document.body.classList.contains('luz-avancada')) {
-                        document.getElementById('lbl-grupo-ativo').innerText = nomesGrupos[grupoAtivo];
-                    }
+            if (origem && origem !== 'touch') {
+                origemAnimacao = origem; 
+                luzesSelecionadas.clear();
+                
+                if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) {
+                    luzesSelecionadas.add('sanca');
+                } else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) {
+                    for(let i=1; i<=8; i++) luzesSelecionadas.add('foco-'+i);
                 }
+                
+                document.querySelectorAll('.luz-vector').forEach(luz => {
+                    if(luzesSelecionadas.has(luz.id)) luz.classList.add('selecionada');
+                    else luz.classList.remove('selecionada');
+                });
             }
+            
+            atualizarLabelSelecao();
             
             if (telaFechada) {
                 autoStopSyncBlindly();
@@ -994,20 +1020,17 @@
             salaEstaLigada = true;
             document.getElementById('btn-power-sala').classList.add('ligado');
 
-            if (grupoAtivo === '83' || grupoAtivo === '82') {
+            if (luzesSelecionadas.has('sanca')) {
                 estado82.on = true;
                 estado82[propriedade] = parseInt(valor);
             }
-            if (grupoAtivo === '83' || grupoAtivo === '84') {
+            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) {
                 estado84.on = true;
                 estado84[propriedade] = parseInt(valor);
             }
             atualizarCoresFundo3D();
 
-            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
-                method: 'PUT',
-                body: JSON.stringify(corpo)
-            }).catch(e => console.log(e));
+            enviarComandoHueCerebro(corpo);
         }
 
         function togglePowerSala() {
@@ -1018,27 +1041,24 @@
             if (salaEstaLigada) btn.classList.add('ligado');
             else btn.classList.remove('ligado');
 
-            if (grupoAtivo === '83' || grupoAtivo === '82') estado82.on = salaEstaLigada;
-            if (grupoAtivo === '83' || grupoAtivo === '84') estado84.on = salaEstaLigada;
+            if (luzesSelecionadas.has('sanca')) estado82.on = salaEstaLigada;
+            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) estado84.on = salaEstaLigada;
             atualizarCoresFundo3D();
 
-            fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/${grupoAtivo}/action`, {
-                method: 'PUT',
-                body: JSON.stringify({ "on": salaEstaLigada })
-            }).catch(e => console.log(e));
+            enviarComandoHueCerebro({ "on": salaEstaLigada });
         }
 
         document.getElementById('brilho-luz').addEventListener('input', function() {
             ativarAnimacao('touch');
-            if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.bri = parseInt(this.value); }
-            if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.bri = parseInt(this.value); }
+            if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.bri = parseInt(this.value); }
+            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.bri = parseInt(this.value); }
             atualizarCoresFundo3D();
         });
         
         document.getElementById('temp-luz').addEventListener('input', function() {
             ativarAnimacao('touch');
-            if (grupoAtivo === '83' || grupoAtivo === '82') { estado82.on = true; estado82.ct = parseInt(this.value); }
-            if (grupoAtivo === '83' || grupoAtivo === '84') { estado84.on = true; estado84.ct = parseInt(this.value); }
+            if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.ct = parseInt(this.value); }
+            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.ct = parseInt(this.value); }
             atualizarCoresFundo3D();
         });
 
