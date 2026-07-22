@@ -62,9 +62,11 @@
             align-items: center;
         }
 
+        /* CORREÇÃO DAS TEMPERATURAS SEM USAR 'GAP' */
         #temps-top {
             display: flex;
-            gap: 32vw; 
+            justify-content: space-between; 
+            width: 62vw; /* Largura perfeita para alinhar sobre as 2 horas e os 2 minutos */
             font-size: 3vh;
             font-weight: bold;
             margin-bottom: 4vh; 
@@ -102,11 +104,13 @@
             pointer-events: none;
         }
 
+        /* CORREÇÃO DO PAINEL DAS LUZES SEM USAR 'GAP' */
         #painel-luzes {
             position: absolute;
             bottom: 16vh; 
             display: flex;
-            gap: 12vw; 
+            justify-content: space-between;
+            width: 88vw; /* Força os elementos a espalharem-se pelo ecrã */
             align-items: center; 
             opacity: 0;
             transform: translateY(15vh) scale(0.8);
@@ -270,12 +274,12 @@
             border-top: 2px solid #fff;
         }
 
-        /* --- NOVOS BOTÕES --- */
+        /* CORREÇÃO DOS BOTÕES LADO A LADO SEM USAR 'GAP' */
         #botoes-rodape-container {
             position: absolute;
             bottom: 2vh; 
             display: flex;
-            gap: 4vw;
+            justify-content: center;
             z-index: 15;
             opacity: 0;
             pointer-events: none;
@@ -299,6 +303,10 @@
             cursor: pointer;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             transition: background 0.3s, transform 0.1s;
+        }
+
+        .btn-rodape:nth-child(2) {
+            margin-left: 6vw; /* Adiciona o espaço do lado esquerdo do segundo botão */
         }
 
         .btn-rodape:active {
@@ -338,15 +346,16 @@
             flex-direction: column;
         }
 
+        /* CORREÇÃO DO ESPAÇO ENTRE AS COLUNAS DO ROCKY (SEM GAP) */
         #rocky-headers {
             display: flex;
             width: 100%;
-            gap: 20vw; 
+            justify-content: space-between;
             margin-bottom: 2vh;
         }
 
         .coluna-acao {
-            flex: 1;
+            width: 43%; /* Fixar tamanho obriga a sobrar espaço no meio de propósito */
             display: flex;
             flex-direction: column;
         }
@@ -374,7 +383,6 @@
         .lista-scroll {
             display: flex;
             flex-direction: column;
-            gap: 2vh; 
             overflow-y: auto;
             width: 100%;
             padding-bottom: 5vh; 
@@ -386,12 +394,12 @@
         .linha-divisao {
             display: flex;
             width: 100%;
-            gap: 20vw; 
-            justify-content: space-between;
+            justify-content: space-between; /* Substitui o gap horizontal */
+            margin-bottom: 2vh; /* Substitui o gap vertical */
         }
 
         .btn-divisao {
-            flex: 1;
+            width: 43%; /* Fixar tamanho aqui espelha os cabeçalhos! O meio fica livre */
             background: rgba(255, 255, 255, 0.08); 
             border: 2px solid rgba(255, 255, 255, 0.15);
             color: white; 
@@ -403,7 +411,6 @@
             text-align: center; 
             font-weight: bold;
             transition: all 0.2s ease-out;
-            margin: 0;
         }
 
         .btn-divisao.selecionado-asp {
