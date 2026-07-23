@@ -26,7 +26,6 @@
             flex-direction: column;
             justify-content: center; 
             align-items: center;
-            /* BLOQUEIO ANTI-SELEÇÃO DE TEXTO PARA TOQUES PERFEITOS */
             user-select: none;
             -webkit-user-select: none;
         }
@@ -60,16 +59,14 @@
         /* --- CAMADA 1: VISUAIS INTOCÁVEIS E SINCRONIZADOS --- */
         .visual-forma {
             pointer-events: none !important; 
-            /* Usa a variável CSS definida pelo JavaScript como cor normal */
             stroke: var(--cor-base, rgba(100,100,100,0.4)) !important;
-            transition: stroke 0.15s ease-out; /* Retorno super rápido ao normal */
+            transition: stroke 0.15s ease-out; 
         }
 
-        /* O Heartbeat Tático: AGORA ATIVA SEMPRE QUE O ECRÃ ESTÁ ACORDADO (tick-flash) */
+        /* O Heartbeat Tático */
         body.tick-flash .visual-forma.selecionada {
-            /* Alterna para a cor 50% Vermelho matematicamente calculada */
             stroke: var(--cor-mix, rgba(255,0,0,1)) !important;
-            transition: none !important; /* Piscar repentino e seco, sem suavidade a entrar */
+            transition: none !important; 
         }
 
         /* --- CAMADA 2: HITBOXES GIGANTES --- */
@@ -107,6 +104,54 @@
             z-index: 20;
             transform: translate(calc(var(--burn-x) * 0.5), calc(var(--burn-y) * 0.2));
             transition: transform 0.8s ease;
+        }
+
+        /* --- WIDGET ESTADO ROCKY (ECRÃ BLOQUEADO) --- */
+        #widget-rocky {
+            position: absolute;
+            top: 25vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s ease;
+            z-index: 10;
+            transform: translate(var(--burn-x), var(--burn-y));
+        }
+
+        body.movido #widget-rocky {
+            opacity: 0 !important;
+            pointer-events: none;
+        }
+
+        #txt-estado-rocky {
+            font-size: 2.5vh;
+            font-weight: bold;
+            color: #4cd137;
+            text-shadow: 0 0 10px rgba(76, 209, 55, 0.4);
+            margin-bottom: 1.5vh;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 1vh 2vw;
+            border-radius: 20px;
+            border: 1px solid rgba(76, 209, 55, 0.3);
+        }
+
+        #btn-pausa-rocky {
+            background: rgba(251, 197, 49, 0.2);
+            border: 1px solid rgba(251, 197, 49, 0.8);
+            color: #fbc531;
+            font-size: 1.8vh;
+            font-weight: bold;
+            padding: 1vh 3vw;
+            border-radius: 15px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            pointer-events: auto;
+            transition: transform 0.2s, background 0.3s;
+        }
+        #btn-pausa-rocky:active {
+            transform: scale(0.9);
         }
 
         #relogio-wrapper {
@@ -663,6 +708,12 @@
         <span id="txt-bateria">--%</span>
     </div>
 
+    <!-- WIDGET ROCKY: APARECE ACIMA DO RELÓGIO -->
+    <div id="widget-rocky">
+        <div id="txt-estado-rocky">🤖 Rocky: A Limpar</div>
+        <button id="btn-pausa-rocky" onclick="pausarRocky15Min()">⏸️ Pausa 15 Minutos</button>
+    </div>
+
     <div id="relogio-wrapper">
         <div id="temps-top">
             <span><span class="label-out">OUT</span><span id="temp-out">--</span>°C</span>
@@ -768,7 +819,7 @@
         
         <div id="container-canvas"><canvas id="mapCanvas" width="1940" height="2060"></canvas></div>
         
-        <!-- A NOVA BARRA DE MODO DE LIMPEZA -->
+        <!-- A BARRA DE MODO DE LIMPEZA -->
         <div class="seletor-modo-zona">
             <div class="opcao-modo" id="modo-z-asp" onclick="setModoZona('aspirar')">🧹 Aspirar</div>
             <div class="opcao-modo ativo-ambos" id="modo-z-ambos" onclick="setModoZona('ambos')">🧹+💧 Ambos</div>
@@ -1698,7 +1749,7 @@
         }
 
         // ==========================================
-        // CÉREBRO MATEMÁTICO: MAPA INTERATIVO ZONAS
+        // CÉREBRO MATEMÁTICO: O MAPA INTERATIVO (QUADRADO DRAG/RESIZE)
         // ==========================================
         const imgMapaObj = new Image();
         imgMapaObj.src = 'mapa.png'; 
@@ -1903,7 +1954,8 @@
                 e.target.id === 'txt-sync' ||
                 e.target.closest('#vista-rocky') || 
                 e.target.closest('#vista-mapa-interativo') || 
-                e.target.classList.contains('luz-hitbox')) {
+                e.target.classList.contains('luz-hitbox') ||
+                e.target.id === 'btn-pausa-rocky') {
                 return;
             }
 
@@ -1915,7 +1967,6 @@
             ativarAnimacao('touch'); 
         }
 
-        // A MUDANÇA PARA 'TOUCHEND' (SÓ ACORDA QUANDO LEVANTAS O DEDO)
         ecra.addEventListener('touchend', detetarToqueEcra, {passive: true});
         ecra.addEventListener('click', detetarToqueEcra);
 
@@ -1974,6 +2025,76 @@
         getOutdoorTemp();
         getRainChance();
         getIndoorTemp();
+
+        // ==========================================
+        // MONITORIZAÇÃO E PAUSA DO ROCKY (A cada 10s)
+        // ==========================================
+        const widgetRocky = document.getElementById('widget-rocky');
+        const txtEstadoRocky = document.getElementById('txt-estado-rocky');
+        const btnPausaRocky = document.getElementById('btn-pausa-rocky');
+
+        async function monitorizarEstadoRocky() {
+            try {
+                const res = await fetch('http://127.0.0.1:3000/api/rocky/status');
+                const data = await res.json();
+                
+                if (data && data.state !== undefined) {
+                    const estado = data.state;
+                    
+                    if (estado === 8 || estado === 2) {
+                        widgetRocky.style.opacity = '0';
+                        widgetRocky.style.pointerEvents = 'none';
+                    } else {
+                        widgetRocky.style.opacity = '1';
+                        widgetRocky.style.pointerEvents = 'auto';
+
+                        if (estado === 5 || estado === 17 || estado === 18) {
+                            txtEstadoRocky.innerText = "🤖 Rocky: A Limpar (" + (data.battery || '--') + "%)";
+                            txtEstadoRocky.style.color = "#4cd137"; 
+                            txtEstadoRocky.style.borderColor = "rgba(76, 209, 55, 0.3)";
+                            btnPausaRocky.style.display = "block"; 
+                        } 
+                        else if (estado === 6) {
+                            txtEstadoRocky.innerText = "🤖 Rocky: A Voltar à Base";
+                            txtEstadoRocky.style.color = "#00a8ff"; 
+                            txtEstadoRocky.style.borderColor = "rgba(0, 168, 255, 0.3)";
+                            btnPausaRocky.style.display = "none"; 
+                        }
+                        else if (estado === 10) {
+                            txtEstadoRocky.innerText = "🤖 Rocky: Pausado";
+                            txtEstadoRocky.style.color = "#fbc531"; 
+                            txtEstadoRocky.style.borderColor = "rgba(251, 197, 49, 0.3)";
+                            btnPausaRocky.style.display = "none";
+                        }
+                        else {
+                            txtEstadoRocky.innerText = "🤖 Rocky: Em Movimento";
+                            txtEstadoRocky.style.color = "#fff";
+                            btnPausaRocky.style.display = "none";
+                        }
+                    }
+                }
+            } catch (e) {
+                widgetRocky.style.opacity = '0';
+                widgetRocky.style.pointerEvents = 'none';
+            }
+        }
+
+        async function pausarRocky15Min() {
+            btnPausaRocky.innerText = "⏳ A Pausar...";
+            btnPausaRocky.style.background = "rgba(76, 209, 55, 0.2)";
+            btnPausaRocky.style.color = "#4cd137";
+            
+            try {
+                await fetch('http://127.0.0.1:3000/api/rocky/pause15', { method: 'POST' });
+                btnPausaRocky.innerText = "✔️ Volta em 15min";
+                setTimeout(() => { btnPausaRocky.style.display = 'none'; }, 3000);
+            } catch(e) {
+                btnPausaRocky.innerText = "❌ Erro ao Pausar";
+            }
+        }
+
+        setInterval(monitorizarEstadoRocky, 10000);
+        monitorizarEstadoRocky();
     </script>
 </body>
 </html>
