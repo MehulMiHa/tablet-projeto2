@@ -406,7 +406,7 @@
         }
 
         /* --- ESTILOS DO PAINEL ROCKY --- */
-        #vista-rocky {
+        #vista-rocky, #vista-mapa-interativo {
             display: none; 
             position: absolute;
             top: 0; left: 0;
@@ -537,7 +537,7 @@
             backdrop-filter: blur(5px);
         }
         
-        #btn-continuar, #btn-iniciar {
+        #btn-continuar, #btn-iniciar, #btn-confirmar-zona {
             background: rgba(76, 175, 80, 0.4);
             border-color: #4caf50;
             box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
@@ -561,6 +561,24 @@
         #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
         #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
 
+        /* A TUA NOVA ÁREA DE DESENHO MAPA */
+        #container-canvas {
+            position: relative;
+            margin-top: 3vh;
+            width: 90vw;
+            max-height: 65vh;
+            border: 2px solid rgba(72, 219, 251, 0.6);
+            border-radius: 15px;
+            overflow: hidden;
+            background: #111;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        #mapCanvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            touch-action: none;
+        }
     </style>
 </head>
 <body id="ecra">
@@ -686,7 +704,7 @@
             <div id="lista-unificada-scroll" class="lista-scroll" style="flex: 1;"></div>
 
             <div id="rocky-footer">
-                <button class="btn-footer-rocky" id="btn-area" onclick="desenharMapa()">📐 Área</button>
+                <button class="btn-footer-rocky" id="btn-area" onclick="abrirVistaMapa()">📐 Área</button>
                 <button class="btn-footer-rocky" id="btn-continuar" onclick="avancarLimpeza()">Continuar ➔</button>
             </div>
         </div>
@@ -719,9 +737,19 @@
 
     </div>
 
+    <!-- VISTA 2: O MAPA DE DESENHO -->
+    <div id="vista-mapa-interativo">
+        <div id="titulo-rocky" style="margin-bottom: 2vh;">Ajustar Zona</div>
+        <div id="container-canvas"><canvas id="mapCanvas" width="1940" height="2060"></canvas></div>
+        <div style="display: flex; justify-content: space-between; width: 92vw; padding: 3vh 0; margin-top: auto;">
+            <button class="btn-footer-rocky" onclick="voltarDoMapaParaDivisoes()">⬅ Cancelar</button>
+            <button class="btn-footer-rocky" id="btn-confirmar-zona" onclick="calcularZonasEAvancar()">Confirmar ➔</button>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('touchmove', function(e) {
-            if (!hasDragged && e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll')) {
+            if (!hasDragged && e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll') && e.target.id !== 'mapCanvas') {
                 e.preventDefault();
             }
         }, { passive: false });
@@ -767,6 +795,9 @@
             timerInatividade = setTimeout(() => {
                 if (document.getElementById('vista-rocky').style.display === 'flex') {
                     fecharVistaRocky();
+                }
+                if (document.getElementById('vista-mapa-interativo').style.display === 'flex') {
+                    voltarDoMapaParaDivisoes();
                 }
                 if (document.body.classList.contains('luz-avancada')) {
                     fecharModoAvancado();
@@ -1219,7 +1250,6 @@
                 if (!isInteractingUI) {
                     let dadosAtivos = null;
                     
-                    // A CORREÇÃO DE QA: LER O ESTADO DE FORMA INTELIGENTE (PROCURA A LIGADA)
                     if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 9) {
                         dadosAtivos = estado83;
                     } else if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 1) {
@@ -1227,7 +1257,6 @@
                     } else if (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 8) {
                         dadosAtivos = estado84;
                     } else if (luzesSelecionadas.size > 0) {
-                        // Varrer as luzes selecionadas e encontrar uma que esteja LIGADA
                         let estadoLigado = null;
                         let estadoFallback = null;
 
@@ -1243,18 +1272,17 @@
                             }
 
                             if (estadoTemp) {
-                                if (!estadoFallback) estadoFallback = estadoTemp; // Guarda a 1ª que vir
+                                if (!estadoFallback) estadoFallback = estadoTemp;
                                 if (estadoTemp.on) {
                                     estadoLigado = estadoTemp;
-                                    break; // Achou uma ligada, pára a busca!
+                                    break;
                                 }
                             }
                         }
-                        // Se encontrou alguma ligada, usa essa. Se estão todas desligadas, usa a primeira que viu.
                         dadosAtivos = estadoLigado || estadoFallback;
                     }
 
-                    if (!dadosAtivos) dadosAtivos = estado84; // Failsafe geral
+                    if (!dadosAtivos) dadosAtivos = estado84;
                     
                     salaEstaLigada = dadosAtivos.on;
                     const btn = document.getElementById('btn-power-sala');
@@ -1281,7 +1309,6 @@
                 origemAnimacao = origem; 
                 luzesSelecionadas.clear();
                 
-                // Se pressionou um botão na parede, corta logo a TV porque as luzes vão mudar!
                 autoStopSyncBlindly();
                 
                 if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) {
@@ -1308,7 +1335,7 @@
         }
 
         function mudarLuzSala(propriedade, valor) {
-            autoStopSyncBlindly(); // Corta a Sync Box imediatamente ao mexer no slider!
+            autoStopSyncBlindly();
             markInteraction();
             const corpo = { "on": true };
             corpo[propriedade] = parseInt(valor);
@@ -1340,7 +1367,7 @@
         }
 
         function togglePowerSala() {
-            autoStopSyncBlindly(); // Corta a Sync Box ao mexer no ON/OFF
+            autoStopSyncBlindly();
             ativarAnimacao('touch');
             markInteraction();
             salaEstaLigada = !salaEstaLigada;
@@ -1366,7 +1393,7 @@
         }
 
         document.getElementById('brilho-luz').addEventListener('input', function() {
-            autoStopSyncBlindly(); // Corta a Sync Box durante o arraste
+            autoStopSyncBlindly();
             ativarAnimacao('touch');
             markInteraction();
             const valor = parseInt(this.value);
@@ -1386,7 +1413,7 @@
         });
         
         document.getElementById('temp-luz').addEventListener('input', function() {
-            autoStopSyncBlindly(); // Corta a Sync Box durante o arraste
+            autoStopSyncBlindly();
             ativarAnimacao('touch');
             markInteraction();
             const valor = parseInt(this.value);
@@ -1411,10 +1438,12 @@
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
         let divisoesMapa = [];
+        let zonasParaLimpar = []; // NOVA VARIÁVEL PARA O NODE.JS
 
         window.abrirVistaRocky = function(e) {
             if (e) e.stopPropagation(); 
             document.getElementById('rocky-conteudo-config').style.display = 'none';
+            document.getElementById('vista-mapa-interativo').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             
@@ -1424,6 +1453,7 @@
 
         function fecharVistaRocky() {
             document.getElementById('vista-rocky').style.display = 'none';
+            document.getElementById('vista-mapa-interativo').style.display = 'none';
             document.body.classList.remove('movido'); 
             if (document.body.classList.contains('luz-avancada')) fecharModoAvancado();
             origemAnimacao = null;
@@ -1437,6 +1467,7 @@
             
             selecaoAspirar.clear();
             selecaoLavar.clear();
+            zonasParaLimpar = []; 
 
             try {
                 const response = await fetch('http://127.0.0.1:3000/api/rocky/rooms');
@@ -1519,20 +1550,12 @@
             });
         }
 
-        function desenharMapa() {
-            resetInatividade();
-            const btn = document.getElementById('btn-area');
-            const txtOriginal = btn.innerHTML;
-            btn.innerHTML = "Em breve!";
-            setTimeout(() => { btn.innerHTML = txtOriginal; }, 2000);
-        }
-
         function avancarLimpeza() {
             resetInatividade();
             const arrayAspirar = Array.from(selecaoAspirar);
             const arrayLavar = Array.from(selecaoLavar);
             
-            if (arrayAspirar.length === 0 && arrayLavar.length === 0) {
+            if (arrayAspirar.length === 0 && arrayLavar.length === 0 && zonasParaLimpar.length === 0) {
                 const btn = document.getElementById('btn-continuar');
                 const txtOriginal = btn.innerHTML;
                 btn.innerHTML = "⚠️ Escolhe 1 Divisão!";
@@ -1566,8 +1589,15 @@
         function voltarParaDivisoes() {
             resetInatividade();
             document.getElementById('rocky-conteudo-config').style.display = 'none';
-            document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
-            document.getElementById('rocky-conteudo').style.display = 'flex';
+            if (zonasParaLimpar.length > 0) {
+                // Se estávamos a limpar uma zona e voltámos, voltamos ao ecrã do desenho!
+                document.getElementById('vista-mapa-interativo').style.display = 'flex';
+                document.getElementById('titulo-rocky').innerText = "Ajustar Zona";
+            } else {
+                // Senão, volta à lista de salas
+                document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
+                document.getElementById('rocky-conteudo').style.display = 'flex';
+            }
         }
 
         const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo' };
@@ -1597,6 +1627,7 @@
             const payload = {
                 divisoesAspirar: arrayAspirar,
                 divisoesLavar: arrayLavar,
+                zonas: zonasParaLimpar, // <- A NOVA VARIÁVEL VAI AQUI PARA O NODE!
                 nivelSuccao: succao,
                 nivelAgua: agua
             };
@@ -1628,6 +1659,199 @@
                 botaoIniciar.style.background = "rgba(76, 175, 80, 0.4)";
                 botaoIniciar.disabled = false;
             }, 3000);
+        }
+
+        // ==========================================
+        // CÉREBRO MATEMÁTICO: O NOVO MAPA INTERATIVO (QUADRADO DRAG/RESIZE)
+        // ==========================================
+        const imgMapaObj = new Image();
+        imgMapaObj.src = 'mapa.png'; 
+        
+        let canvasMap, ctxMap;
+        let mapBox = null; // Guardar a posição e tamanho do nosso quadrado: {x, y, w, h}
+        let boxAction = null; // Sabe o que estamos a fazer ('drag', 'resize_tl', 'resize_br', etc)
+        let initialTouchX, initialTouchY;
+        let initialMapBox;
+
+        function abrirVistaMapa() {
+            document.getElementById('rocky-conteudo').style.display = 'none';
+            document.getElementById('vista-rocky').style.display = 'none';
+            document.getElementById('vista-mapa-interativo').style.display = 'flex';
+            
+            canvasMap = document.getElementById('mapCanvas');
+            ctxMap = canvasMap.getContext('2d');
+            
+            if (imgMapaObj.complete) iniciarCaixaEDesenhar();
+            else imgMapaObj.onload = () => iniciarCaixaEDesenhar();
+        }
+
+        function voltarDoMapaParaDivisoes() {
+            document.getElementById('vista-mapa-interativo').style.display = 'none';
+            document.getElementById('vista-rocky').style.display = 'flex';
+            document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
+            document.getElementById('rocky-conteudo').style.display = 'flex';
+            zonasParaLimpar = []; // Limpar zonas para não haver confusão
+        }
+
+        function iniciarCaixaEDesenhar() {
+            // Se ainda não houver um quadrado, cria um no meio do ecrã!
+            if (!mapBox && canvasMap.width > 0) {
+                mapBox = {
+                    x: (canvasMap.width / 2) - 150,
+                    y: (canvasMap.height / 2) - 150,
+                    w: 300,
+                    h: 300
+                };
+            }
+            renderizarCanvasMap();
+        }
+
+        function renderizarCanvasMap() {
+            if (!ctxMap) return;
+            // Limpa o canvas e põe a tua foto do robô
+            ctxMap.clearRect(0, 0, canvasMap.width, canvasMap.height);
+            ctxMap.drawImage(imgMapaObj, 0, 0, canvasMap.width, canvasMap.height);
+            
+            if (mapBox) {
+                // Desenhar a área de fora escura
+                ctxMap.fillStyle = "rgba(0, 0, 0, 0.4)";
+                ctxMap.fillRect(0, 0, canvasMap.width, mapBox.y); 
+                ctxMap.fillRect(0, mapBox.y, mapBox.x, mapBox.h); 
+                ctxMap.fillRect(mapBox.x + mapBox.w, mapBox.y, canvasMap.width - (mapBox.x + mapBox.w), mapBox.h); 
+                ctxMap.fillRect(0, mapBox.y + mapBox.h, canvasMap.width, canvasMap.height - (mapBox.y + mapBox.h)); 
+
+                // Desenhar o quadrado interior iluminado
+                ctxMap.fillStyle = "rgba(72, 219, 251, 0.1)";
+                ctxMap.fillRect(mapBox.x, mapBox.y, mapBox.w, mapBox.h);
+                
+                // Bordas do quadrado
+                ctxMap.strokeStyle = "#48dbfb";
+                ctxMap.lineWidth = 6;
+                ctxMap.strokeRect(mapBox.x, mapBox.y, mapBox.w, mapBox.h);
+
+                // Desenhar as 4 "Bolotas" nos cantos para puxar e esticar
+                ctxMap.fillStyle = "#fff";
+                const s = 40; // Tamanho gigante das bolotas para o toque no tablet
+                ctxMap.fillRect(mapBox.x - s/2, mapBox.y - s/2, s, s); // Top Left
+                ctxMap.fillRect(mapBox.x + mapBox.w - s/2, mapBox.y - s/2, s, s); // Top Right
+                ctxMap.fillRect(mapBox.x - s/2, mapBox.y + mapBox.h - s/2, s, s); // Bottom Left
+                ctxMap.fillRect(mapBox.x + mapBox.w - s/2, mapBox.y + mapBox.h - s/2, s, s); // Bottom Right
+            }
+        }
+
+        const mapCanvasElem = document.getElementById('mapCanvas');
+
+        function getCanvasScaleCoords(e) {
+            const rect = mapCanvasElem.getBoundingClientRect();
+            const scaleX = mapCanvasElem.width / rect.width;
+            const scaleY = mapCanvasElem.height / rect.height;
+            const touch = e.touches ? e.touches[0] : e;
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY
+            };
+        }
+
+        function detetarOQueOTocaram(tx, ty) {
+            if (!mapBox) return null;
+            const t = 80; // Tolerância GIGANTE para não falhares com o dedo
+            // Verificamos os 4 cantos primeiro
+            if (Math.abs(tx - mapBox.x) < t && Math.abs(ty - mapBox.y) < t) return 'resize_tl';
+            if (Math.abs(tx - (mapBox.x + mapBox.w)) < t && Math.abs(ty - mapBox.y) < t) return 'resize_tr';
+            if (Math.abs(tx - mapBox.x) < t && Math.abs(ty - (mapBox.y + mapBox.h)) < t) return 'resize_bl';
+            if (Math.abs(tx - (mapBox.x + mapBox.w)) < t && Math.abs(ty - (mapBox.y + mapBox.h)) < t) return 'resize_br';
+            
+            // Se não tocou num canto, e tocou dentro do quadrado, é arrasto
+            if (tx > mapBox.x && tx < mapBox.x + mapBox.w && ty > mapBox.y && ty < mapBox.y + mapBox.h) return 'drag';
+            
+            return null; // Tocou fora
+        }
+
+        mapCanvasElem.addEventListener('touchstart', (e) => {
+            resetInatividade(); 
+            const pos = getCanvasScaleCoords(e);
+            boxAction = detetarOQueOTocaram(pos.x, pos.y);
+            
+            if (boxAction) {
+                initialTouchX = pos.x;
+                initialTouchY = pos.y;
+                initialMapBox = {...mapBox}; // Grava o estado atual
+            }
+        }, {passive: false});
+
+        mapCanvasElem.addEventListener('touchmove', (e) => {
+            if (!boxAction) return; 
+            e.preventDefault(); // Impede scroll do ecrã
+            const pos = getCanvasScaleCoords(e);
+            const dx = pos.x - initialTouchX;
+            const dy = pos.y - initialTouchY;
+
+            if (boxAction === 'drag') {
+                mapBox.x = initialMapBox.x + dx;
+                mapBox.y = initialMapBox.y + dy;
+            } else if (boxAction === 'resize_br') {
+                mapBox.w = Math.max(100, initialMapBox.w + dx); // Limite mínimo 100px
+                mapBox.h = Math.max(100, initialMapBox.h + dy);
+            } else if (boxAction === 'resize_bl') {
+                mapBox.w = Math.max(100, initialMapBox.w - dx);
+                mapBox.x = initialMapBox.x + initialMapBox.w - mapBox.w;
+                mapBox.h = Math.max(100, initialMapBox.h + dy);
+            } else if (boxAction === 'resize_tr') {
+                mapBox.w = Math.max(100, initialMapBox.w + dx);
+                mapBox.h = Math.max(100, initialMapBox.h - dy);
+                mapBox.y = initialMapBox.y + initialMapBox.h - mapBox.h;
+            } else if (boxAction === 'resize_tl') {
+                mapBox.w = Math.max(100, initialMapBox.w - dx);
+                mapBox.x = initialMapBox.x + initialMapBox.w - mapBox.w;
+                mapBox.h = Math.max(100, initialMapBox.h - dy);
+                mapBox.y = initialMapBox.y + initialMapBox.h - mapBox.h;
+            }
+            renderizarCanvasMap();
+        }, {passive: false});
+
+        mapCanvasElem.addEventListener('touchend', (e) => {
+            boxAction = null; // Acabou o arrasto
+        });
+
+        // ==========================================
+        // A CONVERSÃO MATEMÁTICA PARA MILÍMETROS
+        // ==========================================
+        function converterPixelParaAspirador(pixelX, pixelY) {
+            const vacX = Math.round((pixelX * 12.5) + 13250);
+            const vacY = Math.round((pixelY * -12.5) + 43650);
+            return { x: vacX, y: vacY };
+        }
+
+        function calcularZonasEAvancar() {
+            if (!mapBox) return; // Segurança
+
+            // Converter os 4 cantos do teu quadrado azul para a linguagem do Aspirador
+            const p1 = converterPixelParaAspirador(mapBox.x, mapBox.y);
+            const p2 = converterPixelParaAspirador(mapBox.x + mapBox.w, mapBox.y + mapBox.h);
+
+            // Ordenar matematicamente o x_menor, y_menor, x_maior, y_maior
+            const xMin = Math.min(p1.x, p2.x);
+            const xMax = Math.max(p1.x, p2.x);
+            const yMin = Math.min(p1.y, p2.y);
+            const yMax = Math.max(p1.y, p2.y);
+
+            // Guardar no Array oficial que o Node.js vai enviar à Roborock!
+            zonasParaLimpar = [[xMin, yMin, xMax, yMax, 1]]; 
+            
+            // Limpa as divisões para o robô não se confundir
+            selecaoAspirar.clear(); 
+            selecaoLavar.clear();
+
+            // O teu botão continuar que leva para a potência de sucção!
+            document.getElementById('vista-mapa-interativo').style.display = 'none';
+            document.getElementById('vista-rocky').style.display = 'flex'; 
+            document.getElementById('rocky-conteudo').style.display = 'none'; 
+            document.getElementById('titulo-rocky').innerText = "Intensidade da Zona";
+            
+            document.getElementById('container-succao').style.display = 'flex';
+            document.getElementById('container-agua').style.display = 'flex';
+            
+            document.getElementById('rocky-conteudo-config').style.display = 'flex';
         }
 
         window.receberDadosDaBridge = function(base64Dados) {
@@ -1677,6 +1901,7 @@
                 e.target.id === 'btn-sync-box' || 
                 e.target.id === 'txt-sync' ||
                 e.target.closest('#vista-rocky') || 
+                e.target.closest('#vista-mapa-interativo') || 
                 e.target.classList.contains('luz-hitbox')) {
                 return;
             }
