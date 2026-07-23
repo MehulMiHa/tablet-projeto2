@@ -745,8 +745,7 @@
         let estadosLuzes = {};
 
         // ==========================================
-        // O HEARTBEAT TÁTICO (Piscar Mecânico a 1Hz)
-        // Agora funciona SEMPRE que o ecrã está acordado!
+        // O HEARTBEAT TÁTICO
         // ==========================================
         setInterval(() => {
             if (document.body.classList.contains('movido')) {
@@ -784,7 +783,6 @@
         document.addEventListener('click', resetInatividade, {passive: true});
         document.addEventListener('input', resetInatividade, {passive: true});
 
-        // Controlo de Interação para não engasgar o Slider
         let isInteractingUI = false;
         let interactionTimeout = null;
 
@@ -795,7 +793,7 @@
         }
 
         // ==========================================
-        // LÓGICA DO SELECIONADOR INTELIGENTE DE LUZES
+        // LÓGICA DO SELECIONADOR INTELIGENTE
         // ==========================================
         let luzesSelecionadas = new Set(['sanca', 'foco-1', 'foco-2', 'foco-3', 'foco-4', 'foco-5', 'foco-6', 'foco-7', 'foco-8']);
         let luzesBackup = new Set(); 
@@ -839,7 +837,6 @@
             document.getElementById('lbl-grupo-ativo').innerText = texto;
         }
 
-        // Funções para Abrir e Fechar o modo Avançado com o Backup de Segurança
         function abrirModoAvancado() {
             document.body.classList.add('luz-avancada');
             luzesBackup = new Set(luzesSelecionadas); 
@@ -1047,7 +1044,7 @@
         }
 
         // ==========================================
-        // ANTI BURN-IN MOTOR (PROTEÇÃO ECRÃ AMOLED)
+        // ANTI BURN-IN MOTOR E UTILITÁRIOS
         // ==========================================
         function atualizarBurnIn() {
             if (document.body.classList.contains('movido')) return; 
@@ -1180,7 +1177,11 @@
             }
         }
 
+        // ==========================================
+        // CORTAR A SYNC BOX AUTOMATICAMENTE
+        // ==========================================
         function autoStopSyncBlindly() {
+            if (!isSyncing) return; // Escudo: Só manda o comando de corte se a Sync Box estiver ligada
             isSyncing = false;
             atualizarUIBotaoSync();
             
@@ -1245,6 +1246,9 @@
                 origemAnimacao = origem; 
                 luzesSelecionadas.clear();
                 
+                // Se pressionou um botão na parede, corta logo a TV porque as luzes vão mudar!
+                autoStopSyncBlindly();
+                
                 if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) {
                     luzesSelecionadas.add('sanca');
                 } else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) {
@@ -1259,10 +1263,6 @@
             }
             
             atualizarLabelSelecao();
-            
-            if (telaFechada) {
-                autoStopSyncBlindly();
-            }
 
             if (telaFechada || (origem && origem !== 'touch')) {
                 if (!telaFechada) markInteraction(); 
@@ -1273,6 +1273,7 @@
         }
 
         function mudarLuzSala(propriedade, valor) {
+            autoStopSyncBlindly(); // Corta a Sync Box imediatamente ao mexer no slider!
             markInteraction();
             const corpo = { "on": true };
             corpo[propriedade] = parseInt(valor);
@@ -1304,6 +1305,7 @@
         }
 
         function togglePowerSala() {
+            autoStopSyncBlindly(); // Corta a Sync Box ao mexer no ON/OFF
             ativarAnimacao('touch');
             markInteraction();
             salaEstaLigada = !salaEstaLigada;
@@ -1329,6 +1331,7 @@
         }
 
         document.getElementById('brilho-luz').addEventListener('input', function() {
+            autoStopSyncBlindly(); // Corta a Sync Box durante o arraste
             ativarAnimacao('touch');
             markInteraction();
             const valor = parseInt(this.value);
@@ -1348,6 +1351,7 @@
         });
         
         document.getElementById('temp-luz').addEventListener('input', function() {
+            autoStopSyncBlindly(); // Corta a Sync Box durante o arraste
             ativarAnimacao('touch');
             markInteraction();
             const valor = parseInt(this.value);
@@ -1650,7 +1654,8 @@
             ativarAnimacao('touch'); 
         }
 
-        ecra.addEventListener('touchstart', detetarToqueEcra, {passive: true});
+        // A MUDANÇA PARA 'TOUCHEND' (SÓ ACORDA QUANDO LEVANTAS O DEDO)
+        ecra.addEventListener('touchend', detetarToqueEcra, {passive: true});
         ecra.addEventListener('click', detetarToqueEcra);
 
         function atualizarTempo() {
