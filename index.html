@@ -564,9 +564,9 @@
         /* A TUA NOVA ÁREA DE DESENHO MAPA */
         #container-canvas {
             position: relative;
-            margin-top: 3vh;
+            margin-top: 1vh;
             width: 90vw;
-            max-height: 65vh;
+            max-height: 58vh;
             border: 2px solid rgba(72, 219, 251, 0.6);
             border-radius: 15px;
             overflow: hidden;
@@ -579,6 +579,31 @@
             object-fit: contain;
             touch-action: none;
         }
+
+        /* BARRA SEGMENTADA DE MODO DE ZONA */
+        .seletor-modo-zona {
+            display: flex;
+            width: 90vw;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            margin-top: 2vh;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+        }
+        .opcao-modo {
+            flex: 1;
+            text-align: center;
+            padding: 1.5vh 0;
+            font-size: 1.8vh;
+            font-weight: bold;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .opcao-modo.ativo-asp { background: rgba(255, 235, 59, 0.2); color: #ffeb3b; box-shadow: inset 0 0 10px rgba(255, 235, 59, 0.2); }
+        .opcao-modo.ativo-ambos { background: rgba(76, 175, 80, 0.2); color: #4caf50; box-shadow: inset 0 0 10px rgba(76, 175, 80, 0.2); }
+        .opcao-modo.ativo-lav { background: rgba(33, 150, 243, 0.2); color: #4fc3f7; box-shadow: inset 0 0 10px rgba(33, 150, 243, 0.2); }
+
     </style>
 </head>
 <body id="ecra">
@@ -737,10 +762,19 @@
 
     </div>
 
-    <!-- VISTA 2: O MAPA DE DESENHO -->
+    <!-- VISTA 2: O MAPA DE DESENHO COM SELETOR DE MODO -->
     <div id="vista-mapa-interativo">
-        <div id="titulo-rocky" style="margin-bottom: 2vh;">Ajustar Zona</div>
+        <div id="titulo-rocky" style="margin-bottom: 1vh;">Ajustar Zona</div>
+        
         <div id="container-canvas"><canvas id="mapCanvas" width="1940" height="2060"></canvas></div>
+        
+        <!-- A NOVA BARRA DE MODO DE LIMPEZA -->
+        <div class="seletor-modo-zona">
+            <div class="opcao-modo" id="modo-z-asp" onclick="setModoZona('aspirar')">🧹 Aspirar</div>
+            <div class="opcao-modo ativo-ambos" id="modo-z-ambos" onclick="setModoZona('ambos')">🧹+💧 Ambos</div>
+            <div class="opcao-modo" id="modo-z-lav" onclick="setModoZona('lavar')">💧 Lavar</div>
+        </div>
+
         <div style="display: flex; justify-content: space-between; width: 92vw; padding: 3vh 0; margin-top: auto;">
             <button class="btn-footer-rocky" onclick="voltarDoMapaParaDivisoes()">⬅ Cancelar</button>
             <button class="btn-footer-rocky" id="btn-confirmar-zona" onclick="calcularZonasEAvancar()">Confirmar ➔</button>
@@ -1212,7 +1246,7 @@
         // CORTAR A SYNC BOX AUTOMATICAMENTE
         // ==========================================
         function autoStopSyncBlindly() {
-            if (!isSyncing) return; // Escudo: Só manda o comando de corte se a Sync Box estiver ligada
+            if (!isSyncing) return; 
             isSyncing = false;
             atualizarUIBotaoSync();
             
@@ -1438,7 +1472,7 @@
         let selecaoAspirar = new Set();
         let selecaoLavar = new Set();
         let divisoesMapa = [];
-        let zonasParaLimpar = []; // NOVA VARIÁVEL PARA O NODE.JS
+        let zonasParaLimpar = []; 
 
         window.abrirVistaRocky = function(e) {
             if (e) e.stopPropagation(); 
@@ -1589,8 +1623,9 @@
         function voltarParaDivisoes() {
             resetInatividade();
             document.getElementById('rocky-conteudo-config').style.display = 'none';
+            
             if (zonasParaLimpar.length > 0) {
-                // Se estávamos a limpar uma zona e voltámos, voltamos ao ecrã do desenho!
+                // Se estávamos a limpar uma zona e voltámos, voltamos ao ecrã do desenho
                 document.getElementById('vista-mapa-interativo').style.display = 'flex';
                 document.getElementById('titulo-rocky').innerText = "Ajustar Zona";
             } else {
@@ -1627,7 +1662,8 @@
             const payload = {
                 divisoesAspirar: arrayAspirar,
                 divisoesLavar: arrayLavar,
-                zonas: zonasParaLimpar, // <- A NOVA VARIÁVEL VAI AQUI PARA O NODE!
+                zonas: zonasParaLimpar, 
+                modoZona: zonasParaLimpar.length > 0 ? modoZonaSelecionado : null,
                 nivelSuccao: succao,
                 nivelAgua: agua
             };
@@ -1662,16 +1698,18 @@
         }
 
         // ==========================================
-        // CÉREBRO MATEMÁTICO: O NOVO MAPA INTERATIVO (QUADRADO DRAG/RESIZE)
+        // CÉREBRO MATEMÁTICO: MAPA INTERATIVO ZONAS
         // ==========================================
         const imgMapaObj = new Image();
         imgMapaObj.src = 'mapa.png'; 
         
         let canvasMap, ctxMap;
-        let mapBox = null; // Guardar a posição e tamanho do nosso quadrado: {x, y, w, h}
-        let boxAction = null; // Sabe o que estamos a fazer ('drag', 'resize_tl', 'resize_br', etc)
+        let mapBox = null; 
+        let boxAction = null; 
         let initialTouchX, initialTouchY;
         let initialMapBox;
+        
+        let modoZonaSelecionado = 'ambos'; 
 
         function abrirVistaMapa() {
             document.getElementById('rocky-conteudo').style.display = 'none';
@@ -1690,54 +1728,55 @@
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             document.getElementById('rocky-conteudo').style.display = 'flex';
-            zonasParaLimpar = []; // Limpar zonas para não haver confusão
+            zonasParaLimpar = []; 
+            mapBox = null; 
         }
 
         function iniciarCaixaEDesenhar() {
-            // Se ainda não houver um quadrado, cria um no meio do ecrã!
             if (!mapBox && canvasMap.width > 0) {
-                mapBox = {
-                    x: (canvasMap.width / 2) - 150,
-                    y: (canvasMap.height / 2) - 150,
-                    w: 300,
-                    h: 300
-                };
+                mapBox = { x: (canvasMap.width / 2) - 150, y: (canvasMap.height / 2) - 150, w: 300, h: 300 };
             }
             renderizarCanvasMap();
         }
 
         function renderizarCanvasMap() {
             if (!ctxMap) return;
-            // Limpa o canvas e põe a tua foto do robô
             ctxMap.clearRect(0, 0, canvasMap.width, canvasMap.height);
             ctxMap.drawImage(imgMapaObj, 0, 0, canvasMap.width, canvasMap.height);
             
             if (mapBox) {
-                // Desenhar a área de fora escura
                 ctxMap.fillStyle = "rgba(0, 0, 0, 0.4)";
                 ctxMap.fillRect(0, 0, canvasMap.width, mapBox.y); 
                 ctxMap.fillRect(0, mapBox.y, mapBox.x, mapBox.h); 
                 ctxMap.fillRect(mapBox.x + mapBox.w, mapBox.y, canvasMap.width - (mapBox.x + mapBox.w), mapBox.h); 
                 ctxMap.fillRect(0, mapBox.y + mapBox.h, canvasMap.width, canvasMap.height - (mapBox.y + mapBox.h)); 
 
-                // Desenhar o quadrado interior iluminado
                 ctxMap.fillStyle = "rgba(72, 219, 251, 0.1)";
                 ctxMap.fillRect(mapBox.x, mapBox.y, mapBox.w, mapBox.h);
                 
-                // Bordas do quadrado
-                ctxMap.strokeStyle = "#48dbfb";
-                ctxMap.lineWidth = 6;
+                ctxMap.strokeStyle = "#48dbfb"; ctxMap.lineWidth = 6;
                 ctxMap.strokeRect(mapBox.x, mapBox.y, mapBox.w, mapBox.h);
 
-                // Desenhar as 4 "Bolotas" nos cantos para puxar e esticar
                 ctxMap.fillStyle = "#fff";
-                const s = 40; // Tamanho gigante das bolotas para o toque no tablet
-                ctxMap.fillRect(mapBox.x - s/2, mapBox.y - s/2, s, s); // Top Left
-                ctxMap.fillRect(mapBox.x + mapBox.w - s/2, mapBox.y - s/2, s, s); // Top Right
-                ctxMap.fillRect(mapBox.x - s/2, mapBox.y + mapBox.h - s/2, s, s); // Bottom Left
-                ctxMap.fillRect(mapBox.x + mapBox.w - s/2, mapBox.y + mapBox.h - s/2, s, s); // Bottom Right
+                const s = 40; 
+                ctxMap.fillRect(mapBox.x - s/2, mapBox.y - s/2, s, s); 
+                ctxMap.fillRect(mapBox.x + mapBox.w - s/2, mapBox.y - s/2, s, s); 
+                ctxMap.fillRect(mapBox.x - s/2, mapBox.y + mapBox.h - s/2, s, s); 
+                ctxMap.fillRect(mapBox.x + mapBox.w - s/2, mapBox.y + mapBox.h - s/2, s, s); 
             }
         }
+
+        window.setModoZona = function(modo) {
+            modoZonaSelecionado = modo;
+            document.getElementById('modo-z-asp').className = 'opcao-modo';
+            document.getElementById('modo-z-ambos').className = 'opcao-modo';
+            document.getElementById('modo-z-lav').className = 'opcao-modo';
+            
+            if(modo === 'aspirar') document.getElementById('modo-z-asp').classList.add('ativo-asp');
+            if(modo === 'ambos') document.getElementById('modo-z-ambos').classList.add('ativo-ambos');
+            if(modo === 'lavar') document.getElementById('modo-z-lav').classList.add('ativo-lav');
+            resetInatividade();
+        };
 
         const mapCanvasElem = document.getElementById('mapCanvas');
 
@@ -1746,111 +1785,72 @@
             const scaleX = mapCanvasElem.width / rect.width;
             const scaleY = mapCanvasElem.height / rect.height;
             const touch = e.touches ? e.touches[0] : e;
-            return {
-                x: (touch.clientX - rect.left) * scaleX,
-                y: (touch.clientY - rect.top) * scaleY
-            };
+            return { x: (touch.clientX - rect.left) * scaleX, y: (touch.clientY - rect.top) * scaleY };
         }
 
         function detetarOQueOTocaram(tx, ty) {
             if (!mapBox) return null;
-            const t = 80; // Tolerância GIGANTE para não falhares com o dedo
-            // Verificamos os 4 cantos primeiro
+            const t = 80; 
             if (Math.abs(tx - mapBox.x) < t && Math.abs(ty - mapBox.y) < t) return 'resize_tl';
             if (Math.abs(tx - (mapBox.x + mapBox.w)) < t && Math.abs(ty - mapBox.y) < t) return 'resize_tr';
             if (Math.abs(tx - mapBox.x) < t && Math.abs(ty - (mapBox.y + mapBox.h)) < t) return 'resize_bl';
             if (Math.abs(tx - (mapBox.x + mapBox.w)) < t && Math.abs(ty - (mapBox.y + mapBox.h)) < t) return 'resize_br';
-            
-            // Se não tocou num canto, e tocou dentro do quadrado, é arrasto
             if (tx > mapBox.x && tx < mapBox.x + mapBox.w && ty > mapBox.y && ty < mapBox.y + mapBox.h) return 'drag';
-            
-            return null; // Tocou fora
+            return null; 
         }
 
         mapCanvasElem.addEventListener('touchstart', (e) => {
-            resetInatividade(); 
-            const pos = getCanvasScaleCoords(e);
+            resetInatividade(); const pos = getCanvasScaleCoords(e);
             boxAction = detetarOQueOTocaram(pos.x, pos.y);
-            
-            if (boxAction) {
-                initialTouchX = pos.x;
-                initialTouchY = pos.y;
-                initialMapBox = {...mapBox}; // Grava o estado atual
-            }
+            if (boxAction) { initialTouchX = pos.x; initialTouchY = pos.y; initialMapBox = {...mapBox}; }
         }, {passive: false});
 
         mapCanvasElem.addEventListener('touchmove', (e) => {
-            if (!boxAction) return; 
-            e.preventDefault(); // Impede scroll do ecrã
-            const pos = getCanvasScaleCoords(e);
-            const dx = pos.x - initialTouchX;
-            const dy = pos.y - initialTouchY;
+            if (!boxAction) return; e.preventDefault(); 
+            const pos = getCanvasScaleCoords(e), dx = pos.x - initialTouchX, dy = pos.y - initialTouchY;
 
-            if (boxAction === 'drag') {
-                mapBox.x = initialMapBox.x + dx;
-                mapBox.y = initialMapBox.y + dy;
-            } else if (boxAction === 'resize_br') {
-                mapBox.w = Math.max(100, initialMapBox.w + dx); // Limite mínimo 100px
-                mapBox.h = Math.max(100, initialMapBox.h + dy);
-            } else if (boxAction === 'resize_bl') {
-                mapBox.w = Math.max(100, initialMapBox.w - dx);
-                mapBox.x = initialMapBox.x + initialMapBox.w - mapBox.w;
-                mapBox.h = Math.max(100, initialMapBox.h + dy);
-            } else if (boxAction === 'resize_tr') {
-                mapBox.w = Math.max(100, initialMapBox.w + dx);
-                mapBox.h = Math.max(100, initialMapBox.h - dy);
-                mapBox.y = initialMapBox.y + initialMapBox.h - mapBox.h;
-            } else if (boxAction === 'resize_tl') {
-                mapBox.w = Math.max(100, initialMapBox.w - dx);
-                mapBox.x = initialMapBox.x + initialMapBox.w - mapBox.w;
-                mapBox.h = Math.max(100, initialMapBox.h - dy);
-                mapBox.y = initialMapBox.y + initialMapBox.h - mapBox.h;
-            }
+            if (boxAction === 'drag') { mapBox.x = initialMapBox.x + dx; mapBox.y = initialMapBox.y + dy; } 
+            else if (boxAction === 'resize_br') { mapBox.w = Math.max(100, initialMapBox.w + dx); mapBox.h = Math.max(100, initialMapBox.h + dy); } 
+            else if (boxAction === 'resize_bl') { mapBox.w = Math.max(100, initialMapBox.w - dx); mapBox.x = initialMapBox.x + initialMapBox.w - mapBox.w; mapBox.h = Math.max(100, initialMapBox.h + dy); } 
+            else if (boxAction === 'resize_tr') { mapBox.w = Math.max(100, initialMapBox.w + dx); mapBox.h = Math.max(100, initialMapBox.h - dy); mapBox.y = initialMapBox.y + initialMapBox.h - mapBox.h; } 
+            else if (boxAction === 'resize_tl') { mapBox.w = Math.max(100, initialMapBox.w - dx); mapBox.x = initialMapBox.x + initialMapBox.w - mapBox.w; mapBox.h = Math.max(100, initialMapBox.h - dy); mapBox.y = initialMapBox.y + initialMapBox.h - mapBox.h; }
             renderizarCanvasMap();
         }, {passive: false});
 
-        mapCanvasElem.addEventListener('touchend', (e) => {
-            boxAction = null; // Acabou o arrasto
-        });
+        mapCanvasElem.addEventListener('touchend', (e) => { boxAction = null; });
 
-        // ==========================================
-        // A CONVERSÃO MATEMÁTICA PARA MILÍMETROS
-        // ==========================================
         function converterPixelParaAspirador(pixelX, pixelY) {
-            const vacX = Math.round((pixelX * 12.5) + 13250);
-            const vacY = Math.round((pixelY * -12.5) + 43650);
+            const vacX = Math.round((pixelX * 12.5) + 13250); const vacY = Math.round((pixelY * -12.5) + 43650);
             return { x: vacX, y: vacY };
         }
 
         function calcularZonasEAvancar() {
-            if (!mapBox) return; // Segurança
+            if (!mapBox) return; 
 
-            // Converter os 4 cantos do teu quadrado azul para a linguagem do Aspirador
             const p1 = converterPixelParaAspirador(mapBox.x, mapBox.y);
             const p2 = converterPixelParaAspirador(mapBox.x + mapBox.w, mapBox.y + mapBox.h);
 
-            // Ordenar matematicamente o x_menor, y_menor, x_maior, y_maior
-            const xMin = Math.min(p1.x, p2.x);
-            const xMax = Math.max(p1.x, p2.x);
-            const yMin = Math.min(p1.y, p2.y);
-            const yMax = Math.max(p1.y, p2.y);
+            const xMin = Math.min(p1.x, p2.x), xMax = Math.max(p1.x, p2.x);
+            const yMin = Math.min(p1.y, p2.y), yMax = Math.max(p1.y, p2.y);
 
-            // Guardar no Array oficial que o Node.js vai enviar à Roborock!
             zonasParaLimpar = [[xMin, yMin, xMax, yMax, 1]]; 
-            
-            // Limpa as divisões para o robô não se confundir
-            selecaoAspirar.clear(); 
-            selecaoLavar.clear();
+            selecaoAspirar.clear(); selecaoLavar.clear();
 
-            // O teu botão continuar que leva para a potência de sucção!
+            const containerSuccao = document.getElementById('container-succao');
+            const containerAgua = document.getElementById('container-agua');
+
+            if (modoZonaSelecionado === 'aspirar') {
+                containerSuccao.style.display = 'flex'; containerAgua.style.display = 'none';
+            } else if (modoZonaSelecionado === 'lavar') {
+                containerSuccao.style.display = 'none'; containerAgua.style.display = 'flex';
+            } else {
+                containerSuccao.style.display = 'flex'; containerAgua.style.display = 'flex';
+            }
+
             document.getElementById('vista-mapa-interativo').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'flex'; 
             document.getElementById('rocky-conteudo').style.display = 'none'; 
             document.getElementById('titulo-rocky').innerText = "Intensidade da Zona";
-            
-            document.getElementById('container-succao').style.display = 'flex';
-            document.getElementById('container-agua').style.display = 'flex';
-            
             document.getElementById('rocky-conteudo-config').style.display = 'flex';
         }
 
@@ -1897,6 +1897,7 @@
             if (e.target.tagName === 'INPUT' || 
                 e.target.tagName === 'BUTTON' || 
                 e.target.classList.contains('metade-switch') || 
+                e.target.classList.contains('opcao-modo') || 
                 e.target.id === 'btn-power-sala' || 
                 e.target.id === 'btn-sync-box' || 
                 e.target.id === 'txt-sync' ||
