@@ -1217,9 +1217,44 @@
                 atualizarCoresFundo3D();
 
                 if (!isInteractingUI) {
-                    let dadosAtivos = estado84;
-                    if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 1) dadosAtivos = estado82;
-                    if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 9) dadosAtivos = estado83;
+                    let dadosAtivos = null;
+                    
+                    // A CORREÇÃO DE QA: LER O ESTADO DE FORMA INTELIGENTE (PROCURA A LIGADA)
+                    if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 9) {
+                        dadosAtivos = estado83;
+                    } else if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 1) {
+                        dadosAtivos = estado82;
+                    } else if (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 8) {
+                        dadosAtivos = estado84;
+                    } else if (luzesSelecionadas.size > 0) {
+                        // Varrer as luzes selecionadas e encontrar uma que esteja LIGADA
+                        let estadoLigado = null;
+                        let estadoFallback = null;
+
+                        for (const luzSelecionada of luzesSelecionadas) {
+                            let estadoTemp = null;
+                            if (luzSelecionada === 'sanca') {
+                                estadoTemp = estado82;
+                            } else {
+                                const realId = MAPA_LUZES_INDIVIDUAIS[luzSelecionada];
+                                if (realId && estadosLuzes[realId] && estadosLuzes[realId].state) {
+                                    estadoTemp = estadosLuzes[realId].state;
+                                }
+                            }
+
+                            if (estadoTemp) {
+                                if (!estadoFallback) estadoFallback = estadoTemp; // Guarda a 1ª que vir
+                                if (estadoTemp.on) {
+                                    estadoLigado = estadoTemp;
+                                    break; // Achou uma ligada, pára a busca!
+                                }
+                            }
+                        }
+                        // Se encontrou alguma ligada, usa essa. Se estão todas desligadas, usa a primeira que viu.
+                        dadosAtivos = estadoLigado || estadoFallback;
+                    }
+
+                    if (!dadosAtivos) dadosAtivos = estado84; // Failsafe geral
                     
                     salaEstaLigada = dadosAtivos.on;
                     const btn = document.getElementById('btn-power-sala');
