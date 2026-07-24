@@ -1626,10 +1626,11 @@
         };
 
         // ==========================================
-        // CÉREBRO MATEMÁTICO: MAPA INTERATIVO ZONAS E TEMPO REAL
+        // CÉREBRO MATEMÁTICO: O MAPA INTERATIVO (QUADRADO DRAG/RESIZE) E TEMPO REAL
         // ==========================================
-        const imgMapaObj = new Image(); 
-        imgMapaObj.src = 'mapa.png'; 
+        const imgMapaObj = new Image();
+        imgMapaObj.crossOrigin = "Anonymous"; // Permite carregar do 127.0.0.1
+        imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png'; 
         
         let canvasMap, ctxMap;
         let mapBox = null; 
@@ -1655,11 +1656,10 @@
                     // Pede ao Termux para correr o comando Python
                     await fetch('http://127.0.0.1:3000/api/rocky/update-map');
                     
-                    // Força o HTML a buscar o mapa novo sem usar cache
-                    imgMapaObj.src = 'mapa.png?time=' + new Date().getTime();
+                    // Força o HTML a buscar o mapa novo sem usar cache, pedindo ao Termux!
+                    imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png?time=' + new Date().getTime();
                     
-                    // Quando a imagem nova carrega, ele pinta no ecrã automaticamente 
-                    // e mantém a tua caixa azul no mesmo sítio!
+                    // Quando a imagem nova carrega, pinta no ecrã
                     imgMapaObj.onload = () => renderizarCanvasMap();
                 } catch(e) {}
             }, 3000);
@@ -1673,6 +1673,32 @@
             }
         }
 
+        function abrirVistaMapa() {
+            document.getElementById('rocky-conteudo').style.display = 'none';
+            document.getElementById('vista-rocky').style.display = 'none';
+            document.getElementById('vista-mapa-interativo').style.display = 'flex';
+            
+            canvasMap = document.getElementById('mapCanvas');
+            ctxMap = canvasMap.getContext('2d');
+            
+            if (imgMapaObj.complete) iniciarCaixaEDesenhar();
+            else imgMapaObj.onload = () => iniciarCaixaEDesenhar();
+
+            // Começa a sacar a foto a cada 3s!
+            iniciarMapaTempoReal();
+        }
+
+        function voltarDoMapaParaDivisoes() {
+            document.getElementById('vista-mapa-interativo').style.display = 'none';
+            document.getElementById('vista-rocky').style.display = 'flex';
+            document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
+            document.getElementById('rocky-conteudo').style.display = 'flex';
+            zonasParaLimpar = []; 
+            mapBox = null; 
+            
+            pararMapaTempoReal();
+        }
+
         function fecharVistaRocky() {
             document.getElementById('vista-rocky').style.display = 'none';
             document.getElementById('vista-mapa-interativo').style.display = 'none';
@@ -1680,8 +1706,8 @@
             if (document.body.classList.contains('luz-avancada')) fecharModoAvancado();
             origemAnimacao = null;
             
-            // Para o processamento
-            pararMapaTempoReal();
+            // NOVO: Parar o mapa se for fechado
+            if (typeof pararMapaTempoReal === 'function') pararMapaTempoReal();
         }
 
         async function carregarMapaRocky() {
@@ -1896,33 +1922,6 @@
             }, 3000);
         }
 
-        function abrirVistaMapa() {
-            document.getElementById('rocky-conteudo').style.display = 'none';
-            document.getElementById('vista-rocky').style.display = 'none';
-            document.getElementById('vista-mapa-interativo').style.display = 'flex';
-            
-            canvasMap = document.getElementById('mapCanvas');
-            ctxMap = canvasMap.getContext('2d');
-            
-            if (imgMapaObj.complete) iniciarCaixaEDesenhar();
-            else imgMapaObj.onload = () => iniciarCaixaEDesenhar();
-
-            // Começa a sacar a foto a cada 3s!
-            iniciarMapaTempoReal();
-        }
-
-        function voltarDoMapaParaDivisoes() {
-            document.getElementById('vista-mapa-interativo').style.display = 'none';
-            document.getElementById('vista-rocky').style.display = 'flex';
-            document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
-            document.getElementById('rocky-conteudo').style.display = 'flex';
-            zonasParaLimpar = []; 
-            mapBox = null; 
-            
-            // Para o processamento
-            pararMapaTempoReal();
-        }
-
         function iniciarCaixaEDesenhar() {
             if (!mapBox && canvasMap.width > 0) {
                 mapBox = { x: (canvasMap.width / 2) - 150, y: (canvasMap.height / 2) - 150, w: 300, h: 300 };
@@ -2044,7 +2043,6 @@
             document.getElementById('titulo-rocky').innerText = "Intensidade da Zona";
             document.getElementById('rocky-conteudo-config').style.display = 'flex';
             
-            // Como vamos para o ecrã das configurações de sucção/água, já não precisamos do mapa ao vivo!
             pararMapaTempoReal();
         }
 
