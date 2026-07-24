@@ -56,6 +56,16 @@
             pointer-events: auto;
         }
 
+        /* ESCONDER COMPONENTES CASO ESTEJAMOS NA VISTA AO VIVO DO ROCKY */
+        body.modo-rocky-live #fundo-luzes-container,
+        body.modo-rocky-live #painel-luzes,
+        body.modo-rocky-live #botoes-rodape-container,
+        body.modo-rocky-live #relogio-wrapper,
+        body.modo-rocky-live #bateria-container {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
         /* --- CAMADA 1: VISUAIS INTOCÁVEIS E SINCRONIZADOS --- */
         .visual-forma {
             pointer-events: none !important; 
@@ -104,54 +114,6 @@
             z-index: 20;
             transform: translate(calc(var(--burn-x) * 0.5), calc(var(--burn-y) * 0.2));
             transition: transform 0.8s ease;
-        }
-
-        /* --- WIDGET ESTADO ROCKY (ECRÃ BLOQUEADO) --- */
-        #widget-rocky {
-            position: absolute;
-            top: 25vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 1s ease;
-            z-index: 10;
-            transform: translate(var(--burn-x), var(--burn-y));
-        }
-
-        body.movido #widget-rocky {
-            opacity: 0 !important;
-            pointer-events: none;
-        }
-
-        #txt-estado-rocky {
-            font-size: 2.5vh;
-            font-weight: bold;
-            color: #4cd137;
-            text-shadow: 0 0 10px rgba(76, 209, 55, 0.4);
-            margin-bottom: 1.5vh;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 1vh 2vw;
-            border-radius: 20px;
-            border: 1px solid rgba(76, 209, 55, 0.3);
-        }
-
-        #btn-pausa-rocky {
-            background: rgba(251, 197, 49, 0.2);
-            border: 1px solid rgba(251, 197, 49, 0.8);
-            color: #fbc531;
-            font-size: 1.8vh;
-            font-weight: bold;
-            padding: 1vh 3vw;
-            border-radius: 15px;
-            cursor: pointer;
-            backdrop-filter: blur(5px);
-            pointer-events: auto;
-            transition: transform 0.2s, background 0.3s;
-        }
-        #btn-pausa-rocky:active {
-            transform: scale(0.9);
         }
 
         #relogio-wrapper {
@@ -649,6 +611,71 @@
         .opcao-modo.ativo-ambos { background: rgba(76, 175, 80, 0.2); color: #4caf50; box-shadow: inset 0 0 10px rgba(76, 175, 80, 0.2); }
         .opcao-modo.ativo-lav { background: rgba(33, 150, 243, 0.2); color: #4fc3f7; box-shadow: inset 0 0 10px rgba(33, 150, 243, 0.2); }
 
+        /* ========================================================== */
+        /* --- ECRÃ ROCKY AO VIVO (DASHBOARD) ---                     */
+        /* ========================================================== */
+        #vista-rocky-live {
+            display: none; 
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.9)), url('fundo.jpg');
+            background-size: cover;
+            background-position: center;
+            z-index: 1000;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        body.modo-rocky-live #vista-rocky-live { 
+            display: flex; 
+        }
+
+        .header-live { 
+            width: 100%; display: flex; justify-content: space-between; align-items: center; 
+            padding: 3vh 5vw; box-sizing: border-box; margin-bottom: 2vh; 
+        }
+        #relogio-live { 
+            font-size: 5vh; font-weight: bold; letter-spacing: -1px; text-shadow: 0 2px 10px rgba(0,0,0,0.5); 
+        }
+        .btn-top-live { 
+            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); 
+            color: white; font-size: 2vh; font-weight: bold; padding: 1vh 4vw; border-radius: 30px; 
+            backdrop-filter: blur(10px); cursor: pointer; transition: background 0.3s; 
+        }
+        .btn-top-live:active { background: rgba(255, 255, 255, 0.3); }
+
+        #live-estado-texto { 
+            font-size: 5vh; font-weight: 900; color: #4cd137; text-shadow: 0 0 20px rgba(76, 209, 55, 0.5); 
+            text-transform: uppercase; margin-top: 2vh; letter-spacing: 2px; text-align: center; 
+        }
+        #live-sala-texto { 
+            font-size: 2.5vh; color: #aaa; margin-top: 1vh; margin-bottom: 6vh; font-weight: bold; text-align: center; 
+        }
+
+        .grid-stats { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; width: 85vw; 
+        }
+        .card-stat { 
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 20px; padding: 3vh 0; display: flex; flex-direction: column; align-items: center; 
+            backdrop-filter: blur(10px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); 
+        }
+        .stat-icon { font-size: 4vh; margin-bottom: 1vh; }
+        .stat-val { font-size: 4.5vh; font-weight: bold; color: #fff; }
+        .stat-nome { font-size: 1.5vh; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-top: 0.5vh;}
+
+        .botoes-live-bottom { 
+            display: flex; gap: 4vw; width: 85vw; margin-top: auto; margin-bottom: 5vh; 
+        }
+        .btn-live-action { 
+            flex: 1; padding: 2.5vh 0; font-size: 2.2vh; font-weight: bold; border-radius: 20px; 
+            cursor: pointer; transition: transform 0.2s; border: none; text-align: center; 
+        }
+        .btn-pausa-live { background: rgba(251, 197, 49, 0.2); color: #fbc531; border: 2px solid rgba(251, 197, 49, 0.8); }
+        .btn-home-live { background: rgba(232, 65, 24, 0.2); color: #e84118; border: 2px solid rgba(232, 65, 24, 0.8); }
+        .btn-live-action:active { transform: scale(0.95); }
+
     </style>
 </head>
 <body id="ecra">
@@ -708,12 +735,6 @@
         <span id="txt-bateria">--%</span>
     </div>
 
-    <!-- WIDGET ROCKY: APARECE ACIMA DO RELÓGIO -->
-    <div id="widget-rocky">
-        <div id="txt-estado-rocky">🤖 Rocky: A Limpar</div>
-        <button id="btn-pausa-rocky" onclick="pausarRocky15Min()">⏸️ Pausa 15 Minutos</button>
-    </div>
-
     <div id="relogio-wrapper">
         <div id="temps-top">
             <span><span class="label-out">OUT</span><span id="temp-out">--</span>°C</span>
@@ -725,6 +746,7 @@
         <div id="chuva-hoje">🌧️ Chuva nas próximas 12h: --%</div>
     </div>
 
+    <!-- O ECRÃ NORMAL DAS LUZES -->
     <div id="painel-luzes">
         <div class="grupo-slider">
             <span class="icone-luz">☀️</span>
@@ -759,6 +781,46 @@
         <button class="btn-rodape" onclick="abrirVistaRocky(event)">🤖 Rocky</button>
     </div>
 
+    <!-- O NOVO ECRÃ DO DASHBOARD (LIVE) DO ROCKY -->
+    <div id="vista-rocky-live">
+        <div class="header-live">
+            <div id="relogio-live">00:00</div>
+            <button class="btn-top-live" onclick="irParaLuzes(event)">💡 Luzes</button>
+        </div>
+
+        <div id="live-estado-texto">A LIMPAR</div>
+        <div id="live-sala-texto">A comunicar com o robô...</div>
+
+        <div class="grid-stats">
+            <div class="card-stat">
+                <div class="stat-icon">🔋</div>
+                <div class="stat-val" id="val-bat">--%</div>
+                <div class="stat-nome">Bateria</div>
+            </div>
+            <div class="card-stat">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-val" id="val-tempo">-- min</div>
+                <div class="stat-nome">Tempo</div>
+            </div>
+            <div class="card-stat">
+                <div class="stat-icon">📐</div>
+                <div class="stat-val" id="val-area">-- m²</div>
+                <div class="stat-nome">Área</div>
+            </div>
+            <div class="card-stat">
+                <div class="stat-icon">🌪️</div>
+                <div class="stat-val" id="val-potencia">--</div>
+                <div class="stat-nome">Sucção</div>
+            </div>
+        </div>
+
+        <div class="botoes-live-bottom">
+            <button class="btn-live-action btn-pausa-live" id="btn-live-pause" onclick="pausarRocky15Min()">⏸️ Pausa 15m</button>
+            <button class="btn-live-action btn-home-live" id="btn-live-home" onclick="enviarParaBase()">🏠 Regressar</button>
+        </div>
+    </div>
+
+    <!-- O ECRÃ DE SELEÇÃO DE DIVISÕES -->
     <div id="vista-rocky">
         <button id="btn-voltar-rocky" onclick="fecharVistaRocky()" style="margin-top: 5vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; cursor: pointer;">⬅ Voltar ao Relógio</button>
         <div id="titulo-rocky">Onde desejas limpar?</div>
@@ -810,10 +872,9 @@
                 <button class="btn-footer-rocky" id="btn-iniciar" onclick="enviarComandoFinal()">Iniciar Limpeza 🚀</button>
             </div>
         </div>
-
     </div>
 
-    <!-- VISTA 2: O MAPA DE DESENHO COM SELETOR DE MODO -->
+    <!-- O ECRÃ DO MAPA INTERATIVO COM A BARRA DE MODOS -->
     <div id="vista-mapa-interativo">
         <div id="titulo-rocky" style="margin-bottom: 1vh;">Ajustar Zona</div>
         
@@ -857,11 +918,15 @@
         let estado84 = { on: false, bri: 254, ct: 326 };
         let estadosLuzes = {};
 
+        // NOVA VARIÁVEL GLOBAL PARA O ROCKY
+        let rockyIsActive = false;
+
         // ==========================================
         // O HEARTBEAT TÁTICO
         // ==========================================
         setInterval(() => {
-            if (document.body.classList.contains('movido')) {
+            // O heartbeat só pisca as luzes se não estivermos no dashboard do Rocky
+            if (document.body.classList.contains('movido') && !document.body.classList.contains('modo-rocky-live')) {
                 document.body.classList.add('tick-flash');
                 setTimeout(() => {
                     document.body.classList.remove('tick-flash');
@@ -889,6 +954,7 @@
                 }
                 if (document.body.classList.contains('movido')) {
                     document.body.classList.remove('movido');
+                    document.body.classList.remove('modo-rocky-live');
                     origemAnimacao = null; 
                 }
                 atualizarBurnIn();
@@ -1383,6 +1449,12 @@
         }
         setInterval(sincronizarEstadoSala, 500); 
 
+        window.irParaLuzes = function(e) {
+            if(e) e.stopPropagation();
+            document.body.classList.remove('modo-rocky-live');
+            resetInatividade();
+        }
+
         function ativarAnimacao(origem = null) {
             const telaFechada = !document.body.classList.contains('movido');
             
@@ -1396,6 +1468,9 @@
                 
                 autoStopSyncBlindly();
                 
+                // Botão físico da parede = SEMPRE vai para o ecrã das luzes
+                document.body.classList.remove('modo-rocky-live');
+
                 if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) {
                     luzesSelecionadas.add('sanca');
                 } else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) {
@@ -1416,6 +1491,16 @@
             }
 
             document.body.classList.add('movido');
+
+            // INTELIGÊNCIA: Se for toque para acordar o ecrã, e o Rocky estiver a limpar... Abre o Rocky!
+            if (telaFechada && origem === 'touch') {
+                if (rockyIsActive) {
+                    document.body.classList.add('modo-rocky-live');
+                } else {
+                    document.body.classList.remove('modo-rocky-live');
+                }
+            }
+
             resetInatividade();
         }
 
@@ -1529,6 +1614,10 @@
             if (e) e.stopPropagation(); 
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('vista-mapa-interativo').style.display = 'none';
+            
+            // Caso estivesse na vista live
+            document.body.classList.remove('modo-rocky-live');
+            
             document.getElementById('vista-rocky').style.display = 'flex';
             document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
             
@@ -1731,7 +1820,15 @@
                 if (res.ok) {
                     botaoIniciar.innerText = "Sucesso! A iniciar...";
                     botaoIniciar.style.background = "rgba(76, 175, 80, 0.8)";
-                    setTimeout(() => { fecharVistaRocky(); }, 2000);
+                    
+                    // Esconde a interface de configuração
+                    setTimeout(() => { 
+                        document.getElementById('vista-rocky').style.display = 'none'; 
+                        // Dá a indicação para a monitorização de que o robot vai ficar ativo
+                        rockyIsActive = true;
+                        // Abre automaticamente o dashboard live!
+                        document.body.classList.add('modo-rocky-live');
+                    }, 2000);
                 } else {
                     botaoIniciar.innerText = "Falta lógica Node.js!";
                     botaoIniciar.style.background = "rgba(244, 67, 54, 0.8)";
@@ -1954,6 +2051,7 @@
                 e.target.id === 'txt-sync' ||
                 e.target.closest('#vista-rocky') || 
                 e.target.closest('#vista-mapa-interativo') || 
+                e.target.closest('#vista-rocky-live') ||
                 e.target.classList.contains('luz-hitbox') ||
                 e.target.id === 'btn-pausa-rocky') {
                 return;
@@ -1972,7 +2070,9 @@
 
         function atualizarTempo() {
             const agora = new Date();
-            document.getElementById('relogio').innerHTML = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
+            const hora = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
+            document.getElementById('relogio').innerHTML = hora;
+            document.getElementById('relogio-live').innerHTML = hora;
         }
 
         async function getOutdoorTemp() {
@@ -2027,74 +2127,93 @@
         getIndoorTemp();
 
         // ==========================================
-        // MONITORIZAÇÃO E PAUSA DO ROCKY (A cada 10s)
+        // MONITORIZAÇÃO E NOVO DASHBOARD DO ROCKY
         // ==========================================
-        const widgetRocky = document.getElementById('widget-rocky');
-        const txtEstadoRocky = document.getElementById('txt-estado-rocky');
-        const btnPausaRocky = document.getElementById('btn-pausa-rocky');
+        const txtEstadoLive = document.getElementById('live-estado-texto');
+        const valBat = document.getElementById('val-bat');
+        const valTempo = document.getElementById('val-tempo');
+        const valArea = document.getElementById('val-area');
+        const valPotencia = document.getElementById('val-potencia');
+        const btnPausaLive = document.getElementById('btn-live-pause');
+        const btnHomeLive = document.getElementById('btn-live-home');
 
         async function monitorizarEstadoRocky() {
             try {
                 const res = await fetch('http://127.0.0.1:3000/api/rocky/status');
-                const data = await res.json();
+                const status = await res.json();
                 
-                if (data && data.state !== undefined) {
-                    const estado = data.state;
+                if (status && status.state !== undefined) {
+                    const estado = status.state;
+                    
+                    valBat.innerText = (status.battery !== undefined ? status.battery : "--") + "%";
+                    if (status.clean_time !== undefined) valTempo.innerText = Math.round(status.clean_time / 60) + ' min';
+                    if (status.clean_area !== undefined) valArea.innerText = (status.clean_area / 1000000).toFixed(1) + ' m²';
+                    
+                    const forcas = { 101: "Silencioso", 102: "Normal", 103: "Turbo", 104: "Máx" };
+                    if (status.fan_power) valPotencia.innerText = forcas[status.fan_power] || "Auto";
+                    else valPotencia.innerText = "--";
                     
                     if (estado === 8 || estado === 2) {
-                        widgetRocky.style.opacity = '0';
-                        widgetRocky.style.pointerEvents = 'none';
+                        rockyIsActive = false;
+                        if (document.body.classList.contains('modo-rocky-live')) {
+                            document.body.classList.remove('modo-rocky-live');
+                        }
                     } else {
-                        widgetRocky.style.opacity = '1';
-                        widgetRocky.style.pointerEvents = 'auto';
+                        rockyIsActive = true; 
 
                         if (estado === 5 || estado === 17 || estado === 18) {
-                            txtEstadoRocky.innerText = "🤖 Rocky: A Limpar (" + (data.battery || '--') + "%)";
-                            txtEstadoRocky.style.color = "#4cd137"; 
-                            txtEstadoRocky.style.borderColor = "rgba(76, 209, 55, 0.3)";
-                            btnPausaRocky.style.display = "block"; 
+                            txtEstadoLive.innerText = "A LIMPAR";
+                            txtEstadoLive.style.color = "#4cd137"; 
+                            txtEstadoLive.style.textShadow = "0 0 20px rgba(76, 209, 55, 0.5)";
+                            btnPausaLive.innerText = "⏸️ Pausar 15m";
                         } 
                         else if (estado === 6) {
-                            txtEstadoRocky.innerText = "🤖 Rocky: A Voltar à Base";
-                            txtEstadoRocky.style.color = "#00a8ff"; 
-                            txtEstadoRocky.style.borderColor = "rgba(0, 168, 255, 0.3)";
-                            btnPausaRocky.style.display = "none"; 
+                            txtEstadoLive.innerText = "A VOLTAR À BASE";
+                            txtEstadoLive.style.color = "#00a8ff"; 
+                            txtEstadoLive.style.textShadow = "0 0 20px rgba(0, 168, 255, 0.5)";
+                            btnPausaLive.innerText = "⏸️ Pausar 15m";
                         }
                         else if (estado === 10) {
-                            txtEstadoRocky.innerText = "🤖 Rocky: Pausado";
-                            txtEstadoRocky.style.color = "#fbc531"; 
-                            txtEstadoRocky.style.borderColor = "rgba(251, 197, 49, 0.3)";
-                            btnPausaRocky.style.display = "none";
+                            txtEstadoLive.innerText = "PAUSADO";
+                            txtEstadoLive.style.color = "#fbc531"; 
+                            txtEstadoLive.style.textShadow = "0 0 20px rgba(251, 197, 49, 0.5)";
+                            btnPausaLive.innerText = "▶️ Retomar";
                         }
                         else {
-                            txtEstadoRocky.innerText = "🤖 Rocky: Em Movimento";
-                            txtEstadoRocky.style.color = "#fff";
-                            btnPausaRocky.style.display = "none";
+                            txtEstadoLive.innerText = "EM MOVIMENTO";
+                            txtEstadoLive.style.color = "#fff";
+                            txtEstadoLive.style.textShadow = "0 0 20px rgba(255, 255, 255, 0.5)";
                         }
                     }
                 }
             } catch (e) {
-                widgetRocky.style.opacity = '0';
-                widgetRocky.style.pointerEvents = 'none';
+                rockyIsActive = false;
             }
         }
-
+        
         async function pausarRocky15Min() {
-            btnPausaRocky.innerText = "⏳ A Pausar...";
-            btnPausaRocky.style.background = "rgba(76, 209, 55, 0.2)";
-            btnPausaRocky.style.color = "#4cd137";
-            
+            btnPausaLive.innerText = "⏳...";
             try {
                 await fetch('http://127.0.0.1:3000/api/rocky/pause15', { method: 'POST' });
-                btnPausaRocky.innerText = "✔️ Volta em 15min";
-                setTimeout(() => { btnPausaRocky.style.display = 'none'; }, 3000);
-            } catch(e) {
-                btnPausaRocky.innerText = "❌ Erro ao Pausar";
-            }
+                monitorizarEstadoRocky(); 
+            } catch(e) {}
+        }
+        
+        async function enviarParaBase() {
+            btnHomeLive.innerText = "⏳ A enviar...";
+            try {
+                await fetch('http://127.0.0.1:3000/api/rocky/clean', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ divisoesAspirar: [], divisoesLavar: [] }) 
+                });
+                setTimeout(() => { btnHomeLive.innerText = "🏠 Regressar"; }, 2000);
+            } catch(e) {}
         }
 
         setInterval(monitorizarEstadoRocky, 10000);
         monitorizarEstadoRocky();
+
     </script>
 </body>
 </html>
