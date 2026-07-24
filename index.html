@@ -1625,12 +1625,63 @@
             carregarMapaRocky();
         };
 
+        // ==========================================
+        // CÉREBRO MATEMÁTICO: MAPA INTERATIVO ZONAS E TEMPO REAL
+        // ==========================================
+        const imgMapaObj = new Image(); 
+        imgMapaObj.src = 'mapa.png'; 
+        
+        let canvasMap, ctxMap;
+        let mapBox = null; 
+        let boxAction = null; 
+        let initialTouchX, initialTouchY;
+        let initialMapBox;
+        
+        let modoZonaSelecionado = 'ambos'; 
+        let intervalMapaTempoReal = null; // A nossa variável para os 3 segundos
+
+        // 🟢 LIGA o motor de 3 segundos
+        function iniciarMapaTempoReal() {
+            if (intervalMapaTempoReal) clearInterval(intervalMapaTempoReal);
+            
+            intervalMapaTempoReal = setInterval(async () => {
+                // Prevenção extra: se o ecrã do mapa foi escondido entretanto, mata o processo
+                if (document.getElementById('vista-mapa-interativo').style.display !== 'flex') {
+                    pararMapaTempoReal();
+                    return;
+                }
+                
+                try {
+                    // Pede ao Termux para correr o comando Python
+                    await fetch('http://127.0.0.1:3000/api/rocky/update-map');
+                    
+                    // Força o HTML a buscar o mapa novo sem usar cache
+                    imgMapaObj.src = 'mapa.png?time=' + new Date().getTime();
+                    
+                    // Quando a imagem nova carrega, ele pinta no ecrã automaticamente 
+                    // e mantém a tua caixa azul no mesmo sítio!
+                    imgMapaObj.onload = () => renderizarCanvasMap();
+                } catch(e) {}
+            }, 3000);
+        }
+
+        // 🔴 DESLIGA o motor
+        function pararMapaTempoReal() {
+            if (intervalMapaTempoReal) {
+                clearInterval(intervalMapaTempoReal);
+                intervalMapaTempoReal = null;
+            }
+        }
+
         function fecharVistaRocky() {
             document.getElementById('vista-rocky').style.display = 'none';
             document.getElementById('vista-mapa-interativo').style.display = 'none';
             document.body.classList.remove('movido'); 
             if (document.body.classList.contains('luz-avancada')) fecharModoAvancado();
             origemAnimacao = null;
+            
+            // Para o processamento
+            pararMapaTempoReal();
         }
 
         async function carregarMapaRocky() {
@@ -1845,20 +1896,6 @@
             }, 3000);
         }
 
-        // ==========================================
-        // CÉREBRO MATEMÁTICO: O MAPA INTERATIVO (QUADRADO DRAG/RESIZE)
-        // ==========================================
-        const imgMapaObj = new Image();
-        imgMapaObj.src = 'mapa.png'; 
-        
-        let canvasMap, ctxMap;
-        let mapBox = null; 
-        let boxAction = null; 
-        let initialTouchX, initialTouchY;
-        let initialMapBox;
-        
-        let modoZonaSelecionado = 'ambos'; 
-
         function abrirVistaMapa() {
             document.getElementById('rocky-conteudo').style.display = 'none';
             document.getElementById('vista-rocky').style.display = 'none';
@@ -1869,6 +1906,9 @@
             
             if (imgMapaObj.complete) iniciarCaixaEDesenhar();
             else imgMapaObj.onload = () => iniciarCaixaEDesenhar();
+
+            // Começa a sacar a foto a cada 3s!
+            iniciarMapaTempoReal();
         }
 
         function voltarDoMapaParaDivisoes() {
@@ -1878,6 +1918,9 @@
             document.getElementById('rocky-conteudo').style.display = 'flex';
             zonasParaLimpar = []; 
             mapBox = null; 
+            
+            // Para o processamento
+            pararMapaTempoReal();
         }
 
         function iniciarCaixaEDesenhar() {
@@ -2000,6 +2043,9 @@
             document.getElementById('rocky-conteudo').style.display = 'none'; 
             document.getElementById('titulo-rocky').innerText = "Intensidade da Zona";
             document.getElementById('rocky-conteudo-config').style.display = 'flex';
+            
+            // Como vamos para o ecrã das configurações de sucção/água, já não precisamos do mapa ao vivo!
+            pararMapaTempoReal();
         }
 
         window.receberDadosDaBridge = function(base64Dados) {
