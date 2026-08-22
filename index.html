@@ -28,6 +28,8 @@
             align-items: center;
             user-select: none;
             -webkit-user-select: none;
+            /* Transição suave para quando o ecrã virar branco de emergência */
+            transition: filter 0.5s ease-in-out; 
         }
 
         #fundo-luzes-container {
@@ -680,6 +682,10 @@
 </head>
 <body id="ecra">
     
+    <!-- ELEMENTOS ESCONDIDOS PARA A CÂMARA (SENSOR DE LUZ) -->
+    <video id="video-emergencia" autoplay playsinline style="display:none;"></video>
+    <canvas id="canvas-emergencia" width="32" height="32" style="display:none;"></canvas>
+
     <!-- A CAIXA DE ARRASTO DO WINDOWS -->
     <div id="caixa-selecao"></div>
 
@@ -917,32 +923,177 @@
         let estado82 = { on: false, bri: 254, ct: 326 };
         let estado84 = { on: false, bri: 254, ct: 326 };
         let estadosLuzes = {};
-
-        // NOVA VARIÁVEL GLOBAL PARA O ROCKY
         let rockyIsActive = false;
 
         // ==========================================
-        // MOTOR DE VOZ NATIVO (VIA KOTLIN)
+        // MOTOR DE VOZ NATIVO (VIA KOTLIN + FALLBACK)
         // ==========================================
         function falar(texto) {
-            // Verifica se a app Android está a correr e a ponte existe
             if (window.AndroidSync && typeof window.AndroidSync.falar === 'function') {
                 window.AndroidSync.falar(texto);
-            } else {
-                console.log("A tentar falar, mas a ponte Android não foi encontrada: " + texto);
+            } else if ('speechSynthesis' in window) {
+                // Fallback para browser normal caso testes no PC
+                window.speechSynthesis.cancel();
+                const frase = new SpeechSynthesisUtterance(texto);
+                frase.lang = 'pt-PT';
+                window.speechSynthesis.speak(frase);
             }
+        }
+
+        // ==========================================
+        // SISTEMA DE EMERGÊNCIA (ENERGIA + REDE + CÂMARA)
+        // ==========================================
+        let timerEnergiaFalhou = 0;
+        let timerRedeFalhou = 0;
+        let modoEmergencia = false;
+        let luzEmergenciaAtiva = false;
+        let streamCamara = null;
+        let loopLuzAmbiente = null;
+        let limiteTempoCrise = 60000; // 60 segundos permitidos entre as duas falhas
+
+        // 1. Escutar Falhas de Rede
+        window.addEventListener('offline', () => {
+            timerRedeFalhou = Date.now();
+            avaliarCrise();
+        });
+        window.addEventListener('online', () => {
+            timerRedeFalhou = 0;
+            desativarEmergencia();
+        });
+
+        // Condição inicial caso já arranque sem internet
+        if (!navigator.onLine) {
+            timerRedeFalhou = Date.now();
+        }
+
+        // 2. Escutar Falhas de Energia
+        function bateriaMudouEstado(aCarregar) {
+            if (!aCarregar) {
+                timerEnergiaFalhou = Date.now();
+                avaliarCrise();
+            } else {
+                timerEnergiaFalhou = 0;
+                desativarEmergencia();
+            }
+        }
+
+        function avaliarCrise() {
+            if (timerEnergiaFalhou > 0 && timerRedeFalhou > 0 && !modoEmergencia) {
+                const diferenca = Math.abs(timerEnergiaFalhou - timerRedeFalhou);
+                if (diferenca <= limiteTempoCrise) {
+                    ativarEmergencia();
+                }
+            }
+        }
+
+        function ativarEmergencia() {
+            modoEmergencia = true;
+            luzEmergenciaAtiva = false;
+            falar("Falha de energia detetada.");
+            
+            // Espera 3 segundos para a voz acabar antes de abrir a câmara e avaliar a luz
+            setTimeout(() => {
+                iniciarVerificacaoLuzAmbiente();
+            }, 3000);
+        }
+
+        function desativarEmergencia() {
+            if (modoEmergencia) {
+                modoEmergencia = false;
+                desligarLuzEcra();
+                pararCamara();
+            }
+        }
+
+        async function iniciarVerificacaoLuzAmbiente() {
+            if (!modoEmergencia) return;
+            
+            try {
+                // Pede acesso à câmara frontal do tablet silenciosamente
+                const constraints = { video: { facingMode: "user" } };
+                streamCamara = await navigator.mediaDevices.getUserMedia(constraints);
+                const videoElem = document.getElementById('video-emergencia');
+                videoElem.srcObject = streamCamara;
+                
+                // Inicia o scan fotográfico a cada 2 segundos
+                loopLuzAmbiente = setInterval(processarLuminosidade, 2000);
+            } catch (err) {
+                console.warn("Câmara bloqueada ou sem permissões na WebView.", err);
+                // Se a câmara falhar/for bloqueada, ligamos a lanterna por segurança
+                ligarLuzEcra();
+            }
+        }
+
+        function pararCamara() {
+            if (loopLuzAmbiente) clearInterval(loopLuzAmbiente);
+            if (streamCamara) streamCamara.getTracks().forEach(t => t.stop());
+            streamCamara = null;
+        }
+
+        function processarLuminosidade() {
+            if (!modoEmergencia) return;
+            
+            const video = document.getElementById('video-emergencia');
+            const canvas = document.getElementById('canvas-emergencia');
+            const ctx = canvas.getContext('2d');
+            
+            if (video.videoWidth === 0) return;
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dados = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            
+            let soma = 0;
+            for (let i = 0; i < dados.length; i += 4) {
+                soma += (dados[i] + dados[i+1] + dados[i+2]) / 3; // Média de R, G e B
+            }
+            const luminosidade = soma / (dados.length / 4); // Valor final de 0 (preto absoluto) a 255 (branco puro)
+            
+            if (luminosidade < 40 && !luzEmergenciaAtiva) {
+                ligarLuzEcra();
+            } else if (luminosidade > 70 && luzEmergenciaAtiva) {
+                desligarLuzEcra();
+            }
+        }
+
+        function ligarLuzEcra() {
+            if (luzEmergenciaAtiva) return;
+            luzEmergenciaAtiva = true;
+            falar("A ligar luz de emergência.");
+            // O truque da inversão: O fundo preto do site vira branco brilhante, os textos brancos viram pretos!
+            document.body.style.filter = 'invert(1)';
+        }
+
+        function desligarLuzEcra() {
+            if (!luzEmergenciaAtiva) return;
+            luzEmergenciaAtiva = false;
+            document.body.style.filter = 'none';
+        }
+
+        if (navigator.getBattery) {
+            navigator.getBattery().then(function(battery) {
+                function atualizarBateria() {
+                    document.getElementById('txt-bateria').innerText = Math.round(battery.level * 100) + '%';
+                }
+                atualizarBateria(); 
+                battery.addEventListener('levelchange', atualizarBateria);
+
+                // Regista o estado inicial do cabo assim que a app abre
+                if (!battery.charging) timerEnergiaFalhou = Date.now();
+
+                // Detetor de cabo (Pode não funcionar em todas as WebViews do Android)
+                battery.addEventListener('chargingchange', function() {
+                    bateriaMudouEstado(battery.charging);
+                });
+            });
         }
 
         // ==========================================
         // O HEARTBEAT TÁTICO
         // ==========================================
         setInterval(() => {
-            // O heartbeat só pisca as luzes se não estivermos no dashboard do Rocky
             if (document.body.classList.contains('movido') && !document.body.classList.contains('modo-rocky-live')) {
                 document.body.classList.add('tick-flash');
-                setTimeout(() => {
-                    document.body.classList.remove('tick-flash');
-                }, 200); 
+                setTimeout(() => { document.body.classList.remove('tick-flash'); }, 200); 
             }
         }, 1000); 
 
@@ -955,15 +1106,10 @@
             if (timerInatividade) clearTimeout(timerInatividade);
             
             timerInatividade = setTimeout(() => {
-                if (document.getElementById('vista-rocky').style.display === 'flex') {
-                    fecharVistaRocky();
-                }
-                if (document.getElementById('vista-mapa-interativo').style.display === 'flex') {
-                    voltarDoMapaParaDivisoes();
-                }
-                if (document.body.classList.contains('luz-avancada')) {
-                    fecharModoAvancado();
-                }
+                if (document.getElementById('vista-rocky').style.display === 'flex') fecharVistaRocky();
+                if (document.getElementById('vista-mapa-interativo').style.display === 'flex') voltarDoMapaParaDivisoes();
+                if (document.body.classList.contains('luz-avancada')) fecharModoAvancado();
+                
                 if (document.body.classList.contains('movido')) {
                     document.body.classList.remove('movido');
                     document.body.classList.remove('modo-rocky-live');
@@ -1059,12 +1205,8 @@
 
         window.toggleLuzAvançada = function(e) {
             if (e) e.stopPropagation(); 
-            
-            if(document.body.classList.contains('luz-avancada')){
-                fecharModoAvancado();
-            } else {
-                abrirModoAvancado();
-            }
+            if(document.body.classList.contains('luz-avancada')){ fecharModoAvancado(); } 
+            else { abrirModoAvancado(); }
             resetInatividade();
         };
 
@@ -1140,7 +1282,6 @@
             if (hasDragged) {
                 processarCaixaDeSelecao();
                 selectionBox.style.display = 'none'; 
-                
                 blockNextClick = true;
                 setTimeout(() => blockNextClick = false, 150); 
             }
@@ -1166,9 +1307,7 @@
             }
 
             if (touchedIds.length === 0) return;
-
             resetInatividade();
-
             const allSelected = touchedIds.every(id => luzesSelecionadas.has(id));
 
             touchedIds.forEach(id => {
@@ -1181,7 +1320,6 @@
                     if(visual) visual.classList.add('selecionada');
                 }
             });
-            
             atualizarLabelSelecao();
         }
 
@@ -1206,7 +1344,6 @@
                     luzesSelecionadas.add(realId);
                     if(visual) visual.classList.add('selecionada');
                 }
-                
                 atualizarLabelSelecao();
             });
         });
@@ -1242,7 +1379,6 @@
         // ==========================================
         function atualizarBurnIn() {
             if (document.body.classList.contains('movido')) return; 
-
             const agora = Date.now();
             const cicloVertical = 12 * 60 * 60 * 1000; 
             const eixoY = Math.sin((agora % cicloVertical) / cicloVertical * Math.PI * 2) * 18;
@@ -1258,15 +1394,10 @@
 
         function calcularCoresLuz(estado) {
             if (!estado || !estado.on) {
-                return { 
-                    base: 'rgba(100, 100, 100, 0.4)', 
-                    mix: 'rgba(177, 50, 50, 0.8)' 
-                }; 
+                return { base: 'rgba(100, 100, 100, 0.4)', mix: 'rgba(177, 50, 50, 0.8)' }; 
             }
-
             let ct = estado.ct || 326; 
             let r, g, b;
-            
             if (ct < 326) {
                 let pct = (ct - 153) / (326 - 153);
                 r = Math.round(200 + pct * 55); 
@@ -1278,9 +1409,7 @@
                 g = Math.round(255 - pct * 80);  
                 b = Math.round(255 - pct * 150); 
             }
-
             let alpha = (estado.bri / 254) * 0.6 + 0.4;
-            
             let r_mix = Math.round(r * 0.5 + 255 * 0.5);
             let g_mix = Math.round(g * 0.5 + 0 * 0.5);
             let b_mix = Math.round(b * 0.5 + 0 * 0.5);
@@ -1330,7 +1459,7 @@
         async function verificarEstadoSyncBox() {
             if(isFetchingSync) return;
             isFetchingSync = true;
-            if (window.AndroidSync) {
+            if (window.AndroidSync && typeof window.AndroidSync.comandoSyncBox === 'function') {
                 window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "GET", false);
             } else {
                 try {
@@ -1360,7 +1489,7 @@
             isSyncing = !isSyncing;
             atualizarUIBotaoSync();
 
-            if (window.AndroidSync) {
+            if (window.AndroidSync && typeof window.AndroidSync.comandoSyncBox === 'function') {
                 window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", isSyncing);
             } else {
                 fetch(`https://${SYNC_IP}/api/v1/execution`, {
@@ -1371,15 +1500,12 @@
             }
         }
 
-        // ==========================================
-        // CORTAR A SYNC BOX AUTOMATICAMENTE
-        // ==========================================
         function autoStopSyncBlindly() {
             if (!isSyncing) return; 
             isSyncing = false;
             atualizarUIBotaoSync();
             
-            if (window.AndroidSync) {
+            if (window.AndroidSync && typeof window.AndroidSync.comandoSyncBox === 'function') {
                 window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", false);
             } else {
                 fetch(`https://${SYNC_IP}/api/v1/execution`, {
@@ -1479,8 +1605,6 @@
                 luzesSelecionadas.clear();
                 
                 autoStopSyncBlindly();
-                
-                // Botão físico da parede = SEMPRE vai para o ecrã das luzes
                 document.body.classList.remove('modo-rocky-live');
 
                 if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) {
@@ -1504,13 +1628,9 @@
 
             document.body.classList.add('movido');
 
-            // INTELIGÊNCIA: Se for toque para acordar o ecrã, e o Rocky estiver a limpar... Abre o Rocky!
             if (telaFechada && origem === 'touch') {
-                if (rockyIsActive) {
-                    document.body.classList.add('modo-rocky-live');
-                } else {
-                    document.body.classList.remove('modo-rocky-live');
-                }
+                if (rockyIsActive) document.body.classList.add('modo-rocky-live');
+                else document.body.classList.remove('modo-rocky-live');
             }
 
             resetInatividade();
@@ -1626,8 +1746,6 @@
             if (e) e.stopPropagation(); 
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             document.getElementById('vista-mapa-interativo').style.display = 'none';
-            
-            // Caso estivesse na vista live
             document.body.classList.remove('modo-rocky-live');
             
             document.getElementById('vista-rocky').style.display = 'flex';
@@ -1641,7 +1759,7 @@
         // CÉREBRO MATEMÁTICO: O MAPA INTERATIVO (QUADRADO DRAG/RESIZE) E TEMPO REAL
         // ==========================================
         const imgMapaObj = new Image();
-        imgMapaObj.crossOrigin = "Anonymous"; // Permite carregar do 127.0.0.1
+        imgMapaObj.crossOrigin = "Anonymous"; 
         imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png'; 
         
         let canvasMap, ctxMap;
@@ -1653,32 +1771,22 @@
         let modoZonaSelecionado = 'ambos'; 
         let intervalMapaTempoReal = null;
 
-        // 🟢 LIGA o motor de 10 segundos
         function iniciarMapaTempoReal() {
             if (intervalMapaTempoReal) clearInterval(intervalMapaTempoReal);
-            
-            // Dispara logo o primeiro pedido ao abrir, para não ficares 10s a olhar para o vazio!
             pedirNovaFoto();
-
             intervalMapaTempoReal = setInterval(() => {
-                // Se o utilizador fechou o mapa entretanto, mata o processo
                 if (document.getElementById('vista-mapa-interativo').style.display !== 'flex') {
                     pararMapaTempoReal();
                     return;
                 }
                 pedirNovaFoto();
-            }, 10000); // 10 segundos exatos
+            }, 10000);
         }
 
         async function pedirNovaFoto() {
             try {
-                // Pede ao Termux para correr o comando Python e ESPERA (await) que termine
                 await fetch('http://127.0.0.1:3000/api/rocky/update-map');
-                
-                // Só depois do Termux confirmar a foto é que forçamos o HTML a atualizar a imagem
                 imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png?time=' + new Date().getTime();
-                
-                // Quando a imagem nova carrega, pinta no ecrã e garante que a caixa de zona lá está
                 imgMapaObj.onload = () => {
                     if (!mapBox && canvasMap.width > 0) {
                         mapBox = { x: (canvasMap.width / 2) - 150, y: (canvasMap.height / 2) - 150, w: 300, h: 300 };
@@ -1688,7 +1796,6 @@
             } catch(e) {}
         }
 
-        // 🔴 DESLIGA o motor
         function pararMapaTempoReal() {
             if (intervalMapaTempoReal) {
                 clearInterval(intervalMapaTempoReal);
@@ -1703,8 +1810,6 @@
             
             canvasMap = document.getElementById('mapCanvas');
             ctxMap = canvasMap.getContext('2d');
-            
-            // Começa logo a tirar a foto e a atualizar o ecrã
             iniciarMapaTempoReal();
         }
 
@@ -1715,7 +1820,6 @@
             document.getElementById('rocky-conteudo').style.display = 'flex';
             zonasParaLimpar = []; 
             mapBox = null; 
-            
             pararMapaTempoReal();
         }
 
@@ -1725,8 +1829,6 @@
             document.body.classList.remove('movido'); 
             if (document.body.classList.contains('luz-avancada')) fecharModoAvancado();
             origemAnimacao = null;
-            
-            // NOVO: Parar o mapa se for fechado
             if (typeof pararMapaTempoReal === 'function') pararMapaTempoReal();
         }
 
@@ -1743,7 +1845,6 @@
             try {
                 const response = await fetch('http://127.0.0.1:3000/api/rocky/rooms');
                 const data = await response.json();
-                
                 msg.style.display = 'none'; 
 
                 if(data.rooms) {
@@ -1862,18 +1963,15 @@
             document.getElementById('rocky-conteudo-config').style.display = 'none';
             
             if (zonasParaLimpar.length > 0) {
-                // Se estávamos a limpar uma zona e voltámos, voltamos ao ecrã do desenho
                 document.getElementById('vista-mapa-interativo').style.display = 'flex';
                 document.getElementById('titulo-rocky').innerText = "Ajustar Zona";
             } else {
-                // Senão, volta à lista de salas
                 document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
                 document.getElementById('rocky-conteudo').style.display = 'flex';
             }
         }
 
         const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo' };
-
         document.getElementById('slider-succao').addEventListener('input', function() {
             document.getElementById('lbl-succao').innerText = niveisSuccao[this.value];
         });
@@ -1918,12 +2016,9 @@
                     botaoIniciar.innerText = "Sucesso! A iniciar...";
                     botaoIniciar.style.background = "rgba(76, 175, 80, 0.8)";
                     
-                    // Esconde a interface de configuração
                     setTimeout(() => { 
                         document.getElementById('vista-rocky').style.display = 'none'; 
-                        // Dá a indicação para a monitorização de que o robot vai ficar ativo
                         rockyIsActive = true;
-                        // Abre automaticamente o dashboard live!
                         document.body.classList.add('modo-rocky-live');
                     }, 2000);
                 } else {
@@ -2168,25 +2263,6 @@
                 const data = await response.json();
                 document.getElementById('temp-in').innerText = Math.round(data.state.temperature / 100);
             } catch (e) { document.getElementById('temp-in').innerText = "Err"; }
-        }
-
-        if (navigator.getBattery) {
-            navigator.getBattery().then(function(battery) {
-                function atualizarBateria() {
-                    document.getElementById('txt-bateria').innerText = Math.round(battery.level * 100) + '%';
-                }
-                atualizarBateria(); 
-                battery.addEventListener('levelchange', atualizarBateria);
-
-                // --- NOVO: EVENTO DE CARREGAMENTO PARA A VOZ VIA KOTLIN ---
-                battery.addEventListener('chargingchange', function() {
-                    if (battery.charging) {
-                        falar("A carregar");
-                    } else {
-                        falar("A descarregar");
-                    }
-                });
-            });
         }
 
         setInterval(atualizarTempo, 1000);
