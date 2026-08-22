@@ -737,8 +737,9 @@
         </svg>
     </div>
 
+    <!-- O PAINEL DE DIAGNÓSTICO E BATERIA EM TEMPO REAL -->
     <div id="bateria-container">
-        <!-- O texto da bateria foi removido do HTML limpo, fica apenas o ícone ou percentagem básica -->
+        <span id="txt-bateria">A verificar sensores...</span>
     </div>
 
     <div id="relogio-wrapper">
@@ -932,7 +933,6 @@
             if (window.AndroidSync && typeof window.AndroidSync.falar === 'function') {
                 window.AndroidSync.falar(texto);
             } else if ('speechSynthesis' in window) {
-                // Fallback para browser normal caso testes no PC
                 window.speechSynthesis.cancel();
                 const frase = new SpeechSynthesisUtterance(texto);
                 frase.lang = 'pt-PT';
@@ -949,26 +949,31 @@
         let luzEmergenciaAtiva = false;
         let streamCamara = null;
         let loopLuzAmbiente = null;
-        let limiteTempoCrise = 60000; // 60 segundos permitidos entre as duas falhas
+        let limiteTempoCrise = 60000; // 60 segundos
+        let isChargingNow = true;
 
-        // 1. Escutar Falhas de Rede
-        window.addEventListener('offline', () => {
-            timerRedeFalhou = Date.now();
-            avaliarCrise();
-        });
-        window.addEventListener('online', () => {
-            timerRedeFalhou = 0;
-            desativarEmergencia();
-        });
+        // 1. Radar de Diagnóstico Polling (Verifica a cada 1 seg)
+        setInterval(() => {
+            const redeStatus = navigator.onLine ? "🟢 NET" : "🔴 SEM NET";
+            const energiaStatus = isChargingNow ? "🟢 CABO" : "🔴 SEM CABO";
+            
+            document.getElementById('txt-bateria').innerText = `${redeStatus} | ${energiaStatus}`;
 
-        if (!navigator.onLine) {
-            timerRedeFalhou = Date.now();
-        }
+            // Avaliar a Rede independentemente de eventos cortados pelo Android
+            if (!navigator.onLine && timerRedeFalhou === 0) {
+                timerRedeFalhou = Date.now();
+                avaliarCrise();
+            } else if (navigator.onLine && timerRedeFalhou > 0) {
+                timerRedeFalhou = 0;
+                desativarEmergencia();
+            }
+        }, 1000);
 
-        // 2. Escutar Falhas de Energia do Kotlin
+        // 2. Escutar Falhas de Energia enviadas pelo Kotlin
         window.receberEstadoBateria = function(aCarregar) {
+            isChargingNow = aCarregar;
             if (!aCarregar) {
-                timerEnergiaFalhou = Date.now();
+                if (timerEnergiaFalhou === 0) timerEnergiaFalhou = Date.now();
                 avaliarCrise();
             } else {
                 timerEnergiaFalhou = 0;
@@ -1017,7 +1022,7 @@
                 // Inicia o scan fotográfico a cada 2 segundos
                 loopLuzAmbiente = setInterval(processarLuminosidade, 2000);
             } catch (err) {
-                console.warn("Câmara bloqueada. A ligar luz por segurança.", err);
+                console.warn("Câmara bloqueada.", err);
                 // Se a câmara falhar, ligamos a lanterna por segurança
                 ligarLuzEcra();
             }
@@ -1043,14 +1048,15 @@
             
             let soma = 0;
             for (let i = 0; i < dados.length; i += 4) {
-                soma += (dados[i] + dados[i+1] + dados[i+2]) / 3; // Média de R, G e B
+                soma += (dados[i] + dados[i+1] + dados[i+2]) / 3; 
             }
             const luminosidade = soma / (dados.length / 4); // 0 a 255
             
+            // Se estivermos às escuras, a luminosidade é quase 0
             if (luminosidade < 40 && !luzEmergenciaAtiva) {
                 ligarLuzEcra();
             } else if (luminosidade > 70 && luzEmergenciaAtiva) {
-                desligarLuzEcra();
+                desligarLuzEcra(); // Se a luz da sala voltar, apaga a lanterna
             }
         }
 
