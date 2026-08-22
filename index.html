@@ -922,26 +922,16 @@
         let rockyIsActive = false;
 
         // ==========================================
-        // MOTOR DE VOZ (TEXT-TO-SPEECH)
+        // MOTOR DE VOZ NATIVO (VIA KOTLIN)
         // ==========================================
-        let vozPermitida = false;
-        // O Android exige um toque no ecrã antes de deixar falar. Ao primeiro toque, ativamos a permissão.
-        document.body.addEventListener('click', () => { vozPermitida = true; }, { once: true });
-        document.body.addEventListener('touchstart', () => { vozPermitida = true; }, { once: true });
-
         function falar(texto) {
-            if (!vozPermitida || !('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel();
-            const frase = new SpeechSynthesisUtterance(texto);
-            frase.lang = 'pt-PT';
-            frase.rate = 1.0;
-            frase.pitch = 1.0;
-            const vozes = window.speechSynthesis.getVoices();
-            const vozPT = vozes.find(v => v.lang === 'pt-PT' || v.lang === 'pt-BR'); // pt-PT preferencial
-            if (vozPT) frase.voice = vozPT;
-            window.speechSynthesis.speak(frase);
+            // Verifica se a app Android está a correr e a ponte existe
+            if (window.AndroidSync && typeof window.AndroidSync.falar === 'function') {
+                window.AndroidSync.falar(texto);
+            } else {
+                console.log("A tentar falar, mas a ponte Android não foi encontrada: " + texto);
+            }
         }
-        if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
 
         // ==========================================
         // O HEARTBEAT TÁTICO
@@ -2188,7 +2178,7 @@
                 atualizarBateria(); 
                 battery.addEventListener('levelchange', atualizarBateria);
 
-                // --- NOVO: EVENTO DE CARREGAMENTO PARA A VOZ ---
+                // --- NOVO: EVENTO DE CARREGAMENTO PARA A VOZ VIA KOTLIN ---
                 battery.addEventListener('chargingchange', function() {
                     if (battery.charging) {
                         falar("A carregar");
