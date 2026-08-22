@@ -29,7 +29,7 @@
             user-select: none;
             -webkit-user-select: none;
             /* Transição suave para quando o ecrã virar branco de emergência */
-            transition: filter 0.5s ease-in-out; 
+            transition: filter 0.8s ease-in-out; 
         }
 
         #fundo-luzes-container {
@@ -738,7 +738,7 @@
     </div>
 
     <div id="bateria-container">
-        <span id="txt-bateria">--%</span>
+        <!-- O texto da bateria foi removido do HTML limpo, fica apenas o ícone ou percentagem básica -->
     </div>
 
     <div id="relogio-wrapper">
@@ -961,13 +961,12 @@
             desativarEmergencia();
         });
 
-        // Condição inicial caso já arranque sem internet
         if (!navigator.onLine) {
             timerRedeFalhou = Date.now();
         }
 
-        // 2. Escutar Falhas de Energia
-        function bateriaMudouEstado(aCarregar) {
+        // 2. Escutar Falhas de Energia do Kotlin
+        window.receberEstadoBateria = function(aCarregar) {
             if (!aCarregar) {
                 timerEnergiaFalhou = Date.now();
                 avaliarCrise();
@@ -975,7 +974,7 @@
                 timerEnergiaFalhou = 0;
                 desativarEmergencia();
             }
-        }
+        };
 
         function avaliarCrise() {
             if (timerEnergiaFalhou > 0 && timerRedeFalhou > 0 && !modoEmergencia) {
@@ -1018,8 +1017,8 @@
                 // Inicia o scan fotográfico a cada 2 segundos
                 loopLuzAmbiente = setInterval(processarLuminosidade, 2000);
             } catch (err) {
-                console.warn("Câmara bloqueada ou sem permissões na WebView.", err);
-                // Se a câmara falhar/for bloqueada, ligamos a lanterna por segurança
+                console.warn("Câmara bloqueada. A ligar luz por segurança.", err);
+                // Se a câmara falhar, ligamos a lanterna por segurança
                 ligarLuzEcra();
             }
         }
@@ -1046,7 +1045,7 @@
             for (let i = 0; i < dados.length; i += 4) {
                 soma += (dados[i] + dados[i+1] + dados[i+2]) / 3; // Média de R, G e B
             }
-            const luminosidade = soma / (dados.length / 4); // Valor final de 0 (preto absoluto) a 255 (branco puro)
+            const luminosidade = soma / (dados.length / 4); // 0 a 255
             
             if (luminosidade < 40 && !luzEmergenciaAtiva) {
                 ligarLuzEcra();
@@ -1059,7 +1058,7 @@
             if (luzEmergenciaAtiva) return;
             luzEmergenciaAtiva = true;
             falar("A ligar luz de emergência.");
-            // O truque da inversão: O fundo preto do site vira branco brilhante, os textos brancos viram pretos!
+            // Inverte as cores da página inteira!
             document.body.style.filter = 'invert(1)';
         }
 
@@ -1067,24 +1066,6 @@
             if (!luzEmergenciaAtiva) return;
             luzEmergenciaAtiva = false;
             document.body.style.filter = 'none';
-        }
-
-        if (navigator.getBattery) {
-            navigator.getBattery().then(function(battery) {
-                function atualizarBateria() {
-                    document.getElementById('txt-bateria').innerText = Math.round(battery.level * 100) + '%';
-                }
-                atualizarBateria(); 
-                battery.addEventListener('levelchange', atualizarBateria);
-
-                // Regista o estado inicial do cabo assim que a app abre
-                if (!battery.charging) timerEnergiaFalhou = Date.now();
-
-                // Detetor de cabo (Pode não funcionar em todas as WebViews do Android)
-                battery.addEventListener('chargingchange', function() {
-                    bateriaMudouEstado(battery.charging);
-                });
-            });
         }
 
         // ==========================================
@@ -1755,9 +1736,6 @@
             carregarMapaRocky();
         };
 
-        // ==========================================
-        // CÉREBRO MATEMÁTICO: O MAPA INTERATIVO (QUADRADO DRAG/RESIZE) E TEMPO REAL
-        // ==========================================
         const imgMapaObj = new Image();
         imgMapaObj.crossOrigin = "Anonymous"; 
         imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png'; 
