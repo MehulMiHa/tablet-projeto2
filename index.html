@@ -1639,30 +1639,41 @@
         let initialMapBox;
         
         let modoZonaSelecionado = 'ambos'; 
-        let intervalMapaTempoReal = null; // A nossa variável para os 3 segundos
+        let intervalMapaTempoReal = null;
 
-        // 🟢 LIGA o motor de 3 segundos
+        // 🟢 LIGA o motor de 10 segundos
         function iniciarMapaTempoReal() {
             if (intervalMapaTempoReal) clearInterval(intervalMapaTempoReal);
             
-            intervalMapaTempoReal = setInterval(async () => {
-                // Prevenção extra: se o ecrã do mapa foi escondido entretanto, mata o processo
+            // Dispara logo o primeiro pedido ao abrir, para não ficares 10s a olhar para o vazio!
+            pedirNovaFoto();
+
+            intervalMapaTempoReal = setInterval(() => {
+                // Se o utilizador fechou o mapa entretanto, mata o processo
                 if (document.getElementById('vista-mapa-interativo').style.display !== 'flex') {
                     pararMapaTempoReal();
                     return;
                 }
+                pedirNovaFoto();
+            }, 10000); // 10 segundos exatos
+        }
+
+        async function pedirNovaFoto() {
+            try {
+                // Pede ao Termux para correr o comando Python e ESPERA (await) que termine
+                await fetch('http://127.0.0.1:3000/api/rocky/update-map');
                 
-                try {
-                    // Pede ao Termux para correr o comando Python
-                    await fetch('http://127.0.0.1:3000/api/rocky/update-map');
-                    
-                    // Força o HTML a buscar o mapa novo sem usar cache, pedindo ao Termux!
-                    imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png?time=' + new Date().getTime();
-                    
-                    // Quando a imagem nova carrega, pinta no ecrã
-                    imgMapaObj.onload = () => renderizarCanvasMap();
-                } catch(e) {}
-            }, 3000);
+                // Só depois do Termux confirmar a foto é que forçamos o HTML a atualizar a imagem
+                imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png?time=' + new Date().getTime();
+                
+                // Quando a imagem nova carrega, pinta no ecrã e garante que a caixa de zona lá está
+                imgMapaObj.onload = () => {
+                    if (!mapBox && canvasMap.width > 0) {
+                        mapBox = { x: (canvasMap.width / 2) - 150, y: (canvasMap.height / 2) - 150, w: 300, h: 300 };
+                    }
+                    renderizarCanvasMap();
+                };
+            } catch(e) {}
         }
 
         // 🔴 DESLIGA o motor
@@ -1681,10 +1692,7 @@
             canvasMap = document.getElementById('mapCanvas');
             ctxMap = canvasMap.getContext('2d');
             
-            if (imgMapaObj.complete) iniciarCaixaEDesenhar();
-            else imgMapaObj.onload = () => iniciarCaixaEDesenhar();
-
-            // Começa a sacar a foto a cada 3s!
+            // Começa logo a tirar a foto e a atualizar o ecrã
             iniciarMapaTempoReal();
         }
 
