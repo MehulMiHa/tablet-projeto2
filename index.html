@@ -28,7 +28,22 @@
             align-items: center;
             user-select: none;
             -webkit-user-select: none;
-            transition: background-color 0.8s ease, color 0.8s ease; 
+            /* Transição suave para quando o ecrã virar branco de emergência */
+            transition: filter 0.8s ease-in-out; 
+        }
+
+        /* ========================================================== */
+        /* CORTINA OLED (POUPANÇA DE BATERIA E ECRÃ)                  */
+        /* ========================================================== */
+        #cortina-oled {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background-color: #000000;
+            z-index: 999999; /* Fica por cima de absolutamente TUDO */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
         }
 
         /* ========================================================== */
@@ -700,6 +715,9 @@
 </head>
 <body id="ecra">
     
+    <!-- CORTINA OLED PARA POUPAR BATERIA E ECRÃ -->
+    <div id="cortina-oled"></div>
+
     <!-- ELEMENTOS ESCONDIDOS PARA A CÂMARA (SENSOR DE LUZ) -->
     <video id="video-emergencia" autoplay playsinline style="display:none;"></video>
     <canvas id="canvas-emergencia" width="32" height="32" style="display:none;"></canvas>
@@ -938,6 +956,32 @@
         let estado84 = { on: false, bri: 254, ct: 326 };
         let estadosLuzes = {};
         let rockyIsActive = false;
+        let ultimoToque = 0;
+
+        // ==========================================
+        // CÉREBRO DA CORTINA OLED (10 MINUTOS)
+        // ==========================================
+        let timerEcraNegro = null;
+        const TEMPO_ACORDADO = 10 * 60 * 1000; // 10 minutos (em milissegundos)
+
+        function acordarEcra() {
+            const cortina = document.getElementById('cortina-oled');
+            
+            if (cortina.style.opacity === '1') {
+                cortina.style.opacity = '0';
+                cortina.style.pointerEvents = 'none';
+                ultimoToque = Date.now();
+            }
+            
+            if (timerEcraNegro) clearTimeout(timerEcraNegro);
+            
+            timerEcraNegro = setTimeout(() => {
+                cortina.style.opacity = '1';
+                cortina.style.pointerEvents = 'all'; 
+            }, TEMPO_ACORDADO);
+        }
+
+        acordarEcra();
 
         // ==========================================
         // MOTOR DE VOZ NATIVO (VIA KOTLIN + FALLBACK)
@@ -962,15 +1006,14 @@
         let luzEmergenciaAtiva = false;
         let streamCamara = null;
         let loopLuzAmbiente = null;
-        let limiteTempoCrise = 60000; // 60 segundos permitidos
+        let limiteTempoCrise = 60000; 
         let isChargingNow = true;
 
-        // 1. Radar de Diagnóstico Real (Pinga a Hue Bridge a cada 2 seg)
         let isOnlineReal = true;
         setInterval(async () => {
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5s limite
+                const timeoutId = setTimeout(() => controller.abort(), 1500); 
                 await fetch(`http://${HUE_IP}/api/0/config`, { signal: controller.signal });
                 clearTimeout(timeoutId);
                 isOnlineReal = true;
@@ -978,7 +1021,6 @@
                 isOnlineReal = false;
             }
 
-            // Avaliar a Rede com base no Ping Real
             if (!isOnlineReal && timerRedeFalhou === 0) {
                 timerRedeFalhou = Date.now();
                 avaliarCrise();
@@ -988,7 +1030,6 @@
             }
         }, 2000);
 
-        // 2. Escutar Falhas de Energia do Kotlin
         window.receberEstadoBateria = function(aCarregar) {
             isChargingNow = aCarregar;
             if (!aCarregar) {
@@ -1012,9 +1053,9 @@
         function ativarEmergencia() {
             modoEmergencia = true;
             luzEmergenciaAtiva = false;
+            acordarEcra(); // Acorda o ecrã na hora da emergência
             falar("Falha de energia detetada.");
             
-            // Espera 3 segundos para a voz acabar antes de abrir a câmara e avaliar a luz
             setTimeout(() => {
                 iniciarVerificacaoLuzAmbiente();
             }, 3000);
@@ -1032,17 +1073,14 @@
             if (!modoEmergencia) return;
             
             try {
-                // Pede acesso à câmara frontal do tablet silenciosamente
                 const constraints = { video: { facingMode: "user" } };
                 streamCamara = await navigator.mediaDevices.getUserMedia(constraints);
                 const videoElem = document.getElementById('video-emergencia');
                 videoElem.srcObject = streamCamara;
                 
-                // Inicia o scan fotográfico a cada 2 segundos
                 loopLuzAmbiente = setInterval(processarLuminosidade, 2000);
             } catch (err) {
                 console.warn("Câmara bloqueada. A ligar luz por segurança.", err);
-                // Se a câmara falhar, ligamos a lanterna por segurança
                 ligarLuzEcra();
             }
         }
@@ -1069,13 +1107,12 @@
             for (let i = 0; i < dados.length; i += 4) {
                 soma += (dados[i] + dados[i+1] + dados[i+2]) / 3; 
             }
-            const luminosidade = soma / (dados.length / 4); // 0 a 255
+            const luminosidade = soma / (dados.length / 4); 
             
-            // Se estivermos às escuras, a luminosidade é quase 0
             if (luminosidade < 40 && !luzEmergenciaAtiva) {
                 ligarLuzEcra();
             } else if (luminosidade > 70 && luzEmergenciaAtiva) {
-                desligarLuzEcra(); // Se a luz da sala voltar, apaga a lanterna
+                desligarLuzEcra(); 
             }
         }
 
@@ -1083,7 +1120,6 @@
             if (luzEmergenciaAtiva) return;
             luzEmergenciaAtiva = true;
             falar("A ligar luz de emergência.");
-            // Aplica a classe puramente CSS que mete fundo branco e texto preto
             document.body.classList.add('luz-emergencia-ativa');
         }
 
@@ -2172,12 +2208,20 @@
                 for (const evento of payload) {
                     if (evento.type === 'update' && evento.data) {
                         for (const item of evento.data) {
+                            
+                            // 1. EVENTOS FÍSICOS (Botões da parede)
                             if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
+                                acordarEcra();
                                 if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
                                     if (document.getElementById('vista-rocky').style.display !== 'flex') {
                                         ativarAnimacao(item.id); 
                                     }
                                 }
+                            }
+
+                            // 2. O TEU SENSOR DE MOVIMENTO ("Sensor entrada", ID 32)
+                            if (item.type === 'motion' && item.motion && item.motion.motion === true) {
+                                acordarEcra();
                             }
                         }
                     }
@@ -2186,9 +2230,9 @@
         };
 
         const ecra = document.getElementById('ecra');
-        let ultimoToque = 0;
 
         function detetarToqueEcra(e) {
+            acordarEcra();
             const agora = Date.now();
             if (agora - ultimoToque < 300) return; 
 
