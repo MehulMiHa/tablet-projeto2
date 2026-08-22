@@ -28,9 +28,40 @@
             align-items: center;
             user-select: none;
             -webkit-user-select: none;
-            /* Transição suave para quando o ecrã virar branco de emergência */
-            transition: filter 0.8s ease-in-out; 
+            transition: background-color 0.8s ease, color 0.8s ease; 
         }
+
+        /* ========================================================== */
+        /* MODO LUZ DE EMERGÊNCIA (Fundo Branco, Texto Preto)         */
+        /* ========================================================== */
+        body.luz-emergencia-ativa {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+        body.luz-emergencia-ativa #relogio {
+            text-shadow: none !important;
+        }
+        body.luz-emergencia-ativa #lbl-grupo-ativo {
+            color: #000000 !important;
+            text-shadow: none !important;
+        }
+        body.luz-emergencia-ativa .btn-rodape,
+        body.luz-emergencia-ativa #btn-sync-box {
+            color: #000000 !important;
+            border-color: rgba(0,0,0,0.5) !important;
+            background: rgba(0,0,0,0.05) !important;
+        }
+        body.luz-emergencia-ativa .icone-luz {
+            filter: drop-shadow(0 0 5px rgba(0,0,0,0.3)) !important;
+        }
+        body.luz-emergencia-ativa input[type=range].slider-girado {
+            background: rgba(0, 0, 0, 0.1) !important;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2) !important;
+        }
+        body.luz-emergencia-ativa input[type=range].slider-girado::-webkit-slider-thumb {
+            border-color: #666 !important;
+        }
+        /* ========================================================== */
 
         #fundo-luzes-container {
             position: absolute;
@@ -62,8 +93,7 @@
         body.modo-rocky-live #fundo-luzes-container,
         body.modo-rocky-live #painel-luzes,
         body.modo-rocky-live #botoes-rodape-container,
-        body.modo-rocky-live #relogio-wrapper,
-        body.modo-rocky-live #bateria-container {
+        body.modo-rocky-live #relogio-wrapper {
             opacity: 0 !important;
             pointer-events: none !important;
         }
@@ -104,18 +134,6 @@
             pointer-events: none;
             display: none;
             z-index: 9999;
-        }
-
-        #bateria-container {
-            position: absolute;
-            top: 5vh; 
-            right: 4vw; 
-            font-size: 1.5vh; 
-            color: #aaaaaa; 
-            font-weight: bold;
-            z-index: 20;
-            transform: translate(calc(var(--burn-x) * 0.5), calc(var(--burn-y) * 0.2));
-            transition: transform 0.8s ease;
         }
 
         #relogio-wrapper {
@@ -737,11 +755,6 @@
         </svg>
     </div>
 
-    <!-- O PAINEL DE DIAGNÓSTICO E BATERIA EM TEMPO REAL -->
-    <div id="bateria-container">
-        <span id="txt-bateria">A verificar sensores...</span>
-    </div>
-
     <div id="relogio-wrapper">
         <div id="temps-top">
             <span><span class="label-out">OUT</span><span id="temp-out">--</span>°C</span>
@@ -956,7 +969,6 @@
         let isOnlineReal = true;
         setInterval(async () => {
             try {
-                // Tenta falar com a Hue Bridge. Se o Wi-Fi cair, isto falha na hora.
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5s limite
                 await fetch(`http://${HUE_IP}/api/0/config`, { signal: controller.signal });
@@ -965,11 +977,6 @@
             } catch (e) {
                 isOnlineReal = false;
             }
-
-            const redeStatus = isOnlineReal ? "🟢 NET" : "🔴 SEM NET";
-            const energiaStatus = isChargingNow ? "🟢 CABO" : "🔴 SEM CABO";
-            
-            document.getElementById('txt-bateria').innerText = `${redeStatus} | ${energiaStatus}`;
 
             // Avaliar a Rede com base no Ping Real
             if (!isOnlineReal && timerRedeFalhou === 0) {
@@ -1076,14 +1083,14 @@
             if (luzEmergenciaAtiva) return;
             luzEmergenciaAtiva = true;
             falar("A ligar luz de emergência.");
-            // Inverte as cores da página inteira!
-            document.body.style.filter = 'invert(1)';
+            // Aplica a classe puramente CSS que mete fundo branco e texto preto
+            document.body.classList.add('luz-emergencia-ativa');
         }
 
         function desligarLuzEcra() {
             if (!luzEmergenciaAtiva) return;
             luzEmergenciaAtiva = false;
-            document.body.style.filter = 'none';
+            document.body.classList.remove('luz-emergencia-ativa');
         }
 
         // ==========================================
