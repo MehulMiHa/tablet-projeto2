@@ -1,0 +1,1 @@
+python-roborock[cli]==6.2.1

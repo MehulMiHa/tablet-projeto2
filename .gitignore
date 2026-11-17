@@ -1,0 +1,13 @@
+server/config.local.json
+server/data/
+server/runtime/
+server/.startup.lock
+server/__pycache__/
+server/*.log
+node_modules/
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
+android/*.jks
+android/*.keystore

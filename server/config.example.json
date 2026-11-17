@@ -1,0 +1,29 @@
+{
+  "robot": {
+    "deviceId": "",
+    "pythonPath": "/data/data/com.termux/files/usr/bin/python3.14",
+    "home": "/data/data/com.termux/files/home"
+  },
+  "hue": {
+    "host": "",
+    "token": "",
+    "bridgeId": "",
+    "fingerprint256": "",
+    "groups": { "sanca": "82", "all": "83", "focos": "84" },
+    "lights": {
+      "foco-1": "11", "foco-2": "10", "foco-3": "9", "foco-4": "7",
+      "foco-5": "6", "foco-6": "8", "foco-7": "15", "foco-8": "14"
+    },
+    "buttons": {}
+  },
+  "sync": {
+    "host": "",
+    "token": "",
+    "uniqueId": "",
+    "fingerprint256": ""
+  },
+  "weather": {
+    "apiKey": "",
+    "indoorSensorId": ""
+  }
+}

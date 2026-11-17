@@ -1,2415 +1,399 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-PT">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-        /* VARIÁVEIS PARA O MOTOR ANTI BURN-IN */
-        :root {
-            --burn-x: 0vw;
-            --burn-y: 0vh;
-        }
-
-        html, body { 
-            overscroll-behavior: none; 
-            touch-action: none; 
-        }
-
-        body { 
-            background-color: #000; 
-            color: #fff; 
-            margin: 0; 
-            height: 100vh; 
-            font-family: sans-serif;
-            overflow: hidden; 
-            display: flex;
-            flex-direction: column;
-            justify-content: center; 
-            align-items: center;
-            user-select: none;
-            -webkit-user-select: none;
-            /* Transição suave para quando o ecrã virar branco de emergência */
-            transition: filter 0.8s ease-in-out; 
-        }
-
-        /* ========================================================== */
-        /* CORTINA OLED (POUPANÇA DE BATERIA E ECRÃ)                  */
-        /* ========================================================== */
-        #cortina-oled {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            background-color: #000000;
-            z-index: 999999; /* Fica por cima de absolutamente TUDO */
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease;
-        }
-
-        /* ========================================================== */
-        /* MODO LUZ DE EMERGÊNCIA (Fundo Branco, Texto Preto)         */
-        /* ========================================================== */
-        body.luz-emergencia-ativa {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-        }
-        body.luz-emergencia-ativa #relogio {
-            text-shadow: none !important;
-        }
-        body.luz-emergencia-ativa #lbl-grupo-ativo {
-            color: #000000 !important;
-            text-shadow: none !important;
-        }
-        body.luz-emergencia-ativa .btn-rodape,
-        body.luz-emergencia-ativa #btn-sync-box {
-            color: #000000 !important;
-            border-color: rgba(0,0,0,0.5) !important;
-            background: rgba(0,0,0,0.05) !important;
-        }
-        body.luz-emergencia-ativa .icone-luz {
-            filter: drop-shadow(0 0 5px rgba(0,0,0,0.3)) !important;
-        }
-        body.luz-emergencia-ativa input[type=range].slider-girado {
-            background: rgba(0, 0, 0, 0.1) !important;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.2) !important;
-        }
-        body.luz-emergencia-ativa input[type=range].slider-girado::-webkit-slider-thumb {
-            border-color: #666 !important;
-        }
-        /* ========================================================== */
-
-        #fundo-luzes-container {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1; 
-            opacity: 0;
-            transform: translateY(30vh) perspective(1000px) rotateX(60deg) scale(0.8);
-            transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
-            pointer-events: none; 
-        }
-
-        body.movido #fundo-luzes-container {
-            opacity: 0.65; 
-            transform: translateY(-5vh) perspective(1000px) rotateX(35deg) scale(1.1);
-        }
-
-        /* O MODO "SELECIONADOR" */
-        body.luz-avancada #fundo-luzes-container {
-            opacity: 1; 
-            transform: translateY(5vh) perspective(1000px) rotateX(0deg) scale(0.85); 
-            transition: opacity 1.6s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
-            pointer-events: auto;
-        }
-
-        /* ESCONDER COMPONENTES CASO ESTEJAMOS NA VISTA AO VIVO DO ROCKY */
-        body.modo-rocky-live #fundo-luzes-container,
-        body.modo-rocky-live #painel-luzes,
-        body.modo-rocky-live #botoes-rodape-container,
-        body.modo-rocky-live #relogio-wrapper {
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
-
-        /* --- CAMADA 1: VISUAIS INTOCÁVEIS E SINCRONIZADOS --- */
-        .visual-forma {
-            pointer-events: none !important; 
-            stroke: var(--cor-base, rgba(100,100,100,0.4)) !important;
-            transition: stroke 0.15s ease-out; 
-        }
-
-        /* O Heartbeat Tático */
-        body.tick-flash .visual-forma.selecionada {
-            stroke: var(--cor-mix, rgba(255,0,0,1)) !important;
-            transition: none !important; 
-        }
-
-        /* --- CAMADA 2: HITBOXES GIGANTES --- */
-        .hitboxes-layer {
-            pointer-events: none; 
-        }
-        body.luz-avancada .hitboxes-layer {
-            pointer-events: auto; 
-        }
-        .luz-hitbox {
-            fill: rgba(0, 0, 0, 0.01); 
-            cursor: pointer;
-            pointer-events: all;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        /* A CAIXA TIPO "WINDOWS" */
-        #caixa-selecao {
-            position: fixed;
-            background: rgba(72, 219, 251, 0.2); 
-            border: 2px solid rgba(72, 219, 251, 0.8);
-            border-radius: 6px;
-            pointer-events: none;
-            display: none;
-            z-index: 9999;
-        }
-
-        #relogio-wrapper {
-            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transform: translate(var(--burn-x), var(--burn-y));
-            pointer-events: none; 
-        }
-
-        #temps-top {
-            display: flex;
-            justify-content: space-between; 
-            width: 40vw; 
-            font-size: 3vh;
-            font-weight: bold;
-            margin-bottom: 4vh; 
-            transition: opacity 0.5s ease;
-        }
-
-        .label-out { color: #0abde3; font-weight: 900; text-shadow: 0 0 10px rgba(10, 189, 227, 0.5); margin-right: 1vw;}
-        .label-in { color: #ff9f43; font-weight: 900; text-shadow: 0 0 10px rgba(255, 159, 67, 0.5); margin-right: 1vw;}
-
-        #relogio {
-            font-size: 24vw; 
-            font-weight: 900; 
-            letter-spacing: -3px; 
-            margin: 0;
-            line-height: 1; 
-            text-shadow: 0 5px 15px rgba(0,0,0,0.8); 
-        }
-
-        #chuva-hoje {
-            font-size: 2.5vh;
-            color: #48dbfb;
-            font-weight: bold;
-            text-shadow: 0 0 10px rgba(72, 219, 251, 0.4);
-            margin-top: 1vh;
-            transition: opacity 0.5s ease;
-        }
-
-        body.movido #relogio-wrapper {
-            transform: translate(var(--burn-x), -30vh); 
-            opacity: 1;
-        }
-
-        body.luz-avancada #relogio-wrapper {
-            transition: transform 1.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.6s ease;
-            transform: translate(var(--burn-x), -100vh); 
-            opacity: 0;
-        }
-
-        body.movido #temps-top,
-        body.movido #chuva-hoje {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        #painel-luzes {
-            position: absolute;
-            bottom: 16vh; 
-            display: flex;
-            justify-content: center; 
-            width: 100vw; 
-            align-items: center; 
-            opacity: 0;
-            transform: translateY(15vh) scale(0.8);
-            pointer-events: none;
-            transition: opacity 0.5s ease-in, transform 0.5s ease-in;
-            z-index: 15;
-        }
-
-        body.movido #painel-luzes {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-            pointer-events: auto;
-            transition: opacity 0.6s ease-out 0.2s, transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
-        }
-
-        body.luz-avancada #painel-luzes {
-            pointer-events: none !important;
-        }
-
-        .grupo-slider {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transition: transform 1.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.6s ease;
-        }
-
-        body.luz-avancada #painel-luzes .grupo-slider:first-child {
-            transform: translateX(-40vw);
-            opacity: 0;
-        }
-
-        body.luz-avancada #painel-luzes .grupo-slider:last-child {
-            transform: translateX(40vw);
-            opacity: 0;
-        }
-
-        .icone-luz {
-            font-size: 5vh;
-            margin-bottom: 2vh;
-            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4));
-            z-index: 2;
-        }
-
-        .caixa-slider {
-            position: relative;
-            width: 10vw;
-            height: 45vh; 
-        }
-
-        input[type=range].slider-girado {
-            -webkit-appearance: none;
-            appearance: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 45vh; 
-            min-width: 45vh; 
-            flex-shrink: 0; 
-            height: 5vw; 
-            transform: translate(-50%, -50%) rotate(-90deg);
-            border-radius: 20px;
-            outline: none;
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
-            touch-action: none; 
-        }
-
-        input[type=range].slider-girado::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 9vw;
-            height: 9vw;
-            border-radius: 50%;
-            background: #ffffff;
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.9);
-            border: 2px solid #ccc;
-        }
-
-        #brilho-luz { background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.8)); }
-        #temp-luz { background: linear-gradient(to right, #9bb3ff, #ffffff, #ffb347); }
-
-        .coluna-central {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            margin: 0 4vw; 
-        }
-
-        #lbl-grupo-ativo {
-            font-size: 3vh;
-            font-weight: 900;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            color: #ffffff;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
-            white-space: nowrap;
-            transition: color 0.3s ease, transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
-            margin-bottom: 2.5vh; 
-            text-align: center;
-        }
-
-        body.luz-avancada #lbl-grupo-ativo {
-            transform: translateY(-28vh) scale(1.5); 
-        }
-
-        body.luz-avancada #btn-sync-box,
-        body.luz-avancada #btn-power-sala {
-            opacity: 0;
-        }
-
-        #btn-sync-box {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #aaa;
-            font-size: 1.5vh;
-            font-weight: bold;
-            padding: 1.5vh 2vw;
-            border-radius: 15px;
-            margin-bottom: 3vh; 
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.3s ease, opacity 0.5s ease; 
-            backdrop-filter: blur(5px);
-            width: max-content;
-        }
-
-        #btn-sync-box.sync-active {
-            background: rgba(229, 57, 53, 0.2); 
-            border-color: #e53935;
-            color: #ffcdd2;
-            box-shadow: 0 0 15px rgba(229, 57, 53, 0.4);
-        }
-
-        #btn-power-sala {
-            width: 9vw;
-            height: 25vh;
-            background: #d9d9d9;
-            border-radius: 1vw;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,255,255,0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            overflow: hidden;
-            transition: all 0.2s, opacity 0.5s ease; 
-        }
-
-        .metade-switch {
-            width: 100%;
-            height: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: 900;
-            font-size: 2.5vh;
-            font-family: sans-serif;
-            transition: all 0.3s ease;
-        }
-
-        .switch-on {
-            color: #999;
-            background: linear-gradient(to bottom, #eeeeee, #cccccc);
-            border-bottom: 2px solid #aaa;
-        }
-        .switch-off {
-            color: #ff3333;
-            text-shadow: 0 0 10px rgba(255,51,51,0.5);
-            background: linear-gradient(to bottom, #bbbbbb, #999999);
-            box-shadow: inset 0 10px 10px rgba(0,0,0,0.2);
-        }
-
-        #btn-power-sala.ligado .switch-on {
-            color: #33ff33;
-            text-shadow: 0 0 12px rgba(51,255,51,0.8);
-            background: linear-gradient(to bottom, #bbbbbb, #999999);
-            box-shadow: inset 0 -10px 10px rgba(0,0,0,0.2);
-            border-bottom: none;
-        }
-        #btn-power-sala.ligado .switch-off {
-            color: #999;
-            text-shadow: none;
-            background: linear-gradient(to bottom, #cccccc, #eeeeee);
-            box-shadow: none;
-            border-top: 2px solid #fff;
-        }
-
-        #botoes-rodape-container {
-            position: absolute;
-            bottom: 2vh; 
-            display: flex;
-            justify-content: center;
-            z-index: 15;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease-in;
-        }
-
-        body.movido #botoes-rodape-container {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        
-        body.luz-avancada #botoes-rodape-container {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .btn-rodape {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            font-size: 2vh;
-            font-weight: bold;
-            padding: 1.5vh 5vw;
-            border-radius: 30px;
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            transition: background 0.3s, transform 0.1s;
-        }
-
-        .btn-rodape:nth-child(2) {
-            margin-left: 6vw; 
-        }
-
-        .btn-rodape:active {
-            transform: scale(0.95);
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* --- ESTILOS DO PAINEL ROCKY --- */
-        #vista-rocky, #vista-mapa-interativo {
-            display: none; 
-            position: absolute;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.4)), url('fundo.jpg');
-            background-size: cover;
-            background-position: center;
-            z-index: 1000;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-        }
-
-        #titulo-rocky {
-            font-size: 4vh; 
-            font-weight: bold; 
-            margin-top: 2vh; 
-            color: #ffffff;
-            text-shadow: 0 0 15px rgba(255,255,255,0.4);
-        }
-
-        #rocky-conteudo, #rocky-conteudo-config {
-            display: flex;
-            width: 92vw;
-            flex: 1;
-            margin-top: 3vh;
-            overflow: hidden;
-            flex-direction: column;
-        }
-
-        #rocky-headers {
-            display: flex;
-            width: 100%;
-            justify-content: space-between;
-            margin-bottom: 2vh;
-        }
-
-        .coluna-acao {
-            width: 47%; 
-            display: flex;
-            flex-direction: column;
-        }
-
-        .titulo-coluna {
-            text-align: center;
-            font-weight: bold;
-            font-size: 2.8vh;
-            margin-bottom: 1.5vh;
-        }
-
-        .btn-selecionar-tudo {
-            background: rgba(255, 255, 255, 0.1);
-            color: #ddd;
-            border: 1px dashed rgba(255,255,255,0.3);
-            font-size: 1.8vh;
-            padding: 1.5vh;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.2s;
-            width: 100%;
-        }
-        .btn-selecionar-tudo:active { background: rgba(255, 255, 255, 0.3); }
-
-        .lista-scroll {
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            width: 100%;
-            padding-bottom: 5vh; 
-            -ms-overflow-style: none; 
-            scrollbar-width: none; 
-        }
-        .lista-scroll::-webkit-scrollbar { display: none; }
-
-        .linha-divisao {
-            display: flex;
-            width: 100%;
-            justify-content: space-between; 
-            margin-bottom: 2vh; 
-        }
-
-        .btn-divisao {
-            width: 47%; 
-            background: rgba(255, 255, 255, 0.08); 
-            border: 2px solid rgba(255, 255, 255, 0.15);
-            color: white; 
-            font-size: 1.8vh; 
-            padding: 1.8vh 1vw; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            backdrop-filter: blur(10px);
-            text-align: center; 
-            font-weight: bold;
-            transition: all 0.2s ease-out;
-        }
-
-        .btn-divisao.selecionado-asp {
-            background: rgba(255, 235, 59, 0.2); 
-            border-color: #ffeb3b;
-            box-shadow: 0 0 15px rgba(255, 235, 59, 0.4);
-            color: #fff;
-        }
-
-        .btn-divisao.selecionado-lav {
-            background: rgba(33, 150, 243, 0.3); 
-            border-color: #4fc3f7;
-            box-shadow: 0 0 15px rgba(33, 150, 243, 0.5);
-            color: #fff;
-        }
-
-        #rocky-footer, #rocky-footer-config {
-            display: flex;
-            justify-content: space-between;
-            width: 92vw;
-            padding: 3vh 0;
-            margin-top: auto;
-        }
-
-        .btn-footer-rocky {
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            color: white;
-            font-size: 2.2vh;
-            font-weight: bold;
-            padding: 2vh 4vw;
-            border-radius: 20px;
-            cursor: pointer;
-            backdrop-filter: blur(5px);
-        }
-        
-        #btn-continuar, #btn-iniciar, #btn-confirmar-zona {
-            background: rgba(76, 175, 80, 0.4);
-            border-color: #4caf50;
-            box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .painel-config-rocky {
-            display: flex;
-            width: 100%;
-            justify-content: space-around;
-            align-items: center;
-            margin-top: 5vh;
-        }
-        .slider-label {
-            text-align: center;
-            font-size: 2vh;
-            font-weight: bold;
-            margin-top: 3vh;
-            color: #ccc;
-        }
-        #slider-succao { background: linear-gradient(to right, rgba(255,235,59,0.1), #ffeb3b); }
-        #slider-agua { background: linear-gradient(to right, rgba(33,150,243,0.1), #4fc3f7); }
-
-        /* A TUA NOVA ÁREA DE DESENHO MAPA */
-        #container-canvas {
-            position: relative;
-            margin-top: 1vh;
-            width: 90vw;
-            max-height: 58vh;
-            border: 2px solid rgba(72, 219, 251, 0.6);
-            border-radius: 15px;
-            overflow: hidden;
-            background: #111;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-        }
-        #mapCanvas {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            touch-action: none;
-        }
-
-        /* BARRA SEGMENTADA DE MODO DE ZONA */
-        .seletor-modo-zona {
-            display: flex;
-            width: 90vw;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            margin-top: 2vh;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            overflow: hidden;
-        }
-        .opcao-modo {
-            flex: 1;
-            text-align: center;
-            padding: 1.5vh 0;
-            font-size: 1.8vh;
-            font-weight: bold;
-            color: #888;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .opcao-modo.ativo-asp { background: rgba(255, 235, 59, 0.2); color: #ffeb3b; box-shadow: inset 0 0 10px rgba(255, 235, 59, 0.2); }
-        .opcao-modo.ativo-ambos { background: rgba(76, 175, 80, 0.2); color: #4caf50; box-shadow: inset 0 0 10px rgba(76, 175, 80, 0.2); }
-        .opcao-modo.ativo-lav { background: rgba(33, 150, 243, 0.2); color: #4fc3f7; box-shadow: inset 0 0 10px rgba(33, 150, 243, 0.2); }
-
-        /* ========================================================== */
-        /* --- ECRÃ ROCKY AO VIVO (DASHBOARD) ---                     */
-        /* ========================================================== */
-        #vista-rocky-live {
-            display: none; 
-            position: absolute;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.9)), url('fundo.jpg');
-            background-size: cover;
-            background-position: center;
-            z-index: 1000;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        body.modo-rocky-live #vista-rocky-live { 
-            display: flex; 
-        }
-
-        .header-live { 
-            width: 100%; display: flex; justify-content: space-between; align-items: center; 
-            padding: 3vh 5vw; box-sizing: border-box; margin-bottom: 2vh; 
-        }
-        #relogio-live { 
-            font-size: 5vh; font-weight: bold; letter-spacing: -1px; text-shadow: 0 2px 10px rgba(0,0,0,0.5); 
-        }
-        .btn-top-live { 
-            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); 
-            color: white; font-size: 2vh; font-weight: bold; padding: 1vh 4vw; border-radius: 30px; 
-            backdrop-filter: blur(10px); cursor: pointer; transition: background 0.3s; 
-        }
-        .btn-top-live:active { background: rgba(255, 255, 255, 0.3); }
-
-        #live-estado-texto { 
-            font-size: 5vh; font-weight: 900; color: #4cd137; text-shadow: 0 0 20px rgba(76, 209, 55, 0.5); 
-            text-transform: uppercase; margin-top: 2vh; letter-spacing: 2px; text-align: center; 
-        }
-        #live-sala-texto { 
-            font-size: 2.5vh; color: #aaa; margin-top: 1vh; margin-bottom: 6vh; font-weight: bold; text-align: center; 
-        }
-
-        .grid-stats { 
-            display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; width: 85vw; 
-        }
-        .card-stat { 
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); 
-            border-radius: 20px; padding: 3vh 0; display: flex; flex-direction: column; align-items: center; 
-            backdrop-filter: blur(10px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); 
-        }
-        .stat-icon { font-size: 4vh; margin-bottom: 1vh; }
-        .stat-val { font-size: 4.5vh; font-weight: bold; color: #fff; }
-        .stat-nome { font-size: 1.5vh; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-top: 0.5vh;}
-
-        .botoes-live-bottom { 
-            display: flex; gap: 4vw; width: 85vw; margin-top: auto; margin-bottom: 5vh; 
-        }
-        .btn-live-action { 
-            flex: 1; padding: 2.5vh 0; font-size: 2.2vh; font-weight: bold; border-radius: 20px; 
-            cursor: pointer; transition: transform 0.2s; border: none; text-align: center; 
-        }
-        .btn-pausa-live { background: rgba(251, 197, 49, 0.2); color: #fbc531; border: 2px solid rgba(251, 197, 49, 0.8); }
-        .btn-home-live { background: rgba(232, 65, 24, 0.2); color: #e84118; border: 2px solid rgba(232, 65, 24, 0.8); }
-        .btn-live-action:active { transform: scale(0.95); }
-
-    </style>
-</head>
-<body id="ecra">
-    
-    <!-- CORTINA OLED PARA POUPAR BATERIA E ECRÃ -->
-    <div id="cortina-oled"></div>
-
-    <!-- ELEMENTOS ESCONDIDOS PARA A CÂMARA (SENSOR DE LUZ) -->
-    <video id="video-emergencia" autoplay playsinline style="display:none;"></video>
-    <canvas id="canvas-emergencia" width="32" height="32" style="display:none;"></canvas>
-
-    <!-- A CAIXA DE ARRASTO DO WINDOWS -->
-    <div id="caixa-selecao"></div>
-
-    <div id="fundo-luzes-container">
-        <svg viewBox="0 0 600 900" width="90vw" height="100vh" preserveAspectRatio="xMidYMid meet">
-            <defs>
-                <filter id="brilhoNeon" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="15" result="blur" />
-                    <feMerge>
-                        <feMergeNode in="blur" />
-                        <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                </filter>
-            </defs>
-            
-            <g style="pointer-events: none;">
-                <rect id="visual-sanca" class="visual-forma selecionada" x="30" y="30" width="540" height="840" rx="15" fill="none" stroke-width="35" filter="url(#brilhoNeon)"/>
-
-                <g filter="url(#brilhoNeon)">
-                    <circle id="visual-foco-4" class="visual-forma selecionada foco-forma" cx="200" cy="170" r="50" fill="none" stroke-width="35" />
-                    <circle id="visual-foco-8" class="visual-forma selecionada foco-forma" cx="400" cy="170" r="50" fill="none" stroke-width="35" />
-                    
-                    <circle id="visual-foco-3" class="visual-forma selecionada foco-forma" cx="200" cy="350" r="50" fill="none" stroke-width="35" />
-                    <circle id="visual-foco-7" class="visual-forma selecionada foco-forma" cx="400" cy="350" r="50" fill="none" stroke-width="35" />
-                    
-                    <circle id="visual-foco-2" class="visual-forma selecionada foco-forma" cx="200" cy="530" r="50" fill="none" stroke-width="35" />
-                    <circle id="visual-foco-6" class="visual-forma selecionada foco-forma" cx="400" cy="530" r="50" fill="none" stroke-width="35" />
-                    
-                    <circle id="visual-foco-1" class="visual-forma selecionada foco-forma" cx="200" cy="710" r="50" fill="none" stroke-width="35" />
-                    <circle id="visual-foco-5" class="visual-forma selecionada foco-forma" cx="400" cy="710" r="50" fill="none" stroke-width="35" />
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0d0e" />
+    <meta name="color-scheme" content="dark" />
+    <title>Eddy</title>
+    <link rel="stylesheet" href="assets/eddy.css" />
+    <script defer src="assets/eddy.js"></script>
+  </head>
+  <body data-screen="clock">
+    <svg class="symbol-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9M6.3 5.9a8 8 0 1 0 11.4 0" /></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+          />
+        </symbol>
+        <symbol id="i-warm" viewBox="0 0 24 24">
+          <path d="M9 14.7V5a3 3 0 0 1 6 0v9.7a5 5 0 1 1-6 0Z" />
+          <path d="M12 8v10" />
+          <circle cx="12" cy="18" r="1" />
+        </symbol>
+        <symbol id="i-bulb" viewBox="0 0 24 24">
+          <path d="M8.5 17c0-3-3-3.5-3-7a6.5 6.5 0 0 1 13 0c0 3.5-3 4-3 7ZM9 20h6m-5 2h4" />
+        </symbol>
+        <symbol id="i-select" viewBox="0 0 24 24">
+          <path
+            d="M8 3H4a1 1 0 0 0-1 1v4m13-5h4a1 1 0 0 1 1 1v4M3 16v4a1 1 0 0 0 1 1h4m8 0h4a1 1 0 0 0 1-1v-4"
+          />
+          <path d="m8 12 3 3 5-6" />
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" /></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></symbol>
+        <symbol id="i-robot" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M5.8 17.4h12.4M7.5 8h9" />
+          <rect x="10" y="5.5" width="4" height="4" rx="1" />
+          <circle cx="16.5" cy="12" r=".7" />
+        </symbol>
+        <symbol id="i-drop" viewBox="0 0 24 24">
+          <path d="M12 2c-2 4-7 8-7 12a7 7 0 0 0 14 0c0-4-5-8-7-12Z" />
+          <path d="M8.5 14a3.5 3.5 0 0 0 3.5 3.5" />
+        </symbol>
+        <symbol id="i-vacuum" viewBox="0 0 24 24">
+          <path d="m6 20 8-12m-1-5 5 3m-7 6 7 4-4 6-8-5" />
+          <path d="m5 18-2 3m5-1-1 2m4-1-1 2" />
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></symbol>
+        <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8Z" /></symbol>
+        <symbol id="i-home" viewBox="0 0 24 24">
+          <path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8" />
+        </symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 6v6l4 2" />
+        </symbol>
+        <symbol id="i-map" viewBox="0 0 24 24">
+          <path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2Zm6-2v16m6-14v16" />
+        </symbol>
+        <symbol id="i-area" viewBox="0 0 24 24">
+          <path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5M8 8h8v8H8Z" />
+        </symbol>
+        <symbol id="i-tv" viewBox="0 0 24 24">
+          <rect x="2" y="4" width="20" height="14" rx="3" />
+          <path d="M8 22h8m-4-4v4" />
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+          <path d="m12 3 10 18H2Z" />
+          <path d="M12 9v5m0 3v.1" />
+        </symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></symbol>
+      </defs>
+    </svg>
+
+    <main id="app">
+      <section id="ambient" class="ambient" aria-label="Relógio">
+        <div class="ambient-center">
+          <div id="ambientDate" class="ambient-date"></div>
+          <time id="ambientTime" class="ambient-time">--:--</time>
+          <div id="ambientWeather" class="ambient-weather" aria-label="Temperaturas"></div>
+        </div>
+        <button id="ambientHint" class="ambient-hint" type="button">
+          Tocar para controlar <span aria-hidden="true">↑</span>
+        </button>
+        <button id="ambientAlert" class="ambient-alert" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#i-drop" /></svg
+          ><span
+            ><span id="ambientAlertTitle" class="alert-title"></span
+            ><span id="ambientAlertStatus" class="alert-status"></span></span
+          ><svg class="icon alert-chevron" aria-hidden="true"><use href="#i-chevron" /></svg>
+        </button>
+      </section>
+
+      <div id="dashboard" class="dashboard" aria-hidden="true">
+        <header class="app-header">
+          <button id="clockButton" class="header-clock" aria-label="Voltar ao relógio">
+            <time id="headerTime">--:--</time>
+          </button>
+          <nav class="view-tabs" aria-label="Controlos">
+            <button class="view-tab is-active" data-view="lights" aria-current="page">
+              <svg class="icon"><use href="#i-bulb" /></svg>Sala</button
+            ><button class="view-tab" data-view="robot">
+              <svg class="icon"><use href="#i-robot" /></svg>Rocky
+            </button>
+          </nav>
+          <span id="connectionStatus" class="connection-status"
+            ><span class="connection-dot"></span><span>A ligar</span></span
+          >
+        </header>
+
+        <section id="lightsView" class="view lights-view" aria-label="Iluminação da sala">
+          <div class="room-heading">
+            <div>
+              <p class="eyebrow">ILUMINAÇÃO</p>
+              <h1>Sala de estar</h1>
+            </div>
+            <button id="selectLights" class="text-button">
+              <svg class="icon"><use href="#i-select" /></svg>Selecionar
+            </button>
+          </div>
+          <div class="lights-layout">
+            <div class="room-plan" id="roomPlan">
+              <svg
+                id="lightPlan"
+                viewBox="0 0 600 900"
+                role="group"
+                aria-label="Oito focos e fita LED da sala"
+              >
+                <defs>
+                  <filter id="softGlow" x="-70%" y="-70%" width="240%" height="240%">
+                    <feGaussianBlur stdDeviation="10" />
+                  </filter>
+                </defs>
+                <rect class="room-floor" x="37" y="37" width="526" height="826" rx="28" />
+                <g
+                  id="ledFixture"
+                  class="fixture is-unknown"
+                  data-light-id="sanca"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Fita LED, a obter estado"
+                >
+                  <rect
+                    class="led-glow emitted-glow"
+                    x="36"
+                    y="36"
+                    width="528"
+                    height="828"
+                    rx="28"
+                    filter="url(#softGlow)"
+                  />
+                  <rect class="led-light emitted-light" x="36" y="36" width="528" height="828" rx="28" />
+                  <rect
+                    class="led-selection selection-outline"
+                    x="20"
+                    y="20"
+                    width="560"
+                    height="860"
+                    rx="38"
+                  />
+                  <rect class="led-hit" x="36" y="36" width="528" height="828" rx="28" />
                 </g>
-            </g>
-
-            <g id="hitboxes" class="hitboxes-layer">
-                <rect id="hitbox-sanca" x="10" y="10" width="580" height="880" rx="25" class="luz-hitbox" />
-                
-                <rect id="hitbox-foco-4" x="120" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
-                <rect id="hitbox-foco-8" x="320" y="90" width="160" height="160" rx="20" class="luz-hitbox" />
-                
-                <rect id="hitbox-foco-3" x="120" y="270" width="160" height="160" rx="20" class="luz-hitbox" />
-                <rect id="hitbox-foco-7" x="320" y="270" width="160" height="160" rx="20" class="luz-hitbox" />
-                
-                <rect id="hitbox-foco-2" x="120" y="450" width="160" height="160" rx="20" class="luz-hitbox" />
-                <rect id="hitbox-foco-6" x="320" y="450" width="160" height="160" rx="20" class="luz-hitbox" />
-                
-                <rect id="hitbox-foco-1" x="120" y="630" width="160" height="160" rx="20" class="luz-hitbox" />
-                <rect id="hitbox-foco-5" x="320" y="630" width="160" height="160" rx="20" class="luz-hitbox" />
-            </g>
-        </svg>
-    </div>
-
-    <div id="relogio-wrapper">
-        <div id="temps-top">
-            <span><span class="label-out">OUT</span><span id="temp-out">--</span>°C</span>
-            <span><span class="label-in">IN</span><span id="temp-in">--</span>°C</span>
-        </div>
-        
-        <div id="relogio">00:00</div>
-        
-        <div id="chuva-hoje">🌧️ Chuva nas próximas 12h: --%</div>
-    </div>
-
-    <!-- O ECRÃ NORMAL DAS LUZES -->
-    <div id="painel-luzes">
-        <div class="grupo-slider">
-            <span class="icone-luz">☀️</span>
-            <div class="caixa-slider">
-                <input type="range" class="slider-girado" id="brilho-luz" min="1" max="254" value="1">
+                <g id="spotFixtures"></g>
+              </svg>
+              <div id="lightDragBox" class="light-drag-box" hidden></div>
+              <div id="selectionHint" class="selection-hint" hidden>Toca nos focos ou na fita LED</div>
+              <div id="selectionActions" class="selection-actions" hidden>
+                <button id="cancelSelection" class="button secondary">Cancelar</button
+                ><button id="finishSelection" class="button primary" disabled>
+                  Concluir <svg class="icon"><use href="#i-check" /></svg>
+                </button>
+              </div>
             </div>
-        </div>
-        
-        <div class="coluna-central">
-            <div id="lbl-grupo-ativo">SALA</div>
-
-            <div id="btn-sync-box" onclick="toggleSyncBox()">
-                🟢 Iniciar Sincronização TV
-            </div>
-
-            <div id="btn-power-sala" onclick="togglePowerSala()">
-                <div class="metade-switch switch-on">ON</div>
-                <div class="metade-switch switch-off">OFF</div>
-            </div>
-        </div>
-
-        <div class="grupo-slider">
-            <span class="icone-luz">🌡️</span>
-            <div class="caixa-slider">
-                <input type="range" class="slider-girado" id="temp-luz" min="153" max="500" value="153">
-            </div>
-        </div>
-    </div>
-
-    <div id="botoes-rodape-container">
-        <button class="btn-rodape" onclick="toggleLuzAvançada(event)">Selecionador 💡</button>
-        <button class="btn-rodape" onclick="abrirVistaRocky(event)">🤖 Rocky</button>
-    </div>
-
-    <!-- O NOVO ECRÃ DO DASHBOARD (LIVE) DO ROCKY -->
-    <div id="vista-rocky-live">
-        <div class="header-live">
-            <div id="relogio-live">00:00</div>
-            <button class="btn-top-live" onclick="irParaLuzes(event)">💡 Luzes</button>
-        </div>
-
-        <div id="live-estado-texto">A LIMPAR</div>
-        <div id="live-sala-texto">A comunicar com o robô...</div>
-
-        <div class="grid-stats">
-            <div class="card-stat">
-                <div class="stat-icon">🔋</div>
-                <div class="stat-val" id="val-bat">--%</div>
-                <div class="stat-nome">Bateria</div>
-            </div>
-            <div class="card-stat">
-                <div class="stat-icon">⏱️</div>
-                <div class="stat-val" id="val-tempo">-- min</div>
-                <div class="stat-nome">Tempo</div>
-            </div>
-            <div class="card-stat">
-                <div class="stat-icon">📐</div>
-                <div class="stat-val" id="val-area">-- m²</div>
-                <div class="stat-nome">Área</div>
-            </div>
-            <div class="card-stat">
-                <div class="stat-icon">🌪️</div>
-                <div class="stat-val" id="val-potencia">--</div>
-                <div class="stat-nome">Sucção</div>
-            </div>
-        </div>
-
-        <div class="botoes-live-bottom">
-            <button class="btn-live-action btn-pausa-live" id="btn-live-pause" onclick="pausarRocky15Min()">⏸️ Pausa 15m</button>
-            <button class="btn-live-action btn-home-live" id="btn-live-home" onclick="enviarParaBase()">🏠 Regressar</button>
-        </div>
-    </div>
-
-    <!-- O ECRÃ DE SELEÇÃO DE DIVISÕES -->
-    <div id="vista-rocky">
-        <button id="btn-voltar-rocky" onclick="fecharVistaRocky()" style="margin-top: 5vh; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); color: white; font-size: 2vh; padding: 1vh 4vw; border-radius: 40px; cursor: pointer;">⬅ Voltar ao Relógio</button>
-        <div id="titulo-rocky">Onde desejas limpar?</div>
-        <div id="msg-carregando" style="margin-top: 10vh; color: #aaa; font-size: 2.2vh; text-align: center;"></div>
-        
-        <div id="rocky-conteudo" style="display: none;">
-            
-            <div id="rocky-headers">
-                <div class="coluna-acao">
-                    <div class="titulo-coluna" style="color: #ffeb3b;">🧹 Aspirar</div>
-                    <button class="btn-selecionar-tudo" onclick="toggleSelecionarTudo('aspirar')">Selecionar Tudo</button>
+            <div class="light-controls">
+              <div class="group-tabs" role="group" aria-label="Grupo de luzes">
+                <button data-light-group="all" class="is-active">Sala</button
+                ><button data-light-group="spots">Focos</button
+                ><button data-light-group="led">Fita LED</button>
+              </div>
+              <div class="control-card">
+                <div class="power-row">
+                  <div>
+                    <h2 id="selectedLightTitle">Sala</h2>
+                    <p id="selectedLightStatus" class="muted">A obter estado</p>
+                  </div>
+                  <button
+                    id="lightPower"
+                    class="power-button"
+                    aria-label="Ligar luzes selecionadas"
+                    disabled
+                  >
+                    <svg class="icon"><use href="#i-power" /></svg>
+                  </button>
                 </div>
-                <div class="coluna-acao">
-                    <div class="titulo-coluna" style="color: #4fc3f7;">💧 Lavar</div>
-                    <button class="btn-selecionar-tudo" onclick="toggleSelecionarTudo('lavar')">Selecionar Tudo</button>
+                <div class="range-control">
+                  <div class="range-heading">
+                    <label for="brightness"
+                      ><svg class="icon"><use href="#i-sun" /></svg>Brilho</label
+                    ><output id="brightnessValue" for="brightness">—</output>
+                  </div>
+                  <input
+                    id="brightness"
+                    type="range"
+                    min="1"
+                    max="100"
+                    value="50"
+                    aria-label="Brilho das luzes selecionadas"
+                    disabled
+                  />
                 </div>
+                <div class="range-control temperature-control">
+                  <div class="range-heading">
+                    <label for="temperature"
+                      ><svg class="icon"><use href="#i-warm" /></svg>Temperatura</label
+                    ><output id="temperatureValue" for="temperature">—</output>
+                  </div>
+                  <input
+                    id="temperature"
+                    type="range"
+                    min="2000"
+                    max="6500"
+                    step="50"
+                    value="3000"
+                    aria-label="Temperatura das luzes selecionadas"
+                    disabled
+                  />
+                  <div class="range-extremes"><span>Quente</span><span>Fria</span></div>
+                </div>
+                <p id="lightFeedback" class="control-feedback" aria-live="polite"></p>
+              </div>
+              <button id="syncToggle" class="sync-card" disabled>
+                <span class="sync-icon"
+                  ><svg class="icon"><use href="#i-tv" /></svg></span
+                ><span class="sync-copy"
+                  ><strong>Sincronização TV</strong><span id="syncStatus">A obter estado</span></span
+                ><span id="syncSwitch" class="switch" aria-hidden="true"><span></span></span></button
+              ><button id="robotShortcut" class="robot-shortcut">
+                <span class="shortcut-robot"
+                  ><svg class="icon"><use href="#i-robot" /></svg></span
+                ><span
+                  ><strong>Rocky</strong><span id="robotShortcutStatus">A ligar ao aspirador</span></span
+                ><span id="robotShortcutBattery" class="shortcut-battery"></span
+                ><svg class="icon"><use href="#i-chevron" /></svg>
+              </button>
             </div>
+          </div>
+        </section>
 
-            <div id="lista-unificada-scroll" class="lista-scroll" style="flex: 1;"></div>
-
-            <div id="rocky-footer">
-                <button class="btn-footer-rocky" id="btn-area" onclick="abrirVistaMapa()">📐 Área</button>
-                <button class="btn-footer-rocky" id="btn-continuar" onclick="avancarLimpeza()">Continuar ➔</button>
+        <section id="robotView" class="view robot-view" aria-label="Aspirador Rocky" hidden>
+          <div class="robot-heading">
+            <div>
+              <p class="eyebrow">ROBOROCK SAROS 10R</p>
+              <h1>Rocky</h1>
             </div>
+            <span id="robotConnection" class="status-pill">A ligar</span>
+          </div>
+          <div class="robot-layout">
+            <div class="robot-overview">
+              <div id="robotVisual" class="robot-visual" aria-hidden="true">
+                <div class="robot-orbit"></div>
+                <div class="robot-dock"><span></span></div>
+                <div class="robot-puck">
+                  <div class="puck-turret"></div>
+                  <div class="puck-mark"></div>
+                  <div class="puck-eye"></div>
+                  <div class="puck-seam"></div>
+                </div>
+              </div>
+              <div class="robot-state-copy">
+                <h2 id="robotState">A obter estado</h2>
+                <p id="robotStateDetail" class="muted">A comunicar com o Rocky</p>
+              </div>
+              <div class="robot-stats">
+                <div><span id="robotBattery">—</span><label>Bateria</label></div>
+                <div><span id="robotTime">—</span><label>Tempo</label></div>
+                <div><span id="robotArea">—</span><label>Área limpa</label></div>
+                <div><span id="robotSuction">—</span><label>Sucção</label></div>
+              </div>
+              <div class="robot-primary-actions">
+                <button id="openCleaning" class="button primary" disabled>
+                  <svg class="icon"><use href="#i-vacuum" /></svg>Limpar</button
+                ><button id="robotPause" class="button secondary" disabled>
+                  <svg class="icon"><use href="#i-pause" /></svg><span>Pausar</span></button
+                ><button id="robotHome" class="button secondary" aria-label="Regressar à base" disabled>
+                  <svg class="icon"><use href="#i-home" /></svg>Base
+                </button>
+              </div>
+              <button id="robotPause15" class="text-button pause-timed" disabled>
+                <svg class="icon"><use href="#i-clock" /></svg>Pausar durante 15 minutos
+              </button>
+            </div>
+            <div class="robot-details">
+              <div id="robotAlerts" class="robot-alerts" aria-live="polite"></div>
+              <button id="mapPreviewButton" class="map-preview">
+                <div class="map-preview-top">
+                  <span
+                    ><svg class="icon"><use href="#i-map" /></svg>Mapa da casa</span
+                  ><svg class="icon"><use href="#i-chevron" /></svg>
+                </div>
+                <div id="mapPreviewContent" class="map-preview-content">
+                  <svg class="icon"><use href="#i-map" /></svg
+                  ><span>Ver divisões e escolher uma área</span>
+                </div>
+                <div id="roomCount" class="map-preview-footer">A obter divisões</div>
+              </button>
+              <p id="robotFreshness" class="freshness"></p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div id="sheetBackdrop" class="sheet-backdrop" hidden></div>
+    <section
+      id="cleaningSheet"
+      class="sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cleaningTitle"
+      hidden
+    >
+      <header class="sheet-header">
+        <div>
+          <p class="eyebrow">NOVA LIMPEZA</p>
+          <h2 id="cleaningTitle">Onde vamos limpar?</h2>
         </div>
-
-        <div id="rocky-conteudo-config" style="display: none; width: 92vw; flex: 1; flex-direction: column; align-items: center;">
-            
-            <div class="painel-config-rocky">
-                <div class="grupo-slider" id="container-succao">
-                    <span class="icone-luz">🌪️</span>
-                    <div class="caixa-slider">
-                        <input type="range" class="slider-girado" id="slider-succao" min="101" max="104" value="102">
-                    </div>
-                    <div class="slider-label" id="lbl-succao">Normal</div>
-                </div>
-
-                <div class="grupo-slider" id="container-agua">
-                    <span class="icone-luz">💧</span>
-                    <div class="caixa-slider">
-                        <input type="range" class="slider-girado" id="slider-agua" min="1" max="30" value="15">
-                    </div>
-                    <div class="slider-label" id="lbl-agua">Nível 15</div>
-                </div>
-            </div>
-
-            <div id="rocky-footer-config" style="display: flex; justify-content: space-between; width: 92vw; padding: 3vh 0; margin-top: auto;">
-                <button class="btn-footer-rocky" onclick="voltarParaDivisoes()">⬅ Voltar</button>
-                <button class="btn-footer-rocky" id="btn-iniciar" onclick="enviarComandoFinal()">Iniciar Limpeza 🚀</button>
-            </div>
+        <button id="closeCleaning" class="icon-button" aria-label="Fechar">
+          <svg class="icon"><use href="#i-close" /></svg>
+        </button>
+      </header>
+      <div class="cleaning-tabs" role="tablist" aria-label="Escolher local">
+        <button id="roomsTab" role="tab" aria-selected="true" class="is-active">Divisões</button
+        ><button id="zoneTab" role="tab" aria-selected="false">
+          <svg class="icon"><use href="#i-area" /></svg>Uma área
+        </button>
+      </div>
+      <div class="sheet-scroll">
+        <div id="roomsPanel" role="tabpanel" aria-labelledby="roomsTab">
+          <div class="room-list-head">
+            <span>Divisão</span><button id="selectAllVacuum">Aspirar <span>todas</span></button
+            ><button id="selectAllMop">Lavar <span>todas</span></button>
+          </div>
+          <div id="roomList" class="room-list">
+            <p class="empty-state">A obter divisões do Rocky…</p>
+          </div>
         </div>
+        <div id="zonePanel" role="tabpanel" aria-labelledby="zoneTab" hidden>
+          <div class="zone-mode" role="group" aria-label="Modo de limpeza da área">
+            <button class="is-active" data-zone-mode="vacuum">Aspirar</button
+            ><button data-zone-mode="vacuum_mop">Aspirar e lavar</button
+            ><button data-zone-mode="mop">Lavar</button>
+          </div>
+          <div id="zoneStage" class="zone-stage">
+            <p id="zoneMessage" class="empty-state">A obter o mapa real…</p>
+            <canvas
+              id="zoneCanvas"
+              hidden
+              aria-label="Mapa da casa. Arrasta a área ou os seus cantos para escolher onde limpar."
+            ></canvas>
+          </div>
+          <p id="zoneHint" class="zone-hint">Arrasta a área e ajusta os cantos.</p>
+        </div>
+        <div class="cleaning-settings">
+          <div id="suctionSetting" class="range-control">
+            <div class="range-heading">
+              <label for="suction">Sucção</label><output id="suctionValue">Normal</output>
+            </div>
+            <input id="suction" type="range" min="101" max="104" value="102" />
+          </div>
+          <div id="waterSetting" class="range-control">
+            <div class="range-heading">
+              <label for="water">Água</label><output id="waterValue">15 / 30</output>
+            </div>
+            <input id="water" type="range" min="1" max="30" value="15" />
+          </div>
+        </div>
+      </div>
+      <footer class="sheet-footer">
+        <p id="cleaningSummary" aria-live="polite">Escolhe pelo menos uma divisão.</p>
+        <p id="cleaningError" class="inline-error" role="alert" hidden></p>
+        <button id="startCleaning" class="button primary" disabled>
+          Iniciar limpeza <svg class="icon"><use href="#i-arrow" /></svg>
+        </button>
+      </footer>
+    </section>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+      <svg class="icon"><use href="#i-check" /></svg><span></span>
     </div>
-
-    <!-- O ECRÃ DO MAPA INTERATIVO COM A BARRA DE MODOS -->
-    <div id="vista-mapa-interativo">
-        <div id="titulo-rocky" style="margin-bottom: 1vh;">Ajustar Zona</div>
-        
-        <div id="container-canvas"><canvas id="mapCanvas" width="1940" height="2060"></canvas></div>
-        
-        <!-- A BARRA DE MODO DE LIMPEZA -->
-        <div class="seletor-modo-zona">
-            <div class="opcao-modo" id="modo-z-asp" onclick="setModoZona('aspirar')">🧹 Aspirar</div>
-            <div class="opcao-modo ativo-ambos" id="modo-z-ambos" onclick="setModoZona('ambos')">🧹+💧 Ambos</div>
-            <div class="opcao-modo" id="modo-z-lav" onclick="setModoZona('lavar')">💧 Lavar</div>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; width: 92vw; padding: 3vh 0; margin-top: auto;">
-            <button class="btn-footer-rocky" onclick="voltarDoMapaParaDivisoes()">⬅ Cancelar</button>
-            <button class="btn-footer-rocky" id="btn-confirmar-zona" onclick="calcularZonasEAvancar()">Confirmar ➔</button>
-        </div>
+    <div id="emergencyLight" class="emergency-light" hidden>
+      <svg class="icon"><use href="#i-bulb" /></svg><span>Luz de emergência</span
+      ><button id="dismissEmergency" class="button">Fechar</button>
     </div>
-
-    <script>
-        document.addEventListener('touchmove', function(e) {
-            if (!hasDragged && e.target.tagName !== 'INPUT' && !e.target.closest('.lista-scroll') && e.target.id !== 'mapCanvas') {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-        const HUE_IP = '192.168.1.183';
-        const HUE_TOKEN = 'ryqpfV2hzUw3ZkN-twiFBEMPUu-cN7CxHMFDaVSa';
-        const SYNC_IP = '192.168.1.188'; 
-        const SYNC_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODQwNjA1MzUzNDYsImlzcyI6ImhzYi1DNDI5OTYwNzZCMzIiLCJyb2xlIjoidXNlciIsInJpZCI6MTcsInJhbiI6InRhYmxldCIsInJpbiI6ImRhc2hib2FyZCJ9.kz3Ym/nPSs5bkVWqIZSzuyubq5Wiskk6PQeWBRzc0nc='; 
-        
-        const BOTAO_CIMA_ESQ  = 'a975eff6-4a64-4f1b-b7e1-74284a114bb1';
-        const BOTAO_CIMA_DIR  = 'ed9d9822-f78e-4e2b-ad8b-d14739553733';
-        const BOTAO_BAIXO_ESQ = 'ed6d6e4e-5f66-4a8d-8c81-2d45cc6f5fca';
-        const BOTAO_BAIXO_DIR = 'dac769f4-e36c-452e-9166-52dcdfabf8e6';
-
-        let origemAnimacao = null; 
-        let salaEstaLigada = false;
-        let isSyncing = false;
-        
-        let estado82 = { on: false, bri: 254, ct: 326 };
-        let estado84 = { on: false, bri: 254, ct: 326 };
-        let estadosLuzes = {};
-        let rockyIsActive = false;
-        let ultimoToque = 0;
-
-        // ==========================================
-        // CÉREBRO DA CORTINA OLED (10 MINUTOS)
-        // ==========================================
-        let timerEcraNegro = null;
-        const TEMPO_ACORDADO = 10 * 60 * 1000; // 10 minutos (em milissegundos)
-
-        function acordarEcra() {
-            const cortina = document.getElementById('cortina-oled');
-            
-            if (cortina.style.opacity === '1') {
-                cortina.style.opacity = '0';
-                cortina.style.pointerEvents = 'none';
-                ultimoToque = Date.now();
-            }
-            
-            if (timerEcraNegro) clearTimeout(timerEcraNegro);
-            
-            timerEcraNegro = setTimeout(() => {
-                cortina.style.opacity = '1';
-                cortina.style.pointerEvents = 'all'; 
-            }, TEMPO_ACORDADO);
-        }
-
-        acordarEcra();
-
-        // ==========================================
-        // MOTOR DE VOZ NATIVO (VIA KOTLIN + FALLBACK)
-        // ==========================================
-        function falar(texto) {
-            if (window.AndroidSync && typeof window.AndroidSync.falar === 'function') {
-                window.AndroidSync.falar(texto);
-            } else if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const frase = new SpeechSynthesisUtterance(texto);
-                frase.lang = 'pt-PT';
-                window.speechSynthesis.speak(frase);
-            }
-        }
-
-        // ==========================================
-        // SISTEMA DE EMERGÊNCIA (ENERGIA + REDE + CÂMARA)
-        // ==========================================
-        let timerEnergiaFalhou = 0;
-        let timerRedeFalhou = 0;
-        let modoEmergencia = false;
-        let luzEmergenciaAtiva = false;
-        let streamCamara = null;
-        let loopLuzAmbiente = null;
-        let limiteTempoCrise = 60000; 
-        let isChargingNow = true;
-
-        let isOnlineReal = true;
-        setInterval(async () => {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 1500); 
-                await fetch(`http://${HUE_IP}/api/0/config`, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                isOnlineReal = true;
-            } catch (e) {
-                isOnlineReal = false;
-            }
-
-            if (!isOnlineReal && timerRedeFalhou === 0) {
-                timerRedeFalhou = Date.now();
-                avaliarCrise();
-            } else if (isOnlineReal && timerRedeFalhou > 0) {
-                timerRedeFalhou = 0;
-                desativarEmergencia();
-            }
-        }, 2000);
-
-        window.receberEstadoBateria = function(aCarregar) {
-            isChargingNow = aCarregar;
-            if (!aCarregar) {
-                if (timerEnergiaFalhou === 0) timerEnergiaFalhou = Date.now();
-                avaliarCrise();
-            } else {
-                timerEnergiaFalhou = 0;
-                desativarEmergencia();
-            }
-        };
-
-        function avaliarCrise() {
-            if (timerEnergiaFalhou > 0 && timerRedeFalhou > 0 && !modoEmergencia) {
-                const diferenca = Math.abs(timerEnergiaFalhou - timerRedeFalhou);
-                if (diferenca <= limiteTempoCrise) {
-                    ativarEmergencia();
-                }
-            }
-        }
-
-        function ativarEmergencia() {
-            modoEmergencia = true;
-            luzEmergenciaAtiva = false;
-            acordarEcra(); // Acorda o ecrã na hora da emergência
-            falar("Falha de energia detetada.");
-            
-            setTimeout(() => {
-                iniciarVerificacaoLuzAmbiente();
-            }, 3000);
-        }
-
-        function desativarEmergencia() {
-            if (modoEmergencia) {
-                modoEmergencia = false;
-                desligarLuzEcra();
-                pararCamara();
-            }
-        }
-
-        async function iniciarVerificacaoLuzAmbiente() {
-            if (!modoEmergencia) return;
-            
-            try {
-                const constraints = { video: { facingMode: "user" } };
-                streamCamara = await navigator.mediaDevices.getUserMedia(constraints);
-                const videoElem = document.getElementById('video-emergencia');
-                videoElem.srcObject = streamCamara;
-                
-                loopLuzAmbiente = setInterval(processarLuminosidade, 2000);
-            } catch (err) {
-                console.warn("Câmara bloqueada. A ligar luz por segurança.", err);
-                ligarLuzEcra();
-            }
-        }
-
-        function pararCamara() {
-            if (loopLuzAmbiente) clearInterval(loopLuzAmbiente);
-            if (streamCamara) streamCamara.getTracks().forEach(t => t.stop());
-            streamCamara = null;
-        }
-
-        function processarLuminosidade() {
-            if (!modoEmergencia) return;
-            
-            const video = document.getElementById('video-emergencia');
-            const canvas = document.getElementById('canvas-emergencia');
-            const ctx = canvas.getContext('2d');
-            
-            if (video.videoWidth === 0) return;
-            
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dados = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-            
-            let soma = 0;
-            for (let i = 0; i < dados.length; i += 4) {
-                soma += (dados[i] + dados[i+1] + dados[i+2]) / 3; 
-            }
-            const luminosidade = soma / (dados.length / 4); 
-            
-            if (luminosidade < 40 && !luzEmergenciaAtiva) {
-                ligarLuzEcra();
-            } else if (luminosidade > 70 && luzEmergenciaAtiva) {
-                desligarLuzEcra(); 
-            }
-        }
-
-        function ligarLuzEcra() {
-            if (luzEmergenciaAtiva) return;
-            luzEmergenciaAtiva = true;
-            falar("A ligar luz de emergência.");
-            document.body.classList.add('luz-emergencia-ativa');
-        }
-
-        function desligarLuzEcra() {
-            if (!luzEmergenciaAtiva) return;
-            luzEmergenciaAtiva = false;
-            document.body.classList.remove('luz-emergencia-ativa');
-        }
-
-        // ==========================================
-        // O HEARTBEAT TÁTICO
-        // ==========================================
-        setInterval(() => {
-            if (document.body.classList.contains('movido') && !document.body.classList.contains('modo-rocky-live')) {
-                document.body.classList.add('tick-flash');
-                setTimeout(() => { document.body.classList.remove('tick-flash'); }, 200); 
-            }
-        }, 1000); 
-
-        // ==========================================
-        // SISTEMA DE SEGURANÇA E TIMEOUTS
-        // ==========================================
-        let timerInatividade = null;
-
-        function resetInatividade() {
-            if (timerInatividade) clearTimeout(timerInatividade);
-            
-            timerInatividade = setTimeout(() => {
-                if (document.getElementById('vista-rocky').style.display === 'flex') fecharVistaRocky();
-                if (document.getElementById('vista-mapa-interativo').style.display === 'flex') voltarDoMapaParaDivisoes();
-                if (document.body.classList.contains('luz-avancada')) fecharModoAvancado();
-                
-                if (document.body.classList.contains('movido')) {
-                    document.body.classList.remove('movido');
-                    document.body.classList.remove('modo-rocky-live');
-                    origemAnimacao = null; 
-                }
-                atualizarBurnIn();
-            }, 10000);
-        }
-
-        document.addEventListener('touchstart', resetInatividade, {passive: true});
-        document.addEventListener('click', resetInatividade, {passive: true});
-        document.addEventListener('input', resetInatividade, {passive: true});
-
-        let isInteractingUI = false;
-        let interactionTimeout = null;
-
-        function markInteraction() {
-            isInteractingUI = true;
-            if(interactionTimeout) clearTimeout(interactionTimeout);
-            interactionTimeout = setTimeout(() => { isInteractingUI = false; }, 2000); 
-        }
-
-        // ==========================================
-        // LÓGICA DO SELECIONADOR INTELIGENTE
-        // ==========================================
-        let luzesSelecionadas = new Set(['sanca', 'foco-1', 'foco-2', 'foco-3', 'foco-4', 'foco-5', 'foco-6', 'foco-7', 'foco-8']);
-        let luzesBackup = new Set(); 
-
-        const MAPA_LUZES_INDIVIDUAIS = {
-            'foco-1': '11',  
-            'foco-2': '10',  
-            'foco-3': '9',   
-            'foco-4': '7',   
-            'foco-5': '6',   
-            'foco-6': '8',   
-            'foco-7': '15',  
-            'foco-8': '14'   
-        };
-
-        function atualizarLabelSelecao() {
-            const temSanca = luzesSelecionadas.has('sanca');
-            const focos = [];
-            
-            for (let i = 1; i <= 8; i++) {
-                if (luzesSelecionadas.has('foco-' + i)) focos.push(i);
-            }
-            
-            let texto = "";
-            
-            if (temSanca && focos.length === 8) {
-                texto = "SALA";
-            } else if (!temSanca && focos.length === 8) {
-                texto = "FOCOS";
-            } else if (temSanca && focos.length === 0) {
-                texto = "SANCA";
-            } else {
-                let partes = [];
-                if (temSanca) partes.push("SANCA");
-                if (focos.length > 0) partes.push("FOCOS " + focos.join(" "));
-                texto = partes.join(" | ");
-            }
-            
-            if (texto === "") texto = "NENHUMA LUZ";
-            
-            document.getElementById('lbl-grupo-ativo').innerText = texto;
-        }
-
-        function abrirModoAvancado() {
-            document.body.classList.add('luz-avancada');
-            luzesBackup = new Set(luzesSelecionadas); 
-            luzesSelecionadas.clear(); 
-            
-            document.querySelectorAll('.visual-forma').forEach(luz => {
-                luz.classList.remove('selecionada');
-            });
-            atualizarLabelSelecao();
-        }
-
-        function fecharModoAvancado() {
-            document.body.classList.remove('luz-avancada');
-            
-            if (luzesSelecionadas.size === 0 && luzesBackup.size > 0) {
-                luzesSelecionadas = new Set(luzesBackup);
-            }
-            
-            document.querySelectorAll('.visual-forma').forEach(luz => {
-                const realId = luz.id.replace('visual-', '');
-                if(luzesSelecionadas.has(realId)) luz.classList.add('selecionada');
-                else luz.classList.remove('selecionada');
-            });
-            atualizarLabelSelecao();
-        }
-
-        window.toggleLuzAvançada = function(e) {
-            if (e) e.stopPropagation(); 
-            if(document.body.classList.contains('luz-avancada')){ fecharModoAvancado(); } 
-            else { abrirModoAvancado(); }
-            resetInatividade();
-        };
-
-        // ==========================================
-        // O NOVO MOTOR "CLICK AND DRAG" (TIPO WINDOWS)
-        // ==========================================
-        let blockNextClick = false;
-        let dragStarted = false;
-        let hasDragged = false;
-        let startX = 0, startY = 0;
-        const dragThreshold = 15; 
-        const selectionBox = document.getElementById('caixa-selecao');
-        const containerMestre = document.getElementById('fundo-luzes-container');
-
-        function getPointerPos(e) {
-            if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            return { x: e.clientX, y: e.clientY };
-        }
-
-        containerMestre.addEventListener('mousedown', dragStart);
-        containerMestre.addEventListener('touchstart', dragStart, {passive: false});
-
-        function dragStart(e) {
-            if (!document.body.classList.contains('luz-avancada')) return;
-            if (!e.target.classList.contains('luz-hitbox') && e.target.id !== 'fundo-luzes-container') return;
-            
-            dragStarted = true;
-            hasDragged = false;
-            const pos = getPointerPos(e);
-            startX = pos.x;
-            startY = pos.y;
-        }
-
-        window.addEventListener('mousemove', dragMove);
-        window.addEventListener('touchmove', dragMove, {passive: false});
-
-        function dragMove(e) {
-            if (!dragStarted) return;
-            const pos = getPointerPos(e);
-            const dx = Math.abs(pos.x - startX);
-            const dy = Math.abs(pos.y - startY);
-
-            if (!hasDragged && (dx > dragThreshold || dy > dragThreshold)) {
-                hasDragged = true;
-                selectionBox.style.display = 'block';
-            }
-
-            if (hasDragged) {
-                if (e.cancelable) e.preventDefault(); 
-                
-                const currentX = pos.x;
-                const currentY = pos.y;
-                
-                const left = Math.min(startX, currentX);
-                const top = Math.min(startY, currentY);
-                const width = Math.abs(currentX - startX);
-                const height = Math.abs(currentY - startY);
-                
-                selectionBox.style.left = left + 'px';
-                selectionBox.style.top = top + 'px';
-                selectionBox.style.width = width + 'px';
-                selectionBox.style.height = height + 'px';
-            }
-        }
-
-        window.addEventListener('mouseup', dragEnd);
-        window.addEventListener('touchend', dragEnd);
-
-        function dragEnd(e) {
-            if (!dragStarted) return;
-            dragStarted = false;
-            
-            if (hasDragged) {
-                processarCaixaDeSelecao();
-                selectionBox.style.display = 'none'; 
-                blockNextClick = true;
-                setTimeout(() => blockNextClick = false, 150); 
-            }
-        }
-
-        function processarCaixaDeSelecao() {
-            const boxRect = selectionBox.getBoundingClientRect();
-            const touchedIds = [];
-            
-            for (let i = 1; i <= 8; i++) {
-                const hitbox = document.getElementById('hitbox-foco-' + i);
-                if (!hitbox) continue;
-                const hbRect = hitbox.getBoundingClientRect();
-                
-                const overlaps = !(
-                    boxRect.right < hbRect.left || 
-                    boxRect.left > hbRect.right || 
-                    boxRect.bottom < hbRect.top || 
-                    boxRect.top > hbRect.bottom
-                );
-                
-                if (overlaps) touchedIds.push('foco-' + i);
-            }
-
-            if (touchedIds.length === 0) return;
-            resetInatividade();
-            const allSelected = touchedIds.every(id => luzesSelecionadas.has(id));
-
-            touchedIds.forEach(id => {
-                const visual = document.getElementById('visual-' + id);
-                if (allSelected) {
-                    luzesSelecionadas.delete(id);
-                    if(visual) visual.classList.remove('selecionada');
-                } else {
-                    luzesSelecionadas.add(id);
-                    if(visual) visual.classList.add('selecionada');
-                }
-            });
-            atualizarLabelSelecao();
-        }
-
-        // ==========================================
-        // O CLIQUE NORMAL NAS HITBOXES
-        // ==========================================
-        document.querySelectorAll('.luz-hitbox').forEach(hitbox => {
-            hitbox.addEventListener('click', function(e) {
-                if (!document.body.classList.contains('luz-avancada')) return;
-                if (blockNextClick) return; 
-                
-                e.stopPropagation(); 
-                resetInatividade();
-                
-                const realId = this.id.replace('hitbox-', '');
-                const visual = document.getElementById('visual-' + realId);
-                
-                if (luzesSelecionadas.has(realId)) {
-                    luzesSelecionadas.delete(realId);
-                    if(visual) visual.classList.remove('selecionada');
-                } else {
-                    luzesSelecionadas.add(realId);
-                    if(visual) visual.classList.add('selecionada');
-                }
-                atualizarLabelSelecao();
-            });
-        });
-
-        function enviarComandoHueCerebro(corpo) {
-            const temSanca = luzesSelecionadas.has('sanca');
-            const focosAtivos = [];
-            for (let i = 1; i <= 8; i++) {
-                if (luzesSelecionadas.has('foco-' + i)) focosAtivos.push(i);
-            }
-
-            if (temSanca && focosAtivos.length === 8) {
-                fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
-            } else if (!temSanca && focosAtivos.length === 8) {
-                fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
-            } else if (temSanca && focosAtivos.length === 0) {
-                fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
-            } else {
-                if (temSanca) {
-                    fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82/action`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
-                }
-                focosAtivos.forEach(numFoco => {
-                    const idRealHue = MAPA_LUZES_INDIVIDUAIS['foco-' + numFoco];
-                    if (idRealHue) {
-                        fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/lights/${idRealHue}/state`, { method: 'PUT', body: JSON.stringify(corpo) }).catch(e => {});
-                    }
-                });
-            }
-        }
-
-        // ==========================================
-        // ANTI BURN-IN MOTOR E UTILITÁRIOS
-        // ==========================================
-        function atualizarBurnIn() {
-            if (document.body.classList.contains('movido')) return; 
-            const agora = Date.now();
-            const cicloVertical = 12 * 60 * 60 * 1000; 
-            const eixoY = Math.sin((agora % cicloVertical) / cicloVertical * Math.PI * 2) * 18;
-            const cicloHorizontal = 60 * 60 * 1000;
-            const eixoX = Math.sin((agora % cicloHorizontal) / cicloHorizontal * Math.PI * 2) * 3;
-
-            document.documentElement.style.setProperty('--burn-y', `${eixoY}vh`);
-            document.documentElement.style.setProperty('--burn-x', `${eixoX}vw`);
-        }
-        
-        atualizarBurnIn();
-        setInterval(atualizarBurnIn, 60000); 
-
-        function calcularCoresLuz(estado) {
-            if (!estado || !estado.on) {
-                return { base: 'rgba(100, 100, 100, 0.4)', mix: 'rgba(177, 50, 50, 0.8)' }; 
-            }
-            let ct = estado.ct || 326; 
-            let r, g, b;
-            if (ct < 326) {
-                let pct = (ct - 153) / (326 - 153);
-                r = Math.round(200 + pct * 55); 
-                g = Math.round(220 + pct * 35); 
-                b = 255;
-            } else {
-                let pct = (ct - 326) / (500 - 326);
-                r = 255;
-                g = Math.round(255 - pct * 80);  
-                b = Math.round(255 - pct * 150); 
-            }
-            let alpha = (estado.bri / 254) * 0.6 + 0.4;
-            let r_mix = Math.round(r * 0.5 + 255 * 0.5);
-            let g_mix = Math.round(g * 0.5 + 0 * 0.5);
-            let b_mix = Math.round(b * 0.5 + 0 * 0.5);
-
-            return {
-                base: `rgba(${r}, ${g}, ${b}, ${alpha})`,
-                mix: `rgba(${r_mix}, ${g_mix}, ${b_mix}, 1)` 
-            };
-        }
-
-        function atualizarCoresFundo3D() {
-            const rect82 = document.getElementById('visual-sanca');
-            if(rect82) {
-                let cores = calcularCoresLuz(estado82);
-                rect82.style.setProperty('--cor-base', cores.base);
-                rect82.style.setProperty('--cor-mix', cores.mix);
-            }
-            
-            for (let i = 1; i <= 8; i++) {
-                const focoId = 'foco-' + i;
-                const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
-                const visual = document.getElementById('visual-' + focoId);
-                
-                if (visual) {
-                    let estadoParaPintar = estado84;
-                    if (estadosLuzes[realId] && estadosLuzes[realId].state) {
-                        estadoParaPintar = estadosLuzes[realId].state;
-                    }
-                    let cores = calcularCoresLuz(estadoParaPintar);
-                    visual.style.setProperty('--cor-base', cores.base);
-                    visual.style.setProperty('--cor-mix', cores.mix);
-                }
-            }
-        }
-
-        window.receberDadosSyncBox = function(jsonString) {
-            try {
-                const data = JSON.parse(jsonString);
-                if (data && data.syncActive !== undefined) {
-                    isSyncing = data.syncActive;
-                    atualizarUIBotaoSync();
-                }
-            } catch (e) {}
-        };
-
-        let isFetchingSync = false;
-        async function verificarEstadoSyncBox() {
-            if(isFetchingSync) return;
-            isFetchingSync = true;
-            if (window.AndroidSync && typeof window.AndroidSync.comandoSyncBox === 'function') {
-                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "GET", false);
-            } else {
-                try {
-                    const res = await fetch(`https://${SYNC_IP}/api/v1/execution`, { headers: { 'Authorization': `Bearer ${SYNC_TOKEN}` } });
-                    const data = await res.json();
-                    receberDadosSyncBox(JSON.stringify(data));
-                } catch(e) {}
-            }
-            isFetchingSync = false;
-        }
-        setInterval(verificarEstadoSyncBox, 2000); 
-
-        function atualizarUIBotaoSync() {
-            const btnSync = document.getElementById('btn-sync-box');
-            if(isSyncing) {
-                btnSync.classList.add('sync-active');
-                btnSync.innerHTML = '🔴 Parar Sincronização TV';
-            } else {
-                btnSync.classList.remove('sync-active');
-                btnSync.innerHTML = '🟢 Iniciar Sincronização TV';
-            }
-        }
-
-        function toggleSyncBox() {
-            ativarAnimacao('touch');
-            markInteraction();
-            isSyncing = !isSyncing;
-            atualizarUIBotaoSync();
-
-            if (window.AndroidSync && typeof window.AndroidSync.comandoSyncBox === 'function') {
-                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", isSyncing);
-            } else {
-                fetch(`https://${SYNC_IP}/api/v1/execution`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `Bearer ${SYNC_TOKEN}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ "syncActive": isSyncing })
-                }).catch(e => console.log(e));
-            }
-        }
-
-        function autoStopSyncBlindly() {
-            if (!isSyncing) return; 
-            isSyncing = false;
-            atualizarUIBotaoSync();
-            
-            if (window.AndroidSync && typeof window.AndroidSync.comandoSyncBox === 'function') {
-                window.AndroidSync.comandoSyncBox(SYNC_IP, SYNC_TOKEN, "PUT", false);
-            } else {
-                fetch(`https://${SYNC_IP}/api/v1/execution`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `Bearer ${SYNC_TOKEN}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ "syncActive": false })
-                }).catch(e => console.log(e));
-            }
-        }
-
-        let isFetchingHue = false;
-        async function sincronizarEstadoSala() {
-            if(isFetchingHue) return;
-            isFetchingHue = true;
-
-            try {
-                const p82 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/82`).then(r => r.json());
-                const p83 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/83`).then(r => r.json());
-                const p84 = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/groups/84`).then(r => r.json());
-                const pLuzes = fetch(`http://${HUE_IP}/api/${HUE_TOKEN}/lights`).then(r => r.json());
-                
-                const [d82, d83, d84, dLuzes] = await Promise.all([p82, p83, p84, pLuzes]);
-                
-                if (d82 && d82.action) estado82 = d82.action;
-                if (d84 && d84.action) estado84 = d84.action;
-                let estado83 = d83 && d83.action ? d83.action : estado84;
-                if (dLuzes) estadosLuzes = dLuzes;
-
-                atualizarCoresFundo3D();
-
-                if (!isInteractingUI) {
-                    let dadosAtivos = null;
-                    
-                    if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 9) {
-                        dadosAtivos = estado83;
-                    } else if (luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 1) {
-                        dadosAtivos = estado82;
-                    } else if (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size === 8) {
-                        dadosAtivos = estado84;
-                    } else if (luzesSelecionadas.size > 0) {
-                        let estadoLigado = null;
-                        let estadoFallback = null;
-
-                        for (const luzSelecionada of luzesSelecionadas) {
-                            let estadoTemp = null;
-                            if (luzSelecionada === 'sanca') {
-                                estadoTemp = estado82;
-                            } else {
-                                const realId = MAPA_LUZES_INDIVIDUAIS[luzSelecionada];
-                                if (realId && estadosLuzes[realId] && estadosLuzes[realId].state) {
-                                    estadoTemp = estadosLuzes[realId].state;
-                                }
-                            }
-
-                            if (estadoTemp) {
-                                if (!estadoFallback) estadoFallback = estadoTemp;
-                                if (estadoTemp.on) {
-                                    estadoLigado = estadoTemp;
-                                    break;
-                                }
-                            }
-                        }
-                        dadosAtivos = estadoLigado || estadoFallback;
-                    }
-
-                    if (!dadosAtivos) dadosAtivos = estado84;
-                    
-                    salaEstaLigada = dadosAtivos.on;
-                    const btn = document.getElementById('btn-power-sala');
-                    if (salaEstaLigada) btn.classList.add('ligado');
-                    else btn.classList.remove('ligado');
-                    
-                    document.getElementById('brilho-luz').value = dadosAtivos.bri || 1;
-                    if(dadosAtivos.ct) document.getElementById('temp-luz').value = dadosAtivos.ct; 
-                }
-
-            } catch (e) {}
-            isFetchingHue = false;
-        }
-        setInterval(sincronizarEstadoSala, 500); 
-
-        window.irParaLuzes = function(e) {
-            if(e) e.stopPropagation();
-            document.body.classList.remove('modo-rocky-live');
-            resetInatividade();
-        }
-
-        function ativarAnimacao(origem = null) {
-            const telaFechada = !document.body.classList.contains('movido');
-            
-            if (document.body.classList.contains('luz-avancada') && (!origem || origem === 'touch')) {
-                fecharModoAvancado();
-            }
-
-            if (origem && origem !== 'touch') {
-                origemAnimacao = origem; 
-                luzesSelecionadas.clear();
-                
-                autoStopSyncBlindly();
-                document.body.classList.remove('modo-rocky-live');
-
-                if (origem === BOTAO_CIMA_DIR || origem === BOTAO_BAIXO_DIR) {
-                    luzesSelecionadas.add('sanca');
-                } else if (origem === BOTAO_CIMA_ESQ || origem === BOTAO_BAIXO_ESQ) {
-                    for(let i=1; i<=8; i++) luzesSelecionadas.add('foco-'+i);
-                }
-                
-                document.querySelectorAll('.visual-forma').forEach(luz => {
-                    const realId = luz.id.replace('visual-', '');
-                    if(luzesSelecionadas.has(realId)) luz.classList.add('selecionada');
-                    else luz.classList.remove('selecionada');
-                });
-            }
-            
-            atualizarLabelSelecao();
-
-            if (telaFechada || (origem && origem !== 'touch')) {
-                if (!telaFechada) markInteraction(); 
-            }
-
-            document.body.classList.add('movido');
-
-            if (telaFechada && origem === 'touch') {
-                if (rockyIsActive) document.body.classList.add('modo-rocky-live');
-                else document.body.classList.remove('modo-rocky-live');
-            }
-
-            resetInatividade();
-        }
-
-        function mudarLuzSala(propriedade, valor) {
-            autoStopSyncBlindly();
-            markInteraction();
-            const corpo = { "on": true };
-            corpo[propriedade] = parseInt(valor);
-
-            salaEstaLigada = true;
-            document.getElementById('btn-power-sala').classList.add('ligado');
-
-            if (luzesSelecionadas.has('sanca')) {
-                estado82.on = true;
-                estado82[propriedade] = parseInt(valor);
-            }
-            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) {
-                estado84.on = true;
-                estado84[propriedade] = parseInt(valor);
-            }
-
-            for (let i = 1; i <= 8; i++) {
-                const focoId = 'foco-' + i;
-                if (luzesSelecionadas.has(focoId)) {
-                    const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
-                    if (!estadosLuzes[realId]) estadosLuzes[realId] = { state: {} };
-                    estadosLuzes[realId].state.on = true;
-                    estadosLuzes[realId].state[propriedade] = parseInt(valor);
-                }
-            }
-
-            atualizarCoresFundo3D();
-            enviarComandoHueCerebro(corpo);
-        }
-
-        function togglePowerSala() {
-            autoStopSyncBlindly();
-            ativarAnimacao('touch');
-            markInteraction();
-            salaEstaLigada = !salaEstaLigada;
-            
-            const btn = document.getElementById('btn-power-sala');
-            if (salaEstaLigada) btn.classList.add('ligado');
-            else btn.classList.remove('ligado');
-
-            if (luzesSelecionadas.has('sanca')) estado82.on = salaEstaLigada;
-            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) estado84.on = salaEstaLigada;
-
-            for (let i = 1; i <= 8; i++) {
-                const focoId = 'foco-' + i;
-                if (luzesSelecionadas.has(focoId)) {
-                    const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
-                    if (!estadosLuzes[realId]) estadosLuzes[realId] = { state: {} };
-                    estadosLuzes[realId].state.on = salaEstaLigada;
-                }
-            }
-
-            atualizarCoresFundo3D();
-            enviarComandoHueCerebro({ "on": salaEstaLigada });
-        }
-
-        document.getElementById('brilho-luz').addEventListener('input', function() {
-            autoStopSyncBlindly();
-            ativarAnimacao('touch');
-            markInteraction();
-            const valor = parseInt(this.value);
-            if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.bri = valor; }
-            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.bri = valor; }
-            
-            for (let i = 1; i <= 8; i++) {
-                const focoId = 'foco-' + i;
-                if (luzesSelecionadas.has(focoId)) {
-                    const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
-                    if (!estadosLuzes[realId]) estadosLuzes[realId] = { state: {} };
-                    estadosLuzes[realId].state.on = true;
-                    estadosLuzes[realId].state.bri = valor;
-                }
-            }
-            atualizarCoresFundo3D();
-        });
-        
-        document.getElementById('temp-luz').addEventListener('input', function() {
-            autoStopSyncBlindly();
-            ativarAnimacao('touch');
-            markInteraction();
-            const valor = parseInt(this.value);
-            if (luzesSelecionadas.has('sanca')) { estado82.on = true; estado82.ct = valor; }
-            if (luzesSelecionadas.size > 1 || (!luzesSelecionadas.has('sanca') && luzesSelecionadas.size > 0)) { estado84.on = true; estado84.ct = valor; }
-            
-            for (let i = 1; i <= 8; i++) {
-                const focoId = 'foco-' + i;
-                if (luzesSelecionadas.has(focoId)) {
-                    const realId = MAPA_LUZES_INDIVIDUAIS[focoId];
-                    if (!estadosLuzes[realId]) estadosLuzes[realId] = { state: {} };
-                    estadosLuzes[realId].state.on = true;
-                    estadosLuzes[realId].state.ct = valor;
-                }
-            }
-            atualizarCoresFundo3D();
-        });
-
-        document.getElementById('brilho-luz').addEventListener('change', function() { mudarLuzSala('bri', this.value); });
-        document.getElementById('temp-luz').addEventListener('change', function() { mudarLuzSala('ct', this.value); });
-
-        let selecaoAspirar = new Set();
-        let selecaoLavar = new Set();
-        let divisoesMapa = [];
-        let zonasParaLimpar = []; 
-
-        window.abrirVistaRocky = function(e) {
-            if (e) e.stopPropagation(); 
-            document.getElementById('rocky-conteudo-config').style.display = 'none';
-            document.getElementById('vista-mapa-interativo').style.display = 'none';
-            document.body.classList.remove('modo-rocky-live');
-            
-            document.getElementById('vista-rocky').style.display = 'flex';
-            document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
-            
-            resetInatividade();
-            carregarMapaRocky();
-        };
-
-        const imgMapaObj = new Image();
-        imgMapaObj.crossOrigin = "Anonymous"; 
-        imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png'; 
-        
-        let canvasMap, ctxMap;
-        let mapBox = null; 
-        let boxAction = null; 
-        let initialTouchX, initialTouchY;
-        let initialMapBox;
-        
-        let modoZonaSelecionado = 'ambos'; 
-        let intervalMapaTempoReal = null;
-
-        function iniciarMapaTempoReal() {
-            if (intervalMapaTempoReal) clearInterval(intervalMapaTempoReal);
-            pedirNovaFoto();
-            intervalMapaTempoReal = setInterval(() => {
-                if (document.getElementById('vista-mapa-interativo').style.display !== 'flex') {
-                    pararMapaTempoReal();
-                    return;
-                }
-                pedirNovaFoto();
-            }, 10000);
-        }
-
-        async function pedirNovaFoto() {
-            try {
-                await fetch('http://127.0.0.1:3000/api/rocky/update-map');
-                imgMapaObj.src = 'http://127.0.0.1:3000/mapa.png?time=' + new Date().getTime();
-                imgMapaObj.onload = () => {
-                    if (!mapBox && canvasMap.width > 0) {
-                        mapBox = { x: (canvasMap.width / 2) - 150, y: (canvasMap.height / 2) - 150, w: 300, h: 300 };
-                    }
-                    renderizarCanvasMap();
-                };
-            } catch(e) {}
-        }
-
-        function pararMapaTempoReal() {
-            if (intervalMapaTempoReal) {
-                clearInterval(intervalMapaTempoReal);
-                intervalMapaTempoReal = null;
-            }
-        }
-
-        function abrirVistaMapa() {
-            document.getElementById('rocky-conteudo').style.display = 'none';
-            document.getElementById('vista-rocky').style.display = 'none';
-            document.getElementById('vista-mapa-interativo').style.display = 'flex';
-            
-            canvasMap = document.getElementById('mapCanvas');
-            ctxMap = canvasMap.getContext('2d');
-            iniciarMapaTempoReal();
-        }
-
-        function voltarDoMapaParaDivisoes() {
-            document.getElementById('vista-mapa-interativo').style.display = 'none';
-            document.getElementById('vista-rocky').style.display = 'flex';
-            document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
-            document.getElementById('rocky-conteudo').style.display = 'flex';
-            zonasParaLimpar = []; 
-            mapBox = null; 
-            pararMapaTempoReal();
-        }
-
-        function fecharVistaRocky() {
-            document.getElementById('vista-rocky').style.display = 'none';
-            document.getElementById('vista-mapa-interativo').style.display = 'none';
-            document.body.classList.remove('movido'); 
-            if (document.body.classList.contains('luz-avancada')) fecharModoAvancado();
-            origemAnimacao = null;
-            if (typeof pararMapaTempoReal === 'function') pararMapaTempoReal();
-        }
-
-        async function carregarMapaRocky() {
-            document.getElementById('rocky-conteudo').style.display = 'none';
-            const msg = document.getElementById('msg-carregando');
-            msg.innerHTML = 'A comunicar com o servidor e a obter o mapa...';
-            msg.style.display = 'block';
-            
-            selecaoAspirar.clear();
-            selecaoLavar.clear();
-            zonasParaLimpar = []; 
-
-            try {
-                const response = await fetch('http://127.0.0.1:3000/api/rocky/rooms');
-                const data = await response.json();
-                msg.style.display = 'none'; 
-
-                if(data.rooms) {
-                    divisoesMapa = data.rooms;
-                    document.getElementById('rocky-conteudo').style.display = 'flex';
-                    renderizarListasRocky();
-                } else {
-                    msg.innerHTML = '<div style="color: #ff4444;">Erro ao ler o mapa JSON do servidor.</div>';
-                    msg.style.display = 'block';
-                }
-            } catch(e) {
-                msg.innerHTML = '<div style="color: #ff4444;">Não foi possível contactar o servidor Rocky. O Node.js está ligado?</div>';
-                msg.style.display = 'block';
-            }
-        }
-
-        function renderizarListasRocky() {
-            const listaContainer = document.getElementById('lista-unificada-scroll');
-            listaContainer.innerHTML = '';
-
-            divisoesMapa.forEach(room => {
-                const linha = document.createElement('div');
-                linha.className = 'linha-divisao';
-
-                const btnAsp = document.createElement('button');
-                btnAsp.className = 'btn-divisao';
-                btnAsp.innerHTML = room.rawName;
-                btnAsp.id = `btn-asp-${room.segmentId}`;
-                btnAsp.onclick = () => { toggleSala('aspirar', room.segmentId); resetInatividade(); };
-                
-                const btnLav = document.createElement('button');
-                btnLav.className = 'btn-divisao';
-                btnLav.innerHTML = room.rawName;
-                btnLav.id = `btn-lav-${room.segmentId}`;
-                btnLav.onclick = () => { toggleSala('lavar', room.segmentId); resetInatividade(); };
-                
-                linha.appendChild(btnAsp);
-                linha.appendChild(btnLav);
-                listaContainer.appendChild(linha);
-            });
-        }
-
-        function toggleSala(tipo, id) {
-            const set = tipo === 'aspirar' ? selecaoAspirar : selecaoLavar;
-            const classNome = tipo === 'aspirar' ? 'selecionado-asp' : 'selecionado-lav';
-            const prefixo = tipo === 'aspirar' ? 'btn-asp-' : 'btn-lav-';
-            const btn = document.getElementById(prefixo + id);
-
-            if (set.has(id)) {
-                set.delete(id);
-                btn.classList.remove(classNome);
-            } else {
-                set.add(id);
-                btn.classList.add(classNome);
-            }
-        }
-
-        function toggleSelecionarTudo(tipo) {
-            resetInatividade();
-            const set = tipo === 'aspirar' ? selecaoAspirar : selecaoLavar;
-            const classNome = tipo === 'aspirar' ? 'selecionado-asp' : 'selecionado-lav';
-            const prefixo = tipo === 'aspirar' ? 'btn-asp-' : 'btn-lav-';
-            
-            const todasSelecionadas = divisoesMapa.every(r => set.has(r.segmentId));
-
-            divisoesMapa.forEach(room => {
-                const btn = document.getElementById(prefixo + room.segmentId);
-                if (todasSelecionadas) {
-                    set.delete(room.segmentId);
-                    btn.classList.remove(classNome);
-                } else {
-                    set.add(room.segmentId);
-                    btn.classList.add(classNome);
-                }
-            });
-        }
-
-        function avancarLimpeza() {
-            resetInatividade();
-            const arrayAspirar = Array.from(selecaoAspirar);
-            const arrayLavar = Array.from(selecaoLavar);
-            
-            if (arrayAspirar.length === 0 && arrayLavar.length === 0 && zonasParaLimpar.length === 0) {
-                const btn = document.getElementById('btn-continuar');
-                const txtOriginal = btn.innerHTML;
-                btn.innerHTML = "⚠️ Escolhe 1 Divisão!";
-                btn.style.background = "rgba(244, 67, 54, 0.4)";
-                setTimeout(() => { 
-                    btn.innerHTML = txtOriginal; 
-                    btn.style.background = "rgba(76, 175, 80, 0.4)"; 
-                }, 2000);
-                return;
-            }
-
-            const containerSuccao = document.getElementById('container-succao');
-            const containerAgua = document.getElementById('container-agua');
-
-            if (arrayAspirar.length > 0 && arrayLavar.length === 0) {
-                containerSuccao.style.display = 'flex';
-                containerAgua.style.display = 'none';
-            } else if (arrayLavar.length > 0 && arrayAspirar.length === 0) {
-                containerSuccao.style.display = 'none';
-                containerAgua.style.display = 'flex';
-            } else {
-                containerSuccao.style.display = 'flex';
-                containerAgua.style.display = 'flex';
-            }
-
-            document.getElementById('rocky-conteudo').style.display = 'none';
-            document.getElementById('titulo-rocky').innerText = "Ajustar Intensidade";
-            document.getElementById('rocky-conteudo-config').style.display = 'flex';
-        }
-
-        function voltarParaDivisoes() {
-            resetInatividade();
-            document.getElementById('rocky-conteudo-config').style.display = 'none';
-            
-            if (zonasParaLimpar.length > 0) {
-                document.getElementById('vista-mapa-interativo').style.display = 'flex';
-                document.getElementById('titulo-rocky').innerText = "Ajustar Zona";
-            } else {
-                document.getElementById('titulo-rocky').innerText = "Onde desejas limpar?";
-                document.getElementById('rocky-conteudo').style.display = 'flex';
-            }
-        }
-
-        const niveisSuccao = { '101': 'Silencioso', '102': 'Normal', '103': 'Turbo', '104': 'Máximo' };
-        document.getElementById('slider-succao').addEventListener('input', function() {
-            document.getElementById('lbl-succao').innerText = niveisSuccao[this.value];
-        });
-
-        document.getElementById('slider-agua').addEventListener('input', function() {
-            document.getElementById('lbl-agua').innerText = 'Nível ' + this.value;
-        });
-
-        async function enviarComandoFinal() {
-            resetInatividade();
-            const arrayAspirar = Array.from(selecaoAspirar);
-            const arrayLavar = Array.from(selecaoLavar);
-            const succao = parseInt(document.getElementById('slider-succao').value);
-            const agua = parseInt(document.getElementById('slider-agua').value);
-
-            const botaoIniciar = document.getElementById('btn-iniciar');
-            const txtOriginal = botaoIniciar.innerText;
-            
-            botaoIniciar.innerText = "A Enviar Ordem...";
-            botaoIniciar.style.background = "rgba(255, 152, 0, 0.4)"; 
-            botaoIniciar.disabled = true;
-
-            const payload = {
-                divisoesAspirar: arrayAspirar,
-                divisoesLavar: arrayLavar,
-                zonas: zonasParaLimpar, 
-                modoZona: zonasParaLimpar.length > 0 ? modoZonaSelecionado : null,
-                nivelSuccao: succao,
-                nivelAgua: agua
-            };
-
-            try {
-                const res = await fetch('http://127.0.0.1:3000/api/rocky/clean', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                const data = await res.json();
-                
-                if (res.ok) {
-                    botaoIniciar.innerText = "Sucesso! A iniciar...";
-                    botaoIniciar.style.background = "rgba(76, 175, 80, 0.8)";
-                    
-                    setTimeout(() => { 
-                        document.getElementById('vista-rocky').style.display = 'none'; 
-                        rockyIsActive = true;
-                        document.body.classList.add('modo-rocky-live');
-                    }, 2000);
-                } else {
-                    botaoIniciar.innerText = "Falta lógica Node.js!";
-                    botaoIniciar.style.background = "rgba(244, 67, 54, 0.8)";
-                }
-            } catch(e) {
-                botaoIniciar.innerText = "Erro: Servidor Offline";
-                botaoIniciar.style.background = "rgba(244, 67, 54, 0.8)";
-            }
-
-            setTimeout(() => {
-                botaoIniciar.innerText = txtOriginal;
-                botaoIniciar.style.background = "rgba(76, 175, 80, 0.4)";
-                botaoIniciar.disabled = false;
-            }, 3000);
-        }
-
-        function iniciarCaixaEDesenhar() {
-            if (!mapBox && canvasMap.width > 0) {
-                mapBox = { x: (canvasMap.width / 2) - 150, y: (canvasMap.height / 2) - 150, w: 300, h: 300 };
-            }
-            renderizarCanvasMap();
-        }
-
-        function renderizarCanvasMap() {
-            if (!ctxMap) return;
-            ctxMap.clearRect(0, 0, canvasMap.width, canvasMap.height);
-            ctxMap.drawImage(imgMapaObj, 0, 0, canvasMap.width, canvasMap.height);
-            
-            if (mapBox) {
-                ctxMap.fillStyle = "rgba(0, 0, 0, 0.4)";
-                ctxMap.fillRect(0, 0, canvasMap.width, mapBox.y); 
-                ctxMap.fillRect(0, mapBox.y, mapBox.x, mapBox.h); 
-                ctxMap.fillRect(mapBox.x + mapBox.w, mapBox.y, canvasMap.width - (mapBox.x + mapBox.w), mapBox.h); 
-                ctxMap.fillRect(0, mapBox.y + mapBox.h, canvasMap.width, canvasMap.height - (mapBox.y + mapBox.h)); 
-
-                ctxMap.fillStyle = "rgba(72, 219, 251, 0.1)";
-                ctxMap.fillRect(mapBox.x, mapBox.y, mapBox.w, mapBox.h);
-                
-                ctxMap.strokeStyle = "#48dbfb"; ctxMap.lineWidth = 6;
-                ctxMap.strokeRect(mapBox.x, mapBox.y, mapBox.w, mapBox.h);
-
-                ctxMap.fillStyle = "#fff";
-                const s = 40; 
-                ctxMap.fillRect(mapBox.x - s/2, mapBox.y - s/2, s, s); 
-                ctxMap.fillRect(mapBox.x + mapBox.w - s/2, mapBox.y - s/2, s, s); 
-                ctxMap.fillRect(mapBox.x - s/2, mapBox.y + mapBox.h - s/2, s, s); 
-                ctxMap.fillRect(mapBox.x + mapBox.w - s/2, mapBox.y + mapBox.h - s/2, s, s); 
-            }
-        }
-
-        window.setModoZona = function(modo) {
-            modoZonaSelecionado = modo;
-            document.getElementById('modo-z-asp').className = 'opcao-modo';
-            document.getElementById('modo-z-ambos').className = 'opcao-modo';
-            document.getElementById('modo-z-lav').className = 'opcao-modo';
-            
-            if(modo === 'aspirar') document.getElementById('modo-z-asp').classList.add('ativo-asp');
-            if(modo === 'ambos') document.getElementById('modo-z-ambos').classList.add('ativo-ambos');
-            if(modo === 'lavar') document.getElementById('modo-z-lav').classList.add('ativo-lav');
-            resetInatividade();
-        };
-
-        const mapCanvasElem = document.getElementById('mapCanvas');
-
-        function getCanvasScaleCoords(e) {
-            const rect = mapCanvasElem.getBoundingClientRect();
-            const scaleX = mapCanvasElem.width / rect.width;
-            const scaleY = mapCanvasElem.height / rect.height;
-            const touch = e.touches ? e.touches[0] : e;
-            return { x: (touch.clientX - rect.left) * scaleX, y: (touch.clientY - rect.top) * scaleY };
-        }
-
-        function detetarOQueOTocaram(tx, ty) {
-            if (!mapBox) return null;
-            const t = 80; 
-            if (Math.abs(tx - mapBox.x) < t && Math.abs(ty - mapBox.y) < t) return 'resize_tl';
-            if (Math.abs(tx - (mapBox.x + mapBox.w)) < t && Math.abs(ty - mapBox.y) < t) return 'resize_tr';
-            if (Math.abs(tx - mapBox.x) < t && Math.abs(ty - (mapBox.y + mapBox.h)) < t) return 'resize_bl';
-            if (Math.abs(tx - (mapBox.x + mapBox.w)) < t && Math.abs(ty - (mapBox.y + mapBox.h)) < t) return 'resize_br';
-            if (tx > mapBox.x && tx < mapBox.x + mapBox.w && ty > mapBox.y && ty < mapBox.y + mapBox.h) return 'drag';
-            return null; 
-        }
-
-        mapCanvasElem.addEventListener('touchstart', (e) => {
-            resetInatividade(); const pos = getCanvasScaleCoords(e);
-            boxAction = detetarOQueOTocaram(pos.x, pos.y);
-            if (boxAction) { initialTouchX = pos.x; initialTouchY = pos.y; initialMapBox = {...mapBox}; }
-        }, {passive: false});
-
-        mapCanvasElem.addEventListener('touchmove', (e) => {
-            if (!boxAction) return; e.preventDefault(); 
-            const pos = getCanvasScaleCoords(e), dx = pos.x - initialTouchX, dy = pos.y - initialTouchY;
-
-            if (boxAction === 'drag') { mapBox.x = initialMapBox.x + dx; mapBox.y = initialMapBox.y + dy; } 
-            else if (boxAction === 'resize_br') { mapBox.w = Math.max(100, initialMapBox.w + dx); mapBox.h = Math.max(100, initialMapBox.h + dy); } 
-            else if (boxAction === 'resize_bl') { mapBox.w = Math.max(100, initialMapBox.w - dx); mapBox.x = initialMapBox.x + initialMapBox.w - mapBox.w; mapBox.h = Math.max(100, initialMapBox.h + dy); } 
-            else if (boxAction === 'resize_tr') { mapBox.w = Math.max(100, initialMapBox.w + dx); mapBox.h = Math.max(100, initialMapBox.h - dy); mapBox.y = initialMapBox.y + initialMapBox.h - mapBox.h; } 
-            else if (boxAction === 'resize_tl') { mapBox.w = Math.max(100, initialMapBox.w - dx); mapBox.x = initialMapBox.x + initialMapBox.w - mapBox.w; mapBox.h = Math.max(100, initialMapBox.h - dy); mapBox.y = initialMapBox.y + initialMapBox.h - mapBox.h; }
-            renderizarCanvasMap();
-        }, {passive: false});
-
-        mapCanvasElem.addEventListener('touchend', (e) => { boxAction = null; });
-
-        function converterPixelParaAspirador(pixelX, pixelY) {
-            const vacX = Math.round((pixelX * 12.5) + 13250); const vacY = Math.round((pixelY * -12.5) + 43650);
-            return { x: vacX, y: vacY };
-        }
-
-        function calcularZonasEAvancar() {
-            if (!mapBox) return; 
-
-            const p1 = converterPixelParaAspirador(mapBox.x, mapBox.y);
-            const p2 = converterPixelParaAspirador(mapBox.x + mapBox.w, mapBox.y + mapBox.h);
-
-            const xMin = Math.min(p1.x, p2.x), xMax = Math.max(p1.x, p2.x);
-            const yMin = Math.min(p1.y, p2.y), yMax = Math.max(p1.y, p2.y);
-
-            zonasParaLimpar = [[xMin, yMin, xMax, yMax, 1]]; 
-            selecaoAspirar.clear(); selecaoLavar.clear();
-
-            const containerSuccao = document.getElementById('container-succao');
-            const containerAgua = document.getElementById('container-agua');
-
-            if (modoZonaSelecionado === 'aspirar') {
-                containerSuccao.style.display = 'flex'; containerAgua.style.display = 'none';
-            } else if (modoZonaSelecionado === 'lavar') {
-                containerSuccao.style.display = 'none'; containerAgua.style.display = 'flex';
-            } else {
-                containerSuccao.style.display = 'flex'; containerAgua.style.display = 'flex';
-            }
-
-            document.getElementById('vista-mapa-interativo').style.display = 'none';
-            document.getElementById('vista-rocky').style.display = 'flex'; 
-            document.getElementById('rocky-conteudo').style.display = 'none'; 
-            document.getElementById('titulo-rocky').innerText = "Intensidade da Zona";
-            document.getElementById('rocky-conteudo-config').style.display = 'flex';
-            
-            pararMapaTempoReal();
-        }
-
-        window.receberDadosDaBridge = function(base64Dados) {
-            try {
-                const jsonString = atob(base64Dados);
-                const payload = JSON.parse(jsonString);
-
-                for (const evento of payload) {
-                    if (evento.type === 'update' && evento.data) {
-                        for (const item of evento.data) {
-                            
-                            // 1. EVENTOS FÍSICOS (Botões da parede)
-                            if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') {
-                                acordarEcra();
-                                if ([BOTAO_CIMA_ESQ, BOTAO_CIMA_DIR, BOTAO_BAIXO_ESQ, BOTAO_BAIXO_DIR].includes(item.id)) {
-                                    if (document.getElementById('vista-rocky').style.display !== 'flex') {
-                                        ativarAnimacao(item.id); 
-                                    }
-                                }
-                            }
-
-                            // 2. O TEU SENSOR DE MOVIMENTO ("Sensor entrada", ID 32)
-                            if (item.type === 'motion' && item.motion && item.motion.motion === true) {
-                                acordarEcra();
-                            }
-                        }
-                    }
-                }
-            } catch (erro) {}
-        };
-
-        const ecra = document.getElementById('ecra');
-
-        function detetarToqueEcra(e) {
-            acordarEcra();
-            const agora = Date.now();
-            if (agora - ultimoToque < 300) return; 
-
-            if (document.body.classList.contains('movido') && hasDragged) return; 
-
-            if (!document.body.classList.contains('movido')) {
-                ultimoToque = agora;
-                if (!document.fullscreenElement) {
-                    if (ecra.requestFullscreen) ecra.requestFullscreen();
-                    else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
-                }
-                ativarAnimacao('touch'); 
-                return; 
-            }
-
-            if (e.target.tagName === 'INPUT' || 
-                e.target.tagName === 'BUTTON' || 
-                e.target.classList.contains('metade-switch') || 
-                e.target.classList.contains('opcao-modo') || 
-                e.target.id === 'btn-power-sala' || 
-                e.target.id === 'btn-sync-box' || 
-                e.target.id === 'txt-sync' ||
-                e.target.closest('#vista-rocky') || 
-                e.target.closest('#vista-mapa-interativo') || 
-                e.target.closest('#vista-rocky-live') ||
-                e.target.classList.contains('luz-hitbox') ||
-                e.target.id === 'btn-pausa-rocky') {
-                return;
-            }
-
-            ultimoToque = agora;
-            if (!document.fullscreenElement) {
-                if (ecra.requestFullscreen) ecra.requestFullscreen();
-                else if (ecra.webkitRequestFullscreen) ecra.webkitRequestFullscreen();
-            }
-            ativarAnimacao('touch'); 
-        }
-
-        ecra.addEventListener('touchend', detetarToqueEcra, {passive: true});
-        ecra.addEventListener('click', detetarToqueEcra);
-
-        function atualizarTempo() {
-            const agora = new Date();
-            const hora = String(agora.getHours()).padStart(2, '0') + ":" + String(agora.getMinutes()).padStart(2, '0');
-            document.getElementById('relogio').innerHTML = hora;
-            document.getElementById('relogio-live').innerHTML = hora;
-        }
-
-        async function getOutdoorTemp() {
-            try {
-                const url = `https://api.openweathermap.org/data/2.5/weather?lat=38.816&lon=-9.155&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
-                const response = await fetch(url);
-                const data = await response.json();
-                document.getElementById('temp-out').innerText = Math.round(data.main.temp);
-            } catch (e) { document.getElementById('temp-out').innerText = "Err"; }
-        }
-
-        async function getRainChance() {
-            try {
-                const url = `https://api.openweathermap.org/data/2.5/forecast?lat=38.816&lon=-9.155&appid=8a3fe8fecca47dfc4859d6c3ef1a0214&units=metric&lang=pt`;
-                const response = await fetch(url);
-                const data = await response.json();
-                let maxPop = 0;
-                for(let i = 0; i < 4; i++) { 
-                    if(data.list[i] && data.list[i].pop > maxPop) maxPop = data.list[i].pop; 
-                }
-                document.getElementById('chuva-hoje').innerText = `🌧️ Chuva nas próximas 12h: ${Math.round(maxPop * 100)}%`;
-            } catch (e) { document.getElementById('chuva-hoje').innerText = `🌧️ Chuva: Err`; }
-        }
-
-        async function getIndoorTemp() {
-            try {
-                const url = `http://${HUE_IP}/api/${HUE_TOKEN}/sensors/34`;
-                const response = await fetch(url);
-                const data = await response.json();
-                document.getElementById('temp-in').innerText = Math.round(data.state.temperature / 100);
-            } catch (e) { document.getElementById('temp-in').innerText = "Err"; }
-        }
-
-        setInterval(atualizarTempo, 1000);
-        setInterval(getOutdoorTemp, 600000); 
-        setInterval(getRainChance, 600000);  
-        setInterval(getIndoorTemp, 60000);   
-        
-        atualizarTempo();
-        getOutdoorTemp();
-        getRainChance();
-        getIndoorTemp();
-
-        // ==========================================
-        // MONITORIZAÇÃO E NOVO DASHBOARD DO ROCKY
-        // ==========================================
-        const txtEstadoLive = document.getElementById('live-estado-texto');
-        const valBat = document.getElementById('val-bat');
-        const valTempo = document.getElementById('val-tempo');
-        const valArea = document.getElementById('val-area');
-        const valPotencia = document.getElementById('val-potencia');
-        const btnPausaLive = document.getElementById('btn-live-pause');
-        const btnHomeLive = document.getElementById('btn-live-home');
-
-        async function monitorizarEstadoRocky() {
-            try {
-                const res = await fetch('http://127.0.0.1:3000/api/rocky/status');
-                const status = await res.json();
-                
-                if (status && status.state !== undefined) {
-                    const estado = status.state;
-                    
-                    valBat.innerText = (status.battery !== undefined ? status.battery : "--") + "%";
-                    if (status.clean_time !== undefined) valTempo.innerText = Math.round(status.clean_time / 60) + ' min';
-                    if (status.clean_area !== undefined) valArea.innerText = (status.clean_area / 1000000).toFixed(1) + ' m²';
-                    
-                    const forcas = { 101: "Silencioso", 102: "Normal", 103: "Turbo", 104: "Máx" };
-                    if (status.fan_power) valPotencia.innerText = forcas[status.fan_power] || "Auto";
-                    else valPotencia.innerText = "--";
-                    
-                    if (estado === 8 || estado === 2) {
-                        rockyIsActive = false;
-                        if (document.body.classList.contains('modo-rocky-live')) {
-                            document.body.classList.remove('modo-rocky-live');
-                        }
-                    } else {
-                        rockyIsActive = true; 
-
-                        if (estado === 5 || estado === 17 || estado === 18) {
-                            txtEstadoLive.innerText = "A LIMPAR";
-                            txtEstadoLive.style.color = "#4cd137"; 
-                            txtEstadoLive.style.textShadow = "0 0 20px rgba(76, 209, 55, 0.5)";
-                            btnPausaLive.innerText = "⏸️ Pausar 15m";
-                        } 
-                        else if (estado === 6) {
-                            txtEstadoLive.innerText = "A VOLTAR À BASE";
-                            txtEstadoLive.style.color = "#00a8ff"; 
-                            txtEstadoLive.style.textShadow = "0 0 20px rgba(0, 168, 255, 0.5)";
-                            btnPausaLive.innerText = "⏸️ Pausar 15m";
-                        }
-                        else if (estado === 10) {
-                            txtEstadoLive.innerText = "PAUSADO";
-                            txtEstadoLive.style.color = "#fbc531"; 
-                            txtEstadoLive.style.textShadow = "0 0 20px rgba(251, 197, 49, 0.5)";
-                            btnPausaLive.innerText = "▶️ Retomar";
-                        }
-                        else {
-                            txtEstadoLive.innerText = "EM MOVIMENTO";
-                            txtEstadoLive.style.color = "#fff";
-                            txtEstadoLive.style.textShadow = "0 0 20px rgba(255, 255, 255, 0.5)";
-                        }
-                    }
-                }
-            } catch (e) {
-                rockyIsActive = false;
-            }
-        }
-        
-        async function pausarRocky15Min() {
-            btnPausaLive.innerText = "⏳...";
-            try {
-                await fetch('http://127.0.0.1:3000/api/rocky/pause15', { method: 'POST' });
-                monitorizarEstadoRocky(); 
-            } catch(e) {}
-        }
-        
-        async function enviarParaBase() {
-            btnHomeLive.innerText = "⏳ A enviar...";
-            try {
-                await fetch('http://127.0.0.1:3000/api/rocky/clean', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ divisoesAspirar: [], divisoesLavar: [] }) 
-                });
-                setTimeout(() => { btnHomeLive.innerText = "🏠 Regressar"; }, 2000);
-            } catch(e) {}
-        }
-
-        setInterval(monitorizarEstadoRocky, 10000);
-        monitorizarEstadoRocky();
-
-    </script>
-</body>
+  </body>
 </html>
