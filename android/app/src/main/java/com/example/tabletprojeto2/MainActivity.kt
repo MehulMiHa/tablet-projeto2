@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
     private var resumed = false
     private var charging = true
     private var dimmed = false
+    private var emergencyBrightness = false
     private var receiverRegistered = false
     private var rendererFailures = 0
     private var pendingCamera: PermissionRequest? = null
@@ -249,7 +250,10 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
-                if (currentGeneration == generation) trustedPage = isPanelNavigation(Uri.parse(url))
+                if (currentGeneration == generation) {
+                    trustedPage = isPanelNavigation(Uri.parse(url))
+                    setEmergencyBrightnessOverride(false)
+                }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -300,6 +304,7 @@ class MainActivity : ComponentActivity() {
         if (view === webView) {
             trustedPage = false
             webView = null
+            setEmergencyBrightnessOverride(false)
         }
         if (!rendererGone) view.removeJavascriptInterface("AndroidSync")
         (view.parent as? ViewGroup)?.removeView(view)
@@ -373,8 +378,18 @@ class MainActivity : ComponentActivity() {
 
     private fun applyBrightness() {
         if (resumed) window.attributes = window.attributes.apply {
-            screenBrightness = if (dimmed) 0.06f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            screenBrightness = when {
+                emergencyBrightness -> WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+                dimmed -> 0.06f
+                else -> WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            }
         }
+    }
+
+    private fun setEmergencyBrightnessOverride(value: Boolean) {
+        if (emergencyBrightness == value) return
+        emergencyBrightness = value
+        applyBrightness()
     }
 
     private fun isTrustedOrigin(uri: Uri): Boolean = uri.scheme == "http" && uri.host == "127.0.0.1" && uri.port == 3000 && uri.userInfo == null
@@ -456,6 +471,11 @@ class MainActivity : ComponentActivity() {
                     applyBrightness()
                 }
             }
+        }
+
+        @JavascriptInterface
+        fun setEmergencyBrightness(value: Boolean) {
+            if (active()) handler.post { if (active()) setEmergencyBrightnessOverride(value) }
         }
 
         @JavascriptInterface

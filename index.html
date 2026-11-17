@@ -3,10 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0d0e" />
+    <meta name="theme-color" content="#000000" />
     <meta name="color-scheme" content="dark" />
     <title>Eddy</title>
     <link rel="stylesheet" href="assets/eddy.css" />
+    <link rel="stylesheet" href="assets/room-motion.css" />
+    <script defer src="assets/panel-transition.js"></script>
     <script defer src="assets/eddy.js"></script>
   </head>
   <body data-screen="clock">
@@ -116,12 +118,8 @@
         <section id="lightsView" class="view lights-view" aria-label="Iluminação da sala">
           <div class="room-heading">
             <div>
-              <p class="eyebrow">ILUMINAÇÃO</p>
               <h1>Sala de estar</h1>
             </div>
-            <button id="selectLights" class="text-button">
-              <svg class="icon"><use href="#i-select" /></svg>Selecionar
-            </button>
           </div>
           <div class="lights-layout">
             <div class="room-plan" id="roomPlan">
@@ -137,6 +135,7 @@
                   </filter>
                 </defs>
                 <rect class="room-floor" x="37" y="37" width="526" height="826" rx="28" />
+                <rect class="room-trace" x="28" y="28" width="544" height="844" rx="34" pathLength="1" aria-hidden="true" />
                 <g
                   id="ledFixture"
                   class="fixture is-unknown"
@@ -177,15 +176,21 @@
               </div>
             </div>
             <div class="light-controls">
-              <div class="group-tabs" role="group" aria-label="Grupo de luzes">
-                <button data-light-group="all" class="is-active">Sala</button
-                ><button data-light-group="spots">Focos</button
-                ><button data-light-group="led">Fita LED</button>
-              </div>
               <div class="control-card">
                 <div class="power-row">
                   <div>
-                    <h2 id="selectedLightTitle">Sala</h2>
+                    <details id="lightScope" class="scope-picker">
+                      <summary>
+                        <span id="selectedLightTitle">Sala</span>
+                        <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
+                      </summary>
+                      <div class="scope-options" role="group" aria-label="Grupo de luzes">
+                        <button type="button" data-light-group="all" class="is-active">Sala inteira</button>
+                        <button type="button" data-light-group="spots">Focos</button>
+                        <button type="button" data-light-group="led">Fita LED</button>
+                        <button type="button" id="selectLights"><svg class="icon" aria-hidden="true"><use href="#i-select" /></svg>Selecionar na planta</button>
+                      </div>
+                    </details>
                     <p id="selectedLightStatus" class="muted">A obter estado</p>
                   </div>
                   <button
@@ -239,14 +244,7 @@
                 ><span class="sync-copy"
                   ><strong>Sincronização TV</strong><span id="syncStatus">A obter estado</span></span
                 ><span id="syncSwitch" class="switch" aria-hidden="true"><span></span></span></button
-              ><button id="robotShortcut" class="robot-shortcut">
-                <span class="shortcut-robot"
-                  ><svg class="icon"><use href="#i-robot" /></svg></span
-                ><span
-                  ><strong>Rocky</strong><span id="robotShortcutStatus">A ligar ao aspirador</span></span
-                ><span id="robotShortcutBattery" class="shortcut-battery"></span
-                ><svg class="icon"><use href="#i-chevron" /></svg>
-              </button>
+              >
             </div>
           </div>
         </section>
@@ -254,7 +252,6 @@
         <section id="robotView" class="view robot-view" aria-label="Aspirador Rocky" hidden>
           <div class="robot-heading">
             <div>
-              <p class="eyebrow">ROBOROCK SAROS 10R</p>
               <h1>Rocky</h1>
             </div>
             <span id="robotConnection" class="status-pill">A ligar</span>
@@ -296,18 +293,18 @@
             </div>
             <div class="robot-details">
               <div id="robotAlerts" class="robot-alerts" aria-live="polite"></div>
-              <button id="mapPreviewButton" class="map-preview">
+              <div class="map-preview">
                 <div class="map-preview-top">
                   <span
                     ><svg class="icon"><use href="#i-map" /></svg>Mapa da casa</span
-                  ><svg class="icon"><use href="#i-chevron" /></svg>
+                  >
                 </div>
                 <div id="mapPreviewContent" class="map-preview-content">
                   <svg class="icon"><use href="#i-map" /></svg
-                  ><span>Ver divisões e escolher uma área</span>
+                  ><span>Mapa disponível em Limpar</span>
                 </div>
                 <div id="roomCount" class="map-preview-footer">A obter divisões</div>
-              </button>
+              </div>
               <p id="robotFreshness" class="freshness"></p>
             </div>
           </div>

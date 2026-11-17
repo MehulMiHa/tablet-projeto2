@@ -30,6 +30,7 @@
   var sheetCloseTimer = null;
   var toastTimer = null;
   var screen = 'clock';
+  var panelTransitionTimer = null;
   var rememberedAt = 0;
   var rememberedValue = '';
   var charging = true;
@@ -311,8 +312,11 @@
   }
 
   function showClock() {
+    window.EddyPanelTransition.cancel();
+    if (screen === 'lights') transitionPanel('room-out', 520);
     closeCleaning();
     cancelSelection();
+    $('lightScope').open = false;
     selectedLights = new Set(LIGHT_IDS);
     screen = 'clock';
     document.body.dataset.screen = 'clock';
@@ -331,11 +335,21 @@
   function openFromClock() {
     var robot = state && state.robot;
     var showRobot = robotOnline() && (isCleaning(robot) || isPaused(robot));
+    var wasSleeping = document.body.dataset.sleep === 'true';
     wake(false);
-    setView(showRobot ? 'robot' : 'lights');
+    setView(showRobot ? 'robot' : 'lights', !wasSleeping);
   }
 
-  function setView(view) {
+  function setView(view, withClockAnimation) {
+    var previous = screen;
+    var clockTransition = null;
+    if (previous === 'clock' && withClockAnimation !== false) {
+      try { clockTransition = window.EddyPanelTransition.capture(); } catch (error) { /* Navigation still works without the animation. */ }
+    }
+    window.EddyPanelTransition.cancel();
+    if (view === 'lights' && previous !== 'lights') {
+      transitionPanel(clockTransition ? 'room-in' : 'room-tab', clockTransition ? 1300 : 740);
+    }
     screen = view;
     document.body.dataset.screen = view;
     delete document.body.dataset.sleep;
@@ -344,6 +358,10 @@
     $('ambient').setAttribute('aria-hidden', 'true');
     $('lightsView').hidden = view !== 'lights';
     $('robotView').hidden = view !== 'robot';
+    if (clockTransition) {
+      try { window.EddyPanelTransition.play(clockTransition, view); }
+      catch (error) { window.EddyPanelTransition.cancel(); }
+    }
     document.querySelectorAll('[data-view]').forEach(function (button) {
       var active = button.dataset.view === view;
       button.classList.toggle('is-active', active);
@@ -355,10 +373,21 @@
     refreshState();
   }
 
+  function transitionPanel(direction, duration) {
+    clearTimeout(panelTransitionTimer);
+    document.body.dataset.panelTransition = direction;
+    panelTransitionTimer = setTimeout(function () {
+      delete document.body.dataset.panelTransition;
+    }, duration);
+  }
+
   function shiftOLED() {
     var minute = Math.floor(Date.now() / 60000);
-    document.documentElement.style.setProperty('--oled-x', ((minute % 7) - 3) * 3 + 'px');
-    document.documentElement.style.setProperty('--oled-y', ((Math.floor(minute / 7) % 7) - 3) * 3 + 'px');
+    var style = document.documentElement.style;
+    style.setProperty('--oled-x', (Math.sin(minute / 60 * 2 * Math.PI) * 3).toFixed(2) + 'vw');
+    style.setProperty('--oled-y-factor', Math.sin(minute / 720 * 2 * Math.PI).toFixed(4));
+    style.setProperty('--alert-oled-x', (((minute % 7) - 3) * 3) + 'px');
+    style.setProperty('--alert-oled-y', (((Math.floor(minute / 7) % 7) - 3) * 3) + 'px');
   }
 
   function buildFixtures() {
@@ -659,12 +688,14 @@
     $('robotPause').disabled = !online || robotBusy || (!isCleaning(robot) && !isPaused(robot));
     $('robotHome').disabled = !online || robotBusy || ['charging', 'charged', 'charging_complete', 'docked'].indexOf(robot.state) >= 0;
     $('robotPause15').disabled = !online || robotBusy || !isCleaning(robot);
+    var hasMotion = isCleaning(robot) || isPaused(robot);
+    var atBase = ['charging', 'charged', 'charging_complete', 'docked'].indexOf(robot.state) >= 0;
+    $('openCleaning').hidden = online && !atBase && (hasMotion || robot.inReturning > 0 || robot.phase === 'returning');
+    $('robotPause').hidden = !online || !hasMotion;
+    $('robotHome').hidden = !online || atBase;
+    $('robotPause15').hidden = !online || !isCleaning(robot);
     $('robotPause').querySelector('span').textContent = isPaused(robot) ? 'Retomar' : 'Pausar';
     $('robotPause').querySelector('use').setAttribute('href', isPaused(robot) ? '#i-play' : '#i-pause');
-    $('robotShortcutStatus').textContent = online ? label : 'Sem ligação';
-    $('robotShortcutBattery').textContent = number(robot.battery) !== null ? Math.round(robot.battery) + '%' : '';
-    $('robotShortcut').classList.toggle('has-alert', robotAlerts.length > 0);
-    if (robotAlerts.length) $('robotShortcutStatus').textContent = robotAlerts[0].title;
     var alerts = $('robotAlerts');
     var signature = JSON.stringify(robotAlerts) + online;
     if (alerts.dataset.signature !== signature) {
@@ -704,6 +735,7 @@
   function renderAmbient() {
     var warning = robotAlerts.filter(function (alert) { return alert.id === 'clean-water-empty'; })[0] || robotAlerts[0];
     $('ambientAlert').hidden = !warning;
+    $('ambient').classList.toggle('has-alert', !!warning);
     if (warning) {
       $('ambientAlertTitle').textContent = warning.title || 'Aviso do Rocky';
       $('ambientAlertStatus').textContent = robotOnline() ? 'Rocky · base' : 'Último aviso confirmado · a restabelecer ligação';
@@ -1134,6 +1166,7 @@
   function setEmergencyLight(on) {
     if ($('emergencyLight').hidden === !on) return;
     $('emergencyLight').hidden = !on;
+    nativeCall('setEmergencyBrightness', on);
     if (on) {
       wake(false);
       speak('A ligar a luz de emergência.');
@@ -1219,15 +1252,22 @@
     });
     $('clockButton').addEventListener('click', showClock);
     document.querySelectorAll('[data-view]').forEach(function (button) { button.addEventListener('click', function () { setView(button.dataset.view); }); });
-    $('robotShortcut').addEventListener('click', function () { setView('robot'); });
-    $('selectLights').addEventListener('click', function () { if (selecting) finishSelection(); else beginSelection(); });
+    $('selectLights').addEventListener('click', function () { $('lightScope').open = false; beginSelection(); });
     $('cancelSelection').addEventListener('click', cancelSelection);
     $('finishSelection').addEventListener('click', finishSelection);
     $('roomPlan').addEventListener('pointerdown', beginLightDrag);
     document.addEventListener('pointermove', moveLightDrag, { passive: false });
     document.addEventListener('pointerup', function (event) { endLightDrag(event, false); });
     document.addEventListener('pointercancel', function (event) { endLightDrag(event, true); });
-    document.querySelectorAll('[data-light-group]').forEach(function (button) { button.addEventListener('click', function () { chooseGroup(button.dataset.lightGroup); }); });
+    document.querySelectorAll('[data-light-group]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        $('lightScope').open = false;
+        chooseGroup(button.dataset.lightGroup);
+      });
+    });
+    document.addEventListener('click', function (event) {
+      if (!event.target.closest('#lightScope')) $('lightScope').open = false;
+    });
     $('lightPower').addEventListener('click', function () {
       var anyOn = lightItems().some(function (item) { return selectedLights.has(item.id) && item.on; });
       sendLightControl({ on: !anyOn });
@@ -1242,7 +1282,6 @@
     });
     $('syncToggle').addEventListener('click', toggleSync);
     $('openCleaning').addEventListener('click', function () { openCleaning('rooms'); });
-    $('mapPreviewButton').addEventListener('click', function () { openCleaning('zone'); });
     $('closeCleaning').addEventListener('click', closeCleaning);
     $('sheetBackdrop').addEventListener('click', closeCleaning);
     $('roomsTab').addEventListener('click', function () { setCleaningTab('rooms'); });
@@ -1278,6 +1317,18 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) { updateClock(); refreshState(); } });
     window.addEventListener('resize', drawMap);
     $('dismissEmergency').addEventListener('click', function () { emergencyDismissed = true; stopEmergency(); });
+    window.addEventListener('eddy:back', function () {
+      if (!$('emergencyLight').hidden) {
+        emergencyDismissed = true;
+        stopEmergency();
+      } else if (sheetOpen) {
+        closeCleaning();
+      } else if (selecting) {
+        cancelSelection();
+      } else {
+        showClock();
+      }
+    });
     window.addEventListener('pagehide', function () { clearTimeout(pollTimer); if (eventStream) eventStream.close(); stopEmergency(); rememberSnapshot(true); });
   }
 
