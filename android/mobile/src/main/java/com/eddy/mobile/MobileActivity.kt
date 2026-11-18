@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Bundle
@@ -55,7 +56,7 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 class MobileActivity : ComponentActivity() {
-    private data class Connection(val address: String, val user: String, val password: String) {
+    private data class Connection(val address: String, val user: String, val password: String, val network: Network) {
         val origin get() = "http://$address:8787"
         val authorization get() = "Basic ${Base64.encodeToString("$user:$password".toByteArray(), Base64.NO_WRAP)}"
     }
@@ -80,6 +81,14 @@ class MobileActivity : ComponentActivity() {
     @Volatile private var generation = 0
     private var pickFiles: ValueCallback<Array<Uri>>? = null
     private var download: Download? = null
+    private var networkCallbackRegistered = false
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onLost(network: Network) = runOnUiThread {
+            if (!isFinishing && !isDestroyed && connection?.network == network && web != null) {
+                showConnection("A ligação VPN terminou. Liga o Tailscale e volta a ligar ao tablet.")
+            }
+        }
+    }
 
     private val picker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val selection = result.data?.clipData
@@ -98,6 +107,8 @@ class MobileActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         saved = SavedConnection(this)
+        getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
+        networkCallbackRegistered = true
         WindowCompat.setDecorFitsSystemWindows(window, false)
         root = FrameLayout(this).apply { setBackgroundColor(pageBackground) }
         setContentView(root)
@@ -219,10 +230,15 @@ class MobileActivity : ComponentActivity() {
         return parts.joinToString(".") { it.toInt().toString() }
     }
 
-    private fun vpnConnected(): Boolean {
+    private fun vpnNetwork(): Network? {
         val manager = getSystemService(ConnectivityManager::class.java)
-        return manager.getNetworkCapabilities(manager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        val network = manager.activeNetwork ?: return null
+        return network.takeIf { manager.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true }
     }
+
+    private fun vpnConnected(): Boolean = vpnNetwork() != null
+
+    private fun connectionNetworkAvailable(target: Connection): Boolean = vpnNetwork() == target.network
 
     private fun connect() {
         val address = parseAddress(addressInput.text.toString().trim())
@@ -233,8 +249,12 @@ class MobileActivity : ComponentActivity() {
             status.text = "Indica o teu utilizador e a palavra-passe da Eddy."
             return
         }
-        if (!vpnConnected()) { status.text = "Liga o Tailscale e volta a tentar."; return }
-        val candidate = Connection(address, user, password)
+        val network = vpnNetwork()
+        if (network == null) { status.text = "Liga o Tailscale e volta a tentar."; return }
+        val manager = getSystemService(ConnectivityManager::class.java)
+        // Keep WebView writes on this VPN. Losing it must not fall back to Wi-Fi or mobile data.
+        if (!manager.bindProcessToNetwork(network)) { status.text = "A ligação VPN mudou. Volta a tentar."; return }
+        val candidate = Connection(address, user, password, network)
         val persist = remember.isChecked
         val session = ++generation
         connectButton.isEnabled = false
@@ -251,6 +271,7 @@ class MobileActivity : ComponentActivity() {
                         }
                         401, 403 -> "Confirma o utilizador e a palavra-passe."
                         404 -> "O tablet precisa da Eddy 2.5."
+                        429 -> "Demasiadas tentativas. Aguarda 30 segundos e volta a tentar."
                         else -> "A Eddy do tablet ainda está a iniciar."
                     }
                 } finally { request.disconnect() }
@@ -270,13 +291,15 @@ class MobileActivity : ComponentActivity() {
         }
     }
 
-    private fun request(target: Connection, path: String): HttpURLConnection =
-        (URL(target.origin + path).openConnection(Proxy.NO_PROXY) as HttpURLConnection).apply {
+    private fun request(target: Connection, path: String): HttpURLConnection {
+        if (!connectionNetworkAvailable(target)) throw IOException("A ligação VPN mudou.")
+        return (target.network.openConnection(URL(target.origin + path), Proxy.NO_PROXY) as HttpURLConnection).apply {
             instanceFollowRedirects = false
             connectTimeout = 7000
             readTimeout = 15000
             setRequestProperty("Authorization", target.authorization)
         }
+    }
 
     private fun allowed(uri: Uri, target: Connection): Boolean =
         uri.scheme == "http" && uri.host == target.address && uri.port == 8787 && uri.userInfo == null
@@ -313,7 +336,7 @@ class MobileActivity : ComponentActivity() {
                 !allowed(request.url, target) || request.url.path != "/"
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                if (!allowed(request.url, target) || !vpnConnected() || session != generation) {
+                if (!allowed(request.url, target) || !connectionNetworkAvailable(target) || session != generation) {
                     return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
                 }
                 if (request.method != "GET") return null
@@ -336,7 +359,7 @@ class MobileActivity : ComponentActivity() {
 
             override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) {
                 val knownHost = host == target.address || host == "${target.address}:8787"
-                if (session == generation && knownHost && realm == "Eddy" && vpnConnected() && handler.useHttpAuthUsernamePassword()) {
+                if (session == generation && knownHost && realm == "Eddy" && connectionNetworkAvailable(target) && handler.useHttpAuthUsernamePassword()) {
                     handler.proceed(target.user, target.password)
                 } else handler.cancel()
             }
@@ -370,7 +393,7 @@ class MobileActivity : ComponentActivity() {
     }
 
     private fun prepareDownload(target: Connection, path: String, name: String) {
-        if (download != null || !Regex("/api/family/files/[0-9a-f]{32}").matches(path) || !vpnConnected()) return
+        if (download != null || !Regex("/api/family/files/[0-9a-f]{32}").matches(path) || !connectionNetworkAvailable(target)) return
         val fileName = name.replace(Regex("[\\\\/\\p{Cntrl}]"), "_").take(120).ifBlank { "Ficheiro Eddy" }
         download = Download(target, path)
         saveFile.launch(fileName)
@@ -379,7 +402,7 @@ class MobileActivity : ComponentActivity() {
     private fun writeDownload(pending: Download, uri: Uri) {
         worker.execute {
             val success = try {
-                if (!vpnConnected()) throw IOException()
+                if (!connectionNetworkAvailable(pending.connection)) throw IOException()
                 val request = request(pending.connection, pending.path)
                 try {
                     if (request.responseCode != 200) throw IOException()
@@ -425,6 +448,10 @@ class MobileActivity : ComponentActivity() {
 
     override fun onDestroy() {
         generation++
+        if (networkCallbackRegistered) {
+            getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback)
+            networkCallbackRegistered = false
+        }
         closeWeb()
         worker.shutdownNow()
         super.onDestroy()

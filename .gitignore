@@ -9,5 +9,6 @@ android/.gradle/
 android/.kotlin/
 android/**/build/
 android/local.properties
+android/mobile-signing.properties
 android/*.jks
 android/*.keystore

@@ -12,6 +12,8 @@ const { ApiError } = require('./jobs');
 const PORT = 8787;
 const LOOPBACK = '127.0.0.1';
 const CONFIG_FILE = 'frame-admin.json';
+const AUTH_FAILURE_LIMIT = 20;
+const AUTH_WINDOW_MS = 30000;
 const ASSETS = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/frame-admin.css', ['frame-admin.css', 'text/css; charset=utf-8']],
@@ -99,9 +101,10 @@ function proxy(request, response, panelPort) {
   else upstream.end();
 }
 
-function createFrameAdminServer({ config, panelPort, familyFiles }) {
+function createFrameAdminServer({ config, panelPort, familyFiles, now = Date.now, authState = { failures: 0, windowEnd: 0 } }) {
   const passwordHash = Buffer.from(config.passwordHash, 'hex');
   const familyPasswordHash = config.familyPasswordHash ? Buffer.from(config.familyPasswordHash, 'hex') : null;
+  // Both listeners share one short authentication window. Never trust forwarded-IP headers.
   const server = http.createServer(async (request, response) => {
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.setHeader(name, value);
     const host = request.headers.host;
@@ -120,8 +123,23 @@ function createFrameAdminServer({ config, panelPort, familyFiles }) {
     const isFamilyRoute = familyFiles && familyRoute(request.url, request.method);
     const isSessionRoute = request.method === 'GET' && request.url === '/api/session';
     if (!asset && !isPhotoRoute && !isFamilyRoute && !isSessionRoute) { send(response, 404, 'Página indisponível.'); return; }
-    const role = accountRole(request.headers.authorization, passwordHash, familyPasswordHash);
+    const authorization = request.headers.authorization;
+    const timestamp = now();
+    if (timestamp >= authState.windowEnd) {
+      authState.failures = 0;
+      authState.windowEnd = timestamp + AUTH_WINDOW_MS;
+    }
+    if (authorization && authState.failures >= AUTH_FAILURE_LIMIT) {
+      const retryAfter = Math.max(1, Math.ceil((authState.windowEnd - timestamp) / 1000));
+      response.setHeader('Retry-After', retryAfter);
+      response.setHeader('Connection', 'close');
+      send(response, 429, `Demasiadas tentativas de acesso. Espera ${retryAfter} segundos e volta a tentar.`);
+      return;
+    }
+    const role = accountRole(authorization, passwordHash, familyPasswordHash);
     if (!role) {
+      // A browser's initial Basic authentication challenge does not try a password.
+      if (authorization) authState.failures++;
       response.setHeader('WWW-Authenticate', 'Basic realm="Eddy", charset="UTF-8"');
       send(response, 401, 'Introduz o utilizador e a palavra-passe do Eddy.');
       return;
@@ -170,18 +188,63 @@ function createFrameAdminServer({ config, panelPort, familyFiles }) {
   return server;
 }
 
+function startFrameAdminListeners({ config, panelPort, familyFiles }, {
+  createServer = createFrameAdminServer,
+  schedule = setTimeout,
+  cancel = clearTimeout,
+  reportError = error => console.error('O acesso aos ficheiros não iniciou:', error.code || error.message)
+} = {}) {
+  if (config.address != null && !tailscaleAddress(config.address)) throw new Error('Endereço Tailscale inválido.');
+  const authState = { failures: 0, windowEnd: 0 };
+  const hosts = config.address ? [LOOPBACK, config.address] : [LOOPBACK];
+  const listeners = [];
+  let stopped = false;
+  for (const host of hosts) {
+    const server = createServer({ config, panelPort, familyFiles, authState });
+    const listener = { server, retry: null };
+    listeners.push(listener);
+    const listen = () => {
+      listener.retry = null;
+      if (!stopped) server.listen(PORT, host);
+    };
+    server.on('error', error => {
+      if (stopped) return;
+      // Android installs the Tailscale address on its kernel TUN interface. The VPN
+      // can appear after Termux:Boot; keep local access alive while waiting for it.
+      if (host !== LOOPBACK && ['EADDRNOTAVAIL', 'ENODEV'].includes(error.code)) {
+        if (!listener.retry) {
+          listener.retry = schedule(listen, 2000);
+          listener.retry?.unref?.();
+        }
+      } else reportError(error);
+    });
+    listen();
+  }
+  return {
+    close(callback) {
+      stopped = true;
+      let remaining = listeners.length;
+      for (const listener of listeners) {
+        if (listener.retry) cancel(listener.retry);
+        listener.retry = null;
+        listener.server.close(() => { if (--remaining === 0) callback?.(); });
+      }
+    },
+    closeAllConnections() {
+      for (const { server } of listeners) server.closeAllConnections();
+    }
+  };
+}
+
 function startConfiguredFrameAdmin({ dataDirectory, panelPort, familyFiles }) {
   try {
     const config = readConfig(dataDirectory);
     if (!config) return null;
-    const server = createFrameAdminServer({ config, panelPort, familyFiles });
-    server.on('error', error => console.error('A página da moldura não iniciou:', error.code || error.message));
-    server.listen(PORT, LOOPBACK);
-    return server;
+    return startFrameAdminListeners({ config, panelPort, familyFiles });
   } catch (error) {
     console.error('A página da moldura não iniciou:', error.code || error.message);
     return null;
   }
 }
 
-module.exports = { createFrameAdminServer, startConfiguredFrameAdmin, frameAdminAddress, readConfig, tailscaleAddress, CONFIG_FILE, PORT };
+module.exports = { createFrameAdminServer, startFrameAdminListeners, startConfiguredFrameAdmin, frameAdminAddress, readConfig, tailscaleAddress, CONFIG_FILE, PORT };

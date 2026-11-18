@@ -20,6 +20,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            isDebuggable = false
+        }
         release {
             optimization {
                 enable = false

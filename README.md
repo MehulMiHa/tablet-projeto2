@@ -31,7 +31,7 @@ Os testes do servidor não enviam ordens à casa. No tablet, confirma o mapa e o
 
 O Rocky abre na escolha de divisões ou de uma área no mapa. A seleção guarda separadamente as divisões a aspirar e a lavar. As opções de potência e água ficam em «Ajustes».
 
-Enquanto o Rocky trabalha, o relógio mostra a tarefa, localização confirmada, avisos e comandos contextuais. Durante uma falha de ligação, mantém a última leitura identificada como antiga e desativa os comandos. Um aviso de água limpa, quando está parado na base, fica compacto no relógio. Quando o sensor confirma ausência, desaparece toda a interface, incluindo avisos, controlos e notificações. O primeiro toque acorda apenas o relógio. Uma falha de energia mantém a luz e voz de emergência disponíveis.
+Enquanto o Rocky trabalha, o relógio mostra a tarefa, localização confirmada, avisos e comandos contextuais. Durante uma falha de ligação, mantém a última leitura identificada como antiga e desativa os comandos. Um aviso de água limpa, quando está parado na base, fica compacto no relógio. Após 20 minutos sem novo movimento ou interação, desaparece toda a interface, incluindo fotos, avisos, controlos e notificações, e o ecrã fica completamente preto. A deteção de movimento acorda o relógio; o primeiro toque também acorda apenas o relógio e reinicia esse prazo. O servidor continua ligado. Uma falha de energia mantém a luz e voz de emergência disponíveis.
 
 A passagem entre Sala e Rocky usa duas páginas que deslizam horizontalmente, tanto pelos separadores como pelo gesto de arrastar. A transição das letras fica reservada ao relógio. Os gestos não interferem com os sliders, a seleção de luzes ou o desenho de uma área no mapa.
 
@@ -47,9 +47,11 @@ Na app Android do telemóvel, o separador **Fotos** gere a moldura. O Eddy reduz
 
 Para compilar o APK do telemóvel, corre `gradlew.bat :mobile:assembleDebug` dentro de `android`.
 
+Para a instalação habitual, usa `:mobile:assembleRelease` com uma chave própria. A configuração opcional `android/mobile-signing.properties` contém `storeFile`, `storePassword`, `keyAlias` e `keyPassword`; fica fora do Git, tal como a chave. Conserva ambos para assinar futuras atualizações. A versão release do telemóvel e o APK de desenvolvimento do tablet são instalados sem depuração.
+
 ### Acesso pelo telemóvel
 
-1. Cria uma [rede pessoal Tailscale](https://login.tailscale.com/start) com a tua conta. Para uma rede nova dedicada ao Eddy, abre [Access Controls](https://login.tailscale.com/admin/acls) e usa a política abaixo. O cliente Android pode encaminhar portas locais para a rede Tailscale, por isso a política deve permitir apenas a porta 8787 do tablet. Numa rede existente, integra esta regra sem manter permissões abrangentes que permitam aceder às restantes portas do tablet.
+1. Cria uma [rede pessoal Tailscale](https://login.tailscale.com/start) com a tua conta. Para uma rede nova dedicada ao Eddy, abre [Access Controls](https://login.tailscale.com/admin/acls) e usa a política abaixo. Permite apenas a porta 8787 do tablet. Numa rede existente, integra esta regra sem manter permissões abrangentes que permitam aceder às restantes portas do tablet.
 
    ```json
    {
@@ -60,7 +62,7 @@ Para compilar o APK do telemóvel, corre `gradlew.bat :mobile:assembleDebug` den
    }
    ```
 
-2. Instala Tailscale no [tablet Android](https://tailscale.com/docs/install/android) e no [telemóvel](https://tailscale.com/docs/install). Entra com a mesma conta nos dois. Na lista [Machines](https://login.tailscale.com/admin/machines), aplica a etiqueta `tag:eddy-fotos` apenas ao tablet e copia o IPv4 Tailscale do tablet.
+2. Instala Tailscale no [tablet Android](https://tailscale.com/docs/install/android) e no [telemóvel](https://tailscale.com/docs/install). Ambos têm de pertencer à mesma rede privada; podem usar contas individuais convidadas. Na lista [Machines](https://login.tailscale.com/admin/machines), aplica a etiqueta `tag:eddy-fotos` apenas ao tablet e copia o IPv4 Tailscale do tablet.
 3. No Termux do tablet, corre os comandos abaixo com esse endereço. Guarda as palavras-passe de `eddy` e `familia` geradas. O separador «Funções» apresenta o endereço depois de o servidor reiniciar.
 
    ```sh
@@ -73,3 +75,7 @@ Para compilar o APK do telemóvel, corre `gradlew.bat :mobile:assembleDebug` den
 5. Em [Users](https://login.tailscale.com/admin/users), convida os familiares como membros. Cada um entra com a sua conta no Tailscale e com `familia` na app Eddy ou na página de gestão.
 
 Para um teste por USB antes do Tailscale, executa `node frame-admin-setup.cjs` sem IP, reinicia o servidor e faz `adb forward tcp:8787 tcp:8787` no PC. Abre `http://127.0.0.1:8787/` no navegador do PC. Quando adicionares o endereço do tablet, a palavra-passe continua a mesma. Usa `--rotate` apenas para a substituir.
+
+O servidor de controlo da casa escuta apenas `127.0.0.1:3000`. A gestão de ficheiros escuta `127.0.0.1:8787` e, depois de configurado, o endereço Tailscale exato do tablet na porta 8787. Não escuta `0.0.0.0` nem o endereço Wi-Fi. O cliente Tailscale Android entrega as ligações ao endereço da interface VPN do Android; não as redireciona automaticamente para o loopback. Se o servidor arrancar antes dessa interface, mantém o acesso local e tenta abrir o endereço privado de dois em dois segundos. Parar o servidor cancela essas tentativas e fecha os dois acessos. Ambos partilham o limite de tentativas de autenticação.
+
+O Tailscale tem de estar ligado nos dois dispositivos. O HTTP privado da Eddy fica dentro do túnel WireGuard; não se destina a publicação na Internet nem a encaminhamento de portas no router. A app do telemóvel associa a comunicação à rede VPN escolhida, usa essa rede explicitamente nas leituras e transferências e recusa novos pedidos quando ela muda. O Android permite confirmar uma VPN ativa, mas não atribuí-la com segurança ao Tailscale a partir desta app: usa o cliente Tailscale e um telemóvel de confiança. Após 20 palavras-passe inválidas numa janela de 30 segundos, o gateway suspende temporariamente as verificações. Ativa a autenticação de dois fatores na conta usada no Tailscale, mantém os aparelhos atualizados e convida apenas os familiares pretendidos.

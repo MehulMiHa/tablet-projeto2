@@ -5,7 +5,8 @@
     <queries><package android:name="com.tailscale.ipn" /></queries>
     <application
         android:label="Eddy"
-        android:icon="@drawable/eddy_mobile_icon"
+        android:icon="@mipmap/eddy_mobile_icon"
+        android:roundIcon="@mipmap/eddy_mobile_icon"
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
         android:theme="@style/EddyMobileTheme">

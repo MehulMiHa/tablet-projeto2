@@ -5,12 +5,15 @@
   var LIGHT_IDS = ['sanca', 'foco-1', 'foco-2', 'foco-3', 'foco-4', 'foco-5', 'foco-6', 'foco-7', 'foco-8'];
   var SVG_NS = 'http://www.w3.org/2000/svg';
   var SUCTION_LABELS = { 101: 'Silencioso', 102: 'Normal', 103: 'Turbo', 104: 'Máximo' };
+  var SLEEP_IDLE_MS = 20 * 60 * 1000;
   var $ = function (id) { return document.getElementById(id); };
   var state = null;
   var robotAlerts = [];
   var lastRobotUpdate = 0;
   var lastPresenceRevision = null;
-  var framePresence = false;
+  var receivedPresence = false;
+  var activityConfirmed = false;
+  var lastActivityAt = Date.now();
   var serverOnline = false;
   var stateAttempted = false;
   var selectedLights = new Set(LIGHT_IDS);
@@ -228,9 +231,8 @@
   function applyPresence(presence) {
     if (!presence || presence.online !== true || presence.stale === true || typeof presence.motion !== 'boolean' || !presence.revision || presence.revision === lastPresenceRevision) return;
     lastPresenceRevision = presence.revision;
-    framePresence = presence.motion;
-    if (presence.motion) wake(false);
-    else goToSleep();
+    if (presence.motion) { receivedPresence = true; wake(false); }
+    else noteAbsence(presence.changedAt);
   }
 
   async function refreshState() {
@@ -272,8 +274,8 @@
   function handleDeviceEvent(event, eventType) {
     var type = event.type || eventType;
     if (type === 'motion') {
-      if (event.motion === true) { framePresence = true; wake(false); }
-      else if (event.motion === false) { framePresence = false; goToSleep(); }
+      if (event.motion === true) { receivedPresence = true; wake(false); }
+      else if (event.motion === false) noteAbsence(event.changedAt);
       return;
     }
     if (type === 'frame') {
@@ -308,13 +310,34 @@
     renderFreshness();
   }
 
-  function resetSleepTimer() {
+  function scheduleSleep() {
     clearTimeout(sleepTimer);
-    sleepTimer = setTimeout(goToSleep, 10 * 60 * 1000);
+    if (document.body.dataset.sleep === 'true') return;
+    var remaining = lastActivityAt + SLEEP_IDLE_MS - Date.now();
+    if (remaining <= 0) goToSleep();
+    else sleepTimer = setTimeout(goToSleep, remaining);
   }
 
-  function markInteraction() {
-    resetSleepTimer();
+  function noteAbsence(changedAt) {
+    // A first current absence can predate a renderer restart. Later false reports
+    // must not restart the countdown or cancel an intentional manual wake.
+    if (!receivedPresence && !activityConfirmed) {
+      var observedAt = asTime(changedAt);
+      if (observedAt > 0) lastActivityAt = Math.min(Date.now(), observedAt);
+    }
+    receivedPresence = true;
+    scheduleSleep();
+    updateFrame();
+  }
+
+  function resetSleepTimer(confirmActivity) {
+    lastActivityAt = Date.now();
+    if (confirmActivity !== false) activityConfirmed = true;
+    scheduleSleep();
+  }
+
+  function markInteraction(confirmActivity) {
+    resetSleepTimer(confirmActivity !== false);
     if (window.EddyFrame) window.EddyFrame.noteActivity();
     clearTimeout(inactivityTimer);
     inactivityTimer = setTimeout(function checkIdle() {
@@ -861,7 +884,7 @@
     var awake = stateAttempted && !document.hidden && document.body.dataset.sleep !== 'true';
     window.EddyFrame.update({
       awake: awake,
-      canPlay: screen === 'clock' && framePresence && serverOnline && !emergencyActive && $('ambientAlert').hidden && $('ambientRocky').hidden
+      canPlay: screen === 'clock' && serverOnline && !emergencyActive && $('ambientAlert').hidden && $('ambientRocky').hidden
     });
   }
 
@@ -1552,7 +1575,7 @@
   updateClock();
   shiftOLED();
   render();
-  markInteraction();
+  markInteraction(false);
   setInterval(updateClock, 15000);
   setInterval(shiftOLED, 60000);
   attachEvents();
