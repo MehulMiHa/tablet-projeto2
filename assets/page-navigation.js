@@ -5,8 +5,9 @@
   var gesture = null;
   var suppressClickUntil = 0;
   var reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  var views = ['lights', 'robot', 'functions'];
 
-  function element(view) { return document.getElementById(view === 'lights' ? 'lightsView' : 'robotView'); }
+  function element(view) { return document.getElementById(view + 'View'); }
   function finish(token, committed) {
     if (!token || active !== token) return;
     active = null;
@@ -31,14 +32,15 @@
   }
   function prepare(from, to) {
     cancel();
-    if (!from || from === to || from === 'clock' || to === 'clock') return null;
+    var difference = views.indexOf(to) - views.indexOf(from);
+    if (!difference || views.indexOf(from) === -1 || views.indexOf(to) === -1) return null;
     var source = element(from);
     var destination = element(to);
     var dashboard = document.getElementById('dashboard');
     var box = source.getBoundingClientRect();
     var parent = dashboard.getBoundingClientRect();
     if (!box.width || !box.height) return null;
-    var token = { source: source, destination: destination, direction: to === 'robot' ? 1 : -1,
+    var token = { source: source, destination: destination, direction: Math.sign(difference),
       travel: box.width + 26, offset: 0, committed: false, animations: [] };
     active = token;
     dashboard.classList.add('page-sliding');
@@ -81,7 +83,7 @@
     if (!settings.canSwipe() || active || !event.isPrimary || event.button !== 0) return;
     if (event.target.closest('button, a, input, textarea, select, summary, [role="button"], canvas, .scope-options')) return;
     var view = settings.getView();
-    if (view !== 'lights' && view !== 'robot') return;
+    if (views.indexOf(view) === -1) return;
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY,
       at: performance.now(), from: view, token: null };
   }
@@ -91,14 +93,14 @@
     var dy = event.clientY - gesture.y;
     if (!gesture.token) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) < 14) return;
-      if (!settings.canSwipe() || Math.abs(dy) > Math.abs(dx) * .8 ||
-          (gesture.from === 'lights' ? dx > 0 : dx < 0)) { gesture = null; return; }
+      var target = views[views.indexOf(gesture.from) - Math.sign(dx)];
+      if (!settings.canSwipe() || Math.abs(dy) > Math.abs(dx) * .8 || !target) { gesture = null; return; }
       var pending = gesture;
-      var target = pending.from === 'lights' ? 'robot' : 'lights';
       var token = prepare(pending.from, target);
       gesture = pending;
       if (!token) { gesture = null; return; }
       gesture.token = token;
+      gesture.target = target;
       document.getElementById('dashboard').setPointerCapture(event.pointerId);
     }
     event.preventDefault();
@@ -116,7 +118,7 @@
     var distance = Math.abs(current.token.offset);
     var velocity = distance / Math.max(1, performance.now() - current.at);
     var committed = !cancelled && (distance > Math.min(115, current.token.travel * .2) || (distance > 42 && velocity > .5));
-    if (committed) settings.onNavigate(current.from === 'lights' ? 'robot' : 'lights', current.token);
+    if (committed) settings.onNavigate(current.target, current.token);
     else settle(current.token, false);
     settings.onInteraction();
   }

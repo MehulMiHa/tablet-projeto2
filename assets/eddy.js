@@ -10,6 +10,7 @@
   var robotAlerts = [];
   var lastRobotUpdate = 0;
   var lastPresenceRevision = null;
+  var framePresence = false;
   var serverOnline = false;
   var stateAttempted = false;
   var selectedLights = new Set(LIGHT_IDS);
@@ -227,6 +228,7 @@
   function applyPresence(presence) {
     if (!presence || presence.online !== true || presence.stale === true || typeof presence.motion !== 'boolean' || !presence.revision || presence.revision === lastPresenceRevision) return;
     lastPresenceRevision = presence.revision;
+    framePresence = presence.motion;
     if (presence.motion) wake(false);
     else goToSleep();
   }
@@ -257,19 +259,25 @@
   function attachEvents() {
     if (!window.EventSource || eventStream) return;
     eventStream = new EventSource(API_BASE + '/api/events');
-    eventStream.onopen = refreshState;
+    eventStream.onopen = function () {
+      if (window.EddyFrame) window.EddyFrame.invalidate();
+    };
     var receive = function (event) {
       try { handleDeviceEvent(JSON.parse(event.data), event.type); } catch (error) { /* A malformed event is ignored. */ }
     };
     eventStream.onmessage = receive;
-    ['button', 'motion', 'state'].forEach(function (type) { eventStream.addEventListener(type, receive); });
+    ['button', 'motion', 'state', 'frame'].forEach(function (type) { eventStream.addEventListener(type, receive); });
   }
 
   function handleDeviceEvent(event, eventType) {
     var type = event.type || eventType;
     if (type === 'motion') {
-      if (event.motion === true) wake(false);
-      else if (event.motion === false) goToSleep();
+      if (event.motion === true) { framePresence = true; wake(false); }
+      else if (event.motion === false) { framePresence = false; goToSleep(); }
+      return;
+    }
+    if (type === 'frame') {
+      if (window.EddyFrame) window.EddyFrame.invalidate(event.revision);
       return;
     }
     if (type === 'button') {
@@ -307,6 +315,7 @@
 
   function markInteraction() {
     resetSleepTimer();
+    if (window.EddyFrame) window.EddyFrame.noteActivity();
     clearTimeout(inactivityTimer);
     inactivityTimer = setTimeout(function checkIdle() {
       if (pointerDown || sheetOpen) { inactivityTimer = setTimeout(checkIdle, 10000); return; }
@@ -324,6 +333,7 @@
       showClock(false);
       refreshState();
     }
+    updateFrame();
   }
 
   function showClock(animate) {
@@ -395,6 +405,7 @@
     if (previous === 'clock') {
       $('lightsView').classList.remove('page-arrived');
       $('robotView').classList.remove('page-arrived');
+      $('functionsView').classList.remove('page-arrived');
     }
     if (previous === 'clock' && withClockAnimation !== false) {
       try { clockTransition = window.EddyPanelTransition.capture(); } catch (error) { /* Navigation still works without the animation. */ }
@@ -416,6 +427,7 @@
     $('ambient').setAttribute('aria-hidden', 'true');
     $('lightsView').hidden = view !== 'lights';
     $('robotView').hidden = view !== 'robot';
+    $('functionsView').hidden = view !== 'functions';
     renderAmbient();
     if (slide) window.EddyPages.play(slide);
     if (clockTransition) {
@@ -429,6 +441,10 @@
       else button.removeAttribute('aria-current');
     });
     if (view === 'robot') { cancelSelection(); loadMap(false); }
+    if (view === 'functions') {
+      cancelSelection();
+      if (window.EddyFrame) window.EddyFrame.invalidate();
+    }
     markInteraction();
     refreshState();
   }
@@ -818,6 +834,7 @@
         }
       });
     }
+    updateFrame();
     var weatherElement = $('ambientWeather');
     var weather = state && state.weather ? state.weather : {};
     var signature = JSON.stringify([weather.outdoorTemperature, weather.indoorTemperature, weather.rainProbability]);
@@ -836,6 +853,15 @@
       span.appendChild(label);
       span.appendChild(document.createTextNode(Math.round(reading.value) + reading.suffix));
       weatherElement.appendChild(span);
+    });
+  }
+
+  function updateFrame() {
+    if (!window.EddyFrame) return;
+    var awake = stateAttempted && !document.hidden && document.body.dataset.sleep !== 'true';
+    window.EddyFrame.update({
+      awake: awake,
+      canPlay: screen === 'clock' && framePresence && serverOnline && !emergencyActive && $('ambientAlert').hidden && $('ambientRocky').hidden
     });
   }
 
@@ -1302,6 +1328,7 @@
     stopCamera();
     nativeCall('pararFala');
     if (window.speechSynthesis) window.speechSynthesis.cancel();
+    updateFrame();
   }
 
   function stopCamera() {
@@ -1368,6 +1395,7 @@
   }
 
   function bindEvents() {
+    if (window.EddyFrame) window.EddyFrame.mount({ request: api, apiBase: API_BASE, onDismiss: markInteraction });
     ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'touchstart', 'touchmove', 'touchend', 'touchcancel', 'mousedown', 'mouseup', 'click', 'keydown', 'keyup'].forEach(function (type) {
       document.addEventListener(type, captureSleepWake, { capture: true, passive: false });
     });
@@ -1448,7 +1476,12 @@
     document.addEventListener('input', markInteraction, { passive: true });
     document.addEventListener('keydown', function (event) {
       markInteraction();
-      if (event.key === 'Escape') { if (sheetOpen) closeCleaning(); else if (selecting) cancelSelection(); else showClock(); }
+      if (event.key === 'Escape') {
+        if (window.EddyFrame && window.EddyFrame.dismiss()) return;
+        if (sheetOpen) closeCleaning();
+        else if (selecting) cancelSelection();
+        else showClock();
+      }
       if (event.key === 'Tab' && sheetOpen) {
         var focusable = Array.from($('cleaningSheet').querySelectorAll('button:not(:disabled), input:not(:disabled), summary')).filter(function (element) { return element.offsetParent !== null; });
         if (!focusable.length) return;
@@ -1458,7 +1491,10 @@
         if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
       }
     });
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) { updateClock(); refreshState(); } });
+    document.addEventListener('visibilitychange', function () {
+      updateFrame();
+      if (!document.hidden) { updateClock(); refreshState(); }
+    });
     window.addEventListener('resize', drawMap);
     $('dismissEmergency').addEventListener('click', function () { emergencyDismissed = true; stopEmergency(); });
     window.addEventListener('eddy:back', function () {
@@ -1470,10 +1506,17 @@
       } else if (selecting) {
         cancelSelection();
       } else {
+        if (window.EddyFrame && window.EddyFrame.dismiss()) { markInteraction(); return; }
         showClock();
       }
     });
-    window.addEventListener('pagehide', function () { clearTimeout(pollTimer); if (eventStream) eventStream.close(); stopEmergency(); rememberSnapshot(true); });
+    window.addEventListener('pagehide', function () {
+      clearTimeout(pollTimer);
+      if (eventStream) eventStream.close();
+      stopEmergency();
+      if (window.EddyFrame) window.EddyFrame.shutdown();
+      rememberSnapshot(true);
+    });
   }
 
   window.receberEstadoBateria = function (isCharging) {

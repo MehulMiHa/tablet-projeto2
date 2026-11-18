@@ -1,0 +1,83 @@
+.functions-view {
+  display: flex;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 12px 5px 16px;
+  animation: none !important;
+}
+.frame-settings { width: min(100%, 520px); margin: auto; }
+.frame-settings-illustration {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 70px;
+  margin-bottom: 22px;
+  border: 1px solid #35483d;
+  border-radius: 22px;
+  background: #13211a;
+  color: var(--accent);
+}
+.frame-settings-illustration .icon { width: 34px; height: 34px; }
+.frame-settings h1 { font-size: clamp(28px, 4vw, 42px); }
+.frame-settings > .muted { margin-top: 10px; }
+.frame-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  min-height: 68px;
+  border: 1px solid #2b3831;
+  border-radius: 20px;
+  padding: 16px 20px;
+  margin-top: 24px;
+  background: #111915;
+  font-size: 17px;
+  text-align: left;
+}
+.frame-status { min-height: 22px; padding-inline: 2px; font-size: 14px; }
+.frame-status.is-error { color: var(--amber); }
+.frame-retry { padding-inline: 2px; color: var(--accent); }
+.frame-phone {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  border-top: 1px solid var(--border);
+  margin-top: 23px;
+  padding: 18px 2px 0;
+  font-size: 14px;
+}
+.frame-phone .icon { color: var(--accent); }
+.frame-phone h2 { font-size: 16px; letter-spacing: -.025em; margin-bottom: 4px; }
+.frame-address { color: var(--accent); margin-top: 9px; overflow-wrap: anywhere; }
+.frame-slide {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+  background: #000;
+}
+.frame-slide:active:not(:disabled) { transform: none; }
+.frame-slide:focus-visible { outline-offset: -4px; }
+.frame-slide img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .view-tab { min-width: 70px; padding-inline: 10px; }
+}
+@media (max-width: 420px) {
+  .app-header { flex-wrap: wrap; height: auto; gap: 4px; }
+  .view-tabs { flex: 1 0 100%; order: 1; position: static; transform: none; }
+  .view-tab { flex: 1; }
+}

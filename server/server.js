@@ -4,8 +4,10 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
+const { pipeline } = require('node:stream/promises');
 const { RobotClient } = require('./robot-client');
 const { HomeClients } = require('./home-clients');
+const { FrameStore, PHOTO_ID, uploadImage } = require('./frame-store');
 const { normalizeRobot, normalizeRooms, withRobotLocation, unknownLocation } = require('./normalize');
 const { Jobs, ApiError } = require('./jobs');
 
@@ -31,6 +33,8 @@ function createApp(config, dependencies = {}) {
   const home = dependencies.home || new HomeClients(config);
   const publicRoot = dependencies.publicRoot || path.resolve(__dirname, '..');
   const dataDirectory = config.dataDir || path.join(__dirname, 'runtime');
+  const frame = dependencies.frame || new FrameStore(path.join(dataDirectory, 'frame'));
+  let frameUploads = 0;
   const cacheFile = dependencies.persist === false ? null : path.join(dataDirectory, 'last-state.json');
   const cached = cacheFile ? readJson(cacheFile, {}) : {};
   const initialConnection = () => ({ online: false, error: 'A estabelecer ligação', updatedAt: null });
@@ -272,20 +276,77 @@ function createApp(config, dependencies = {}) {
     return [...new Set(data.ids)];
   }
 
+  function sendAlbum(response, status, album) {
+    const manageUrl = dependencies.frameAdminAddress?.();
+    send(response, status, manageUrl ? { ...album, manageUrl } : album);
+  }
+
+  async function serveFrame(request, response, pathname) {
+    // The panel API stays private even though legacy household routes support extra CORS origins.
+    const port = request.socket.localPort;
+    const host = (request.headers.host || '').toLowerCase();
+    if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(host) ||
+        (request.headers.origin && request.headers.origin.toLowerCase() !== `http://${host}`)) {
+      throw new ApiError('Origem não autorizada.', 403);
+    }
+    response.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    const method = request.method;
+    try {
+      if (pathname === '/api/frame' && method === 'GET') {
+        sendAlbum(response, 200, await frame.list());
+        return;
+      }
+      let changed;
+      let status = 200;
+      if (pathname === '/api/frame/settings' && method === 'PUT') {
+        const data = await body(request);
+        if (typeof data.enabled !== 'boolean') throw new ApiError('Escolhe se queres ligar ou desligar a moldura.');
+        changed = await frame.setEnabled(data.enabled);
+      } else if (pathname === '/api/frame/photos' && method === 'POST') {
+        if (frameUploads >= 2) throw new ApiError('Já há fotografias a chegar. Tenta novamente dentro de instantes.', 429);
+        frameUploads++;
+        try { changed = await frame.add(await uploadImage(request), request.headers['x-photo-name']); }
+        finally { frameUploads--; }
+        status = 201;
+      } else {
+        const id = pathname.slice('/api/frame/photos/'.length);
+        if (!pathname.startsWith('/api/frame/photos/') || !PHOTO_ID.test(id)) throw new ApiError('Fotografia não encontrada.', 404);
+        if (method === 'GET') {
+          const file = await frame.open(id);
+          response.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' });
+          await pipeline(file.createReadStream(), response);
+          return;
+        }
+        if (method !== 'DELETE') throw new ApiError('Rota não encontrada.', 404);
+        changed = await frame.remove(id);
+      }
+      emit({ type: 'frame', revision: changed.revision });
+      sendAlbum(response, status, changed);
+    } catch (error) {
+      if (error instanceof ApiError || response.headersSent) throw error;
+      console.error('Erro ao aceder à moldura:', error.code || error.name);
+      throw new ApiError('A moldura não conseguiu aceder às fotografias guardadas.', 500);
+    }
+  }
+
   const server = http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'no-referrer');
-    const origin = request.headers.origin;
-    if (!allowedOrigin(origin)) { send(response, 403, { error: 'Origem não autorizada.' }); return; }
-    if (origin) { response.setHeader('Access-Control-Allow-Origin', origin); response.setHeader('Vary', 'Origin'); }
-    if (request.method === 'OPTIONS') {
-      response.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600' });
-      response.end();
-      return;
-    }
     try {
       const url = new URL(request.url, 'http://127.0.0.1:3000');
       const pathname = decodeURIComponent(url.pathname);
+      if (pathname === '/api/frame' || pathname.startsWith('/api/frame/')) {
+        await serveFrame(request, response, pathname);
+        return;
+      }
+      const origin = request.headers.origin;
+      if (!allowedOrigin(origin)) { send(response, 403, { error: 'Origem não autorizada.' }); return; }
+      if (origin) { response.setHeader('Access-Control-Allow-Origin', origin); response.setHeader('Vary', 'Origin'); }
+      if (request.method === 'OPTIONS') {
+        response.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600' });
+        response.end();
+        return;
+      }
       if (pathname === '/api/health' && request.method === 'GET') {
         send(response, 200, { ok: true, version: '2.0.0', uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000) });
         return;
@@ -422,14 +483,26 @@ function createApp(config, dependencies = {}) {
 }
 
 if (require.main === module) {
-  const app = createApp(loadConfig());
+  const { frameAdminAddress, startConfiguredFrameAdmin } = require('./frame-admin-server');
+  const frameAdminDirectory = path.join(__dirname, 'data');
+  const app = createApp(loadConfig(), { frameAdminAddress: () => frameAdminAddress(frameAdminDirectory) });
   const port = Number(process.env.PORT || 3000);
-  app.server.listen(port, '127.0.0.1', () => { console.log(`Eddy disponível em http://127.0.0.1:${port}`); app.start(); });
+  let frameAdmin = null;
+  app.server.listen(port, '127.0.0.1', () => {
+    const panelPort = app.server.address().port;
+    console.log(`Eddy disponível em http://127.0.0.1:${panelPort}`);
+    app.start();
+    frameAdmin = startConfiguredFrameAdmin({ dataDirectory: frameAdminDirectory, panelPort });
+  });
   let stopping = false;
   const shutdown = () => {
     if (stopping) return;
     stopping = true;
-    app.close().then(() => process.exit(0)).catch(() => process.exit(1));
+    const closeAdmin = frameAdmin ? new Promise(resolve => {
+      frameAdmin.close(resolve);
+      frameAdmin.closeAllConnections();
+    }) : Promise.resolve();
+    Promise.all([app.close(), closeAdmin]).then(() => process.exit(0)).catch(() => process.exit(1));
     setTimeout(() => process.exit(1), 5000).unref();
   };
   process.on('SIGINT', shutdown);

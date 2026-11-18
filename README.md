@@ -38,3 +38,35 @@ A passagem entre Sala e Rocky usa duas páginas que deslizam horizontalmente, ta
 A voz de emergência usa uma voz portuguesa offline quando instalada e o volume de alarme configurado no Android. As mensagens aguardam a inicialização do motor de voz; a reposição da energia cancela avisos ainda pendentes. A app respeita o volume e o modo Não incomodar.
 
 A localização atual usa o segmento reportado pelo aspirador; o destino da ordem é guardado separadamente. Quando esse segmento não está disponível, o painel pode usar o segmento do mapa real, com a hora da leitura. Sem dados suficientes, mostra que a localização está por confirmar.
+
+## Moldura 2.4
+
+No tablet, abre **Funções → Moldura**. A apresentação começa após 30 segundos no relógio com presença, se houver fotos. Toca numa foto para voltar ao relógio. O Rocky e os avisos têm prioridade. Em repouso preto, a app deixa de apresentar e carregar fotos.
+
+As fotos são escolhidas no navegador do telemóvel. A página reduz cada imagem para até 2048 píxeis no lado maior, converte-a em JPEG e envia a cópia para o armazenamento do tablet. Apagar uma imagem na página retira-a da moldura. Os originais ficam na galeria do telemóvel.
+
+### Acesso pelo telemóvel
+
+1. Cria uma [rede pessoal Tailscale](https://login.tailscale.com/start) com a tua conta. Para uma rede nova dedicada ao Eddy, abre [Access Controls](https://login.tailscale.com/admin/acls) e usa a política abaixo. O cliente Android pode encaminhar portas locais para a rede Tailscale, por isso a política deve permitir apenas a porta 8787 do tablet. Numa rede existente, integra esta regra sem manter permissões abrangentes que permitam aceder às restantes portas do tablet.
+
+   ```json
+   {
+     "tagOwners": { "tag:eddy-fotos": ["autogroup:owner"] },
+     "grants": [
+       { "src": ["autogroup:owner"], "dst": ["tag:eddy-fotos"], "ip": ["tcp:8787"] }
+     ]
+   }
+   ```
+
+2. Instala Tailscale no [tablet Android](https://tailscale.com/docs/install/android) e no [telemóvel](https://tailscale.com/docs/install). Entra com a mesma conta nos dois. Na lista [Machines](https://login.tailscale.com/admin/machines), aplica a etiqueta `tag:eddy-fotos` apenas ao tablet e copia o IPv4 Tailscale do tablet.
+3. No Termux do tablet, corre os comandos abaixo com esse endereço. No primeiro arranque, o comando gera a palavra-passe privada da página. Guarda-a. O título da moldura no tablet apresenta o endereço depois de o servidor reiniciar.
+
+   ```sh
+   cd ~/eddy/server
+   node frame-admin-setup.cjs IP_TAILSCALE_DO_TABLET
+   PM2_HOME="$HOME/.pm2-eddy" pm2 restart eddy-server
+   ```
+
+4. Liga Tailscale no telemóvel, abre o endereço indicado no navegador e entra com o utilizador `eddy` e a palavra-passe gerada. Adiciona uma foto, confirma que aparece na moldura e testa o acesso por dados móveis. Confirma também que a porta 3000 do tablet está inacessível pelo Tailscale.
+
+Para um teste por USB antes do Tailscale, executa `node frame-admin-setup.cjs` sem IP, reinicia o servidor e faz `adb forward tcp:8787 tcp:8787` no PC. Abre `http://127.0.0.1:8787/` no navegador do PC. Quando adicionares o endereço do tablet, a palavra-passe continua a mesma. Usa `--rotate` apenas para a substituir.

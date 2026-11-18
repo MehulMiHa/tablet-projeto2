@@ -84,6 +84,8 @@
       selectors = ['#ambientDate', '#ambientWeather > span:nth-child(1)', '#ambientWeather > span:nth-child(2)', '#ambientWeather > span:nth-child(3)', '#ambientAlertTitle', '#ambientRocky .ar-status', '#ambientRocky .ar-location'];
     } else if (view === 'lights') {
       selectors = ['#selectedLightTitle', '#lightsView label[for="brightness"]', '#lightsView label[for="temperature"]', '.sync-copy strong', '#selectedLightStatus'];
+    } else if (view === 'functions') {
+      selectors = ['#frameTitle', '#frameDescription', '#frameSwitchLabel', '#frameStatus'];
     } else {
       selectors = ['#robotTitle', '#openCleaning .rocky-choice-name strong', '#openZoneCleaning .rocky-choice-name strong', '#robotState'];
     }
