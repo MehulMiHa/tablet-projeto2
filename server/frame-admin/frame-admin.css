@@ -95,7 +95,6 @@ button:not(:disabled):active, a.button:active { transform: scale(.97); }
 body[data-section="family"] .tab-bar::before { transform: translateX(calc(100% + .25rem)); }
 .tab-bar button { display: flex; align-items: center; justify-content: center; gap: .45rem; min-height: 48px; background: none; color: var(--muted); border: 0; font-size: .89rem; font-weight: 660; border-radius: 13px; }
 .tab-bar button[aria-current="page"] { color: var(--accent); }
-body[data-role="family"] .tab-bar { display: none; }
 
 .notice, .transfer { margin: 0 0 .8rem; padding: .75rem .9rem; border-radius: 13px; border: 1px solid #526e51; background: #263d2b; font-size: .86rem; }
 .notice[data-tone="error"] { color: var(--danger); border-color: #674e40; background: #392e29; }

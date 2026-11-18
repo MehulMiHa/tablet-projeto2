@@ -10,6 +10,7 @@ import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
@@ -83,11 +84,9 @@ class MobileActivity : ComponentActivity() {
     private var download: Download? = null
     private var networkCallbackRegistered = false
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onLost(network: Network) = runOnUiThread {
-            if (!isFinishing && !isDestroyed && connection?.network == network && web != null) {
-                showConnection("A ligação VPN terminou. Liga o Tailscale e volta a ligar ao tablet.")
-            }
-        }
+        override fun onLost(network: Network) = runOnUiThread { checkSessionNetwork() }
+        override fun onAvailable(network: Network) = runOnUiThread { checkSessionNetwork() }
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = runOnUiThread { checkSessionNetwork() }
     }
 
     private val picker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -107,7 +106,9 @@ class MobileActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         saved = SavedConnection(this)
-        getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
+        val vpnRequest = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_VPN)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build()
+        getSystemService(ConnectivityManager::class.java).registerNetworkCallback(vpnRequest, networkCallback)
         networkCallbackRegistered = true
         WindowCompat.setDecorFitsSystemWindows(window, false)
         root = FrameLayout(this).apply { setBackgroundColor(pageBackground) }
@@ -240,6 +241,19 @@ class MobileActivity : ComponentActivity() {
 
     private fun connectionNetworkAvailable(target: Connection): Boolean = vpnNetwork() == target.network
 
+    private fun checkSessionNetwork() {
+        val current = connection ?: return
+        if (!isFinishing && !isDestroyed && web != null && !connectionNetworkAvailable(current)) {
+            showConnection(if (vpnConnected()) "A ligação VPN mudou. Toca em Ligar para retomar."
+                else "A ligação VPN terminou. Liga o Tailscale e volta a ligar ao tablet.")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        checkSessionNetwork()
+    }
+
     private fun connect() {
         val address = parseAddress(addressInput.text.toString().trim())
         if (address == null) { status.text = "Confirma o endereço Tailscale do tablet."; return }
@@ -278,8 +292,8 @@ class MobileActivity : ComponentActivity() {
             } catch (_: Exception) { "O tablet não respondeu. Confirma se está ligado ao Tailscale." }
             runOnUiThread {
                 if (session != generation || isFinishing || isDestroyed) return@runOnUiThread
-                if (error != null) {
-                    status.text = error
+                if (error != null || !connectionNetworkAvailable(candidate)) {
+                    status.text = error ?: "A ligação VPN mudou. Toca em Ligar para retomar."
                     connectButton.isEnabled = true
                 } else {
                     try { saved.save(candidate.address, candidate.user, password.takeIf { persist }) }
@@ -337,6 +351,7 @@ class MobileActivity : ComponentActivity() {
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 if (!allowed(request.url, target) || !connectionNetworkAvailable(target) || session != generation) {
+                    runOnUiThread { if (session == generation) checkSessionNetwork() }
                     return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
                 }
                 if (request.method != "GET") return null

@@ -151,8 +151,7 @@ function createFrameAdminServer({ config, panelPort, familyFiles, now = Date.now
       return;
     }
     if (isPhotoRoute) {
-      if (role === 'owner') proxy(request, response, panelPort);
-      else send(response, 403, 'Este acesso serve apenas para os ficheiros da família.');
+      proxy(request, response, panelPort);
       return;
     }
     if (isSessionRoute) {
@@ -161,7 +160,7 @@ function createFrameAdminServer({ config, panelPort, familyFiles, now = Date.now
       return;
     }
     if (isFamilyRoute) {
-      try { await serveFamily(request, response, familyFiles, role === 'owner'); }
+      try { await serveFamily(request, response, familyFiles, true); }
       catch (error) {
         if (response.destroyed || request.aborted) return;
         if (response.headersSent) { response.destroy(); return; }

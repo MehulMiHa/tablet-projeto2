@@ -31,7 +31,7 @@ async function dataDirectory(context) {
   return directory;
 }
 
-test('family storage survives restart, uses its own directory and protects owner actions', async context => {
+test('family storage survives restart, uses its own directory and permits shared deletion', async context => {
   const directory = await dataDirectory(context);
   const panel = createApp({ dataDir: directory, hue: {} }, { home: { close() {} }, robot: { close() {} } });
   const panelOrigin = await listen(context, panel.server);
@@ -44,7 +44,7 @@ test('family storage survives restart, uses its own directory and protects owner
   assert.equal((await fetch(gateway + '/api/family')).status, 401);
   assert.deepEqual(await (await request('/api/session', owner)).json(), { role: 'owner' });
   assert.deepEqual(await (await request('/api/session', family)).json(), { role: 'family' });
-  assert.equal((await request('/api/frame', family)).status, 403);
+  assert.equal((await request('/api/frame', family)).status, 200);
   assert.equal((await request('/api/frame', owner)).status, 200);
   assert.equal((await fetch(panelOrigin + '/api/family')).status, 404);
   assert.equal((await request('/api/robot/control', family)).status, 404);
@@ -63,7 +63,7 @@ test('family storage survives restart, uses its own directory and protects owner
   assert.equal(upload.status, 201);
   const listing = await upload.json();
   const [entry] = listing.files;
-  assert.equal(listing.canDelete, false);
+  assert.equal(listing.canDelete, true);
   assert.equal(listing.totalBytes, bytes.length);
   assert.equal(entry.name, 'Álbum de férias.html');
   assert.equal(entry.type, 'text/html');
@@ -82,12 +82,69 @@ test('family storage survives restart, uses its own directory and protects owner
   assert.deepEqual(Buffer.from(await download.arrayBuffer()), bytes);
 
   const deletion = { method: 'DELETE', headers: { origin: gateway } };
-  assert.equal((await request(entry.url, family, deletion)).status, 403);
-  const removed = await request(entry.url, owner, deletion);
+  const removed = await request(entry.url, family, deletion);
   assert.equal(removed.status, 200);
   assert.deepEqual((await removed.json()).files, []);
   assert.equal((await request(entry.url, family)).status, 404);
   assert.deepEqual(await fs.readdir(path.join(directory, 'family')), ['files.json']);
+});
+
+test('owner and family can upload, read and delete each other\'s photos and files without exposing household controls', async context => {
+  const directory = await dataDirectory(context);
+  const panel = createApp({ dataDir: directory, hue: {} }, { home: { close() {} }, robot: { close() {} } });
+  await listen(context, panel.server);
+  const gateway = await listen(context, createFrameAdminServer({ config, panelPort: panel.server.address().port, familyFiles: panel.familyFiles }));
+  const request = (route, login, options = {}) => fetch(gateway + route, {
+    ...options, headers: { authorization: credentials(login), origin: gateway, ...options.headers }
+  });
+  // Real three-by-two JPEG, including the encoding tables and scan data.
+  const jpeg = Buffer.from(
+    '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQ' +
+    'ERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU' +
+    'FBQUFBQUFBQUFBQUFBT/wAARCAACAAMDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAA' +
+    'AgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6' +
+    'Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXG' +
+    'x8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA' +
+    'AgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5' +
+    'OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPE' +
+    'xcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8r7y8n1C7nurqeS5uZ3aWWaZy7yOxyzMx' +
+    '5JJJJJoooqpbsxo/wo+iP//Z', 'base64'
+  );
+  for (const [sender, other] of [[owner, family], [family, owner]]) {
+    const photoUpload = await request('/api/frame/photos', sender, {
+      method: 'POST', body: jpeg, headers: { 'content-type': 'image/jpeg', 'x-photo-name': 'Partilhada.jpg' }
+    });
+    assert.equal(photoUpload.status, 201);
+    const [photo] = (await photoUpload.json()).photos;
+    for (const account of [sender, other]) {
+      assert.deepEqual(Buffer.from(await (await request(photo.url, account)).arrayBuffer()), jpeg);
+      assert.equal((await (await request('/api/frame', account)).json()).photos.length, 1);
+    }
+    const removedPhoto = await request(photo.url, other, { method: 'DELETE' });
+    assert.equal(removedPhoto.status, 200);
+    assert.deepEqual((await removedPhoto.json()).photos, []);
+    assert.equal((await request(photo.url, sender)).status, 404);
+
+    const bytes = Buffer.from('Ficheiro da família com acesso igual.');
+    const fileUpload = await request('/api/family/files', sender, {
+      method: 'POST', body: bytes, headers: { 'content-type': 'text/plain', 'x-file-name': 'Partilhado.txt' }
+    });
+    assert.equal(fileUpload.status, 201);
+    const listing = await fileUpload.json();
+    assert.equal(listing.canDelete, true);
+    const [file] = listing.files;
+    assert.deepEqual(Buffer.from(await (await request(file.url, other)).arrayBuffer()), bytes);
+    assert.equal((await (await request('/api/family', other)).json()).canDelete, true);
+    const removedFile = await request(file.url, other, { method: 'DELETE' });
+    assert.equal(removedFile.status, 200);
+    assert.deepEqual((await removedFile.json()).files, []);
+    assert.equal((await request(file.url, sender)).status, 404);
+    for (const route of ['/api/state', '/api/events', '/api/lights/control', '/api/robot/control']) {
+      assert.equal((await request(route, sender)).status, 404);
+    }
+  }
+  assert.deepEqual(await fs.readdir(path.join(directory, 'family')), ['files.json']);
+  assert.deepEqual(await fs.readdir(path.join(directory, 'frame')), ['album.json']);
 });
 
 test('family upload enforces both declared and streamed limits before committing files', async context => {

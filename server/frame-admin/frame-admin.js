@@ -238,7 +238,7 @@ function render(name) {
 
 async function load(name) {
   const view = views[name];
-  if (view.busy || mutation || !role || (role === 'family' && name === 'photos')) return;
+  if (view.busy || mutation || !role) return;
   view.busy = true;
   if (!view.data) setPlaceholder(name, 'A carregar…');
   updateControls();
@@ -254,7 +254,7 @@ async function load(name) {
 }
 
 function selectView(view, moveScroll = true) {
-  if (!views[view] || (role === 'family' && view === 'photos')) return;
+  if (!views[view]) return;
   active = view;
   document.body.dataset.section = view;
   for (const [name, item] of Object.entries(views)) {
@@ -278,7 +278,7 @@ async function connect() {
     role = result.role;
     document.body.dataset.role = role;
     setNetwork('online');
-    selectView(role === 'family' ? 'family' : active, false);
+    selectView(active, false);
   } catch (error) {
     setNetwork('offline');
     setPlaceholder(active, 'Toca no botão de atualizar para tentar novamente.');
@@ -368,7 +368,7 @@ function openDetail(area, item) {
   const meta = byId('previewMeta');
   meta.textContent = area === 'family' ? [prettySize(item.size), prettyDate(item.createdAt)].filter(Boolean).join(' · ') : '';
   meta.hidden = !meta.textContent;
-  byId('removeItem').hidden = role !== 'owner' || (area === 'family' && !views.family.data.canDelete);
+  byId('removeItem').hidden = !role || (area === 'family' && !views.family.data.canDelete);
   previewDownload.hidden = area !== 'family';
   if (area === 'family') {
     previewDownload.href = item.url;
@@ -488,8 +488,9 @@ async function addItems(area, files) {
 }
 
 async function deleteItem() {
-  if (!selection || role !== 'owner' || mutation) return;
+  if (!selection || !role || mutation) return;
   const { area, item } = selection;
+  if (area === 'family' && !views.family.data.canDelete) return;
   closeDetail();
   mutation = true;
   updateControls();

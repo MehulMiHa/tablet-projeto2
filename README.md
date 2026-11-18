@@ -43,7 +43,7 @@ A localização atual usa o segmento reportado pelo aspirador; o destino da orde
 
 No tablet, abre **Funções → Moldura**. A apresentação começa após 30 segundos no relógio com presença, se houver fotos. Cada foto fica visível cerca de dez segundos e as transições variam entre vinte animações sem repetição consecutiva. Toca numa foto para voltar ao relógio. O Rocky e os avisos têm prioridade. Em repouso preto, a app deixa de apresentar e carregar fotos.
 
-Na app Android do telemóvel, o separador **Fotos** gere a moldura. O Eddy reduz as fotos para até 2048 píxeis no lado maior e guarda cópias JPEG em `frame/`. O separador **Família** usa a pasta `family/`, dentro do mesmo diretório de dados do servidor no tablet. A família pode adicionar, ver e descarregar ficheiros. O utilizador `eddy` também pode apagar. A pasta da família guarda até 2 GB e aceita até 100 MB por ficheiro. A página no navegador continua disponível.
+Na app Android do telemóvel, o separador **Fotos** gere a moldura. O Eddy reduz as fotos para até 2048 píxeis no lado maior e guarda cópias JPEG em `frame/`. O separador **Família** usa a pasta `family/`, dentro do mesmo diretório de dados do servidor no tablet. Os utilizadores `eddy` e `familia` têm os mesmos controlos: ambos podem adicionar, ver e apagar fotos da moldura e adicionar, ver, descarregar e apagar ficheiros da família. Apagar pede confirmação. Estes acessos não expõem os controlos das luzes ou do aspirador. A pasta da família guarda até 2 GB e aceita até 100 MB por ficheiro. A página no navegador continua disponível.
 
 Para compilar o APK do telemóvel, corre `gradlew.bat :mobile:assembleDebug` dentro de `android`.
 
