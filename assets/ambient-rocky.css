@@ -1,0 +1,126 @@
+/* Live Rocky status on the clock. All surfaces remain true black for AMOLED. */
+.ambient.has-live-robot { --oled-y-travel: 2vh; }
+.ambient.has-live-robot .ambient-center { position: absolute; top: 10vh; margin-top: 0; }
+.ambient.has-live-robot .ambient-time { font-size: clamp(90px, min(23vw, 24vh), 205px); }
+.ambient.has-live-robot .ambient-date { margin-bottom: 18px; font-size: clamp(21px, 3.6vw, 28px); }
+.ambient.has-live-robot .ambient-weather { margin-top: 22px; font-size: clamp(19px, 3vw, 25px); }
+.ambient.has-live-robot-alert .ambient-alert { display: none !important; }
+.ambient-rocky {
+  position: absolute;
+  left: 50%;
+  bottom: 12vh;
+  width: 820px;
+  max-width: calc(100% - 72px);
+  max-height: 48vh;
+  display: flex;
+  flex-direction: column;
+  padding: 25px 27px 23px;
+  border: 1px solid #29362e;
+  border-radius: 25px;
+  background: #000;
+  text-align: left;
+  color: #e3ede6;
+  transform: translate(calc(-50% + var(--alert-oled-x, 0px)), var(--alert-oled-y, 0px));
+  transition: transform 1.2s ease, border-color .4s ease;
+  overflow: hidden;
+}
+.ar-header { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; color: #a4b9ac; font-size: 19px; font-weight: 550; letter-spacing: -.3px; }
+.ar-brand { display: flex; align-items: center; }
+.ar-brand .icon { width: 26px; height: 26px; margin-right: 10px; }
+.ar-battery { font-variant-numeric: tabular-nums; font-weight: 500; }
+.ar-battery:empty { display: none; }
+.ar-body { display: flex; align-items: center; flex: 0 0 auto; min-width: 0; margin-top: 17px; }
+.ar-copy { flex: 1; min-width: 0; }
+.ar-status { margin: 0; color: #e5efe8; font-size: clamp(29px, 4.5vw, 38px); font-weight: 550; line-height: 1.16; letter-spacing: -1.1px; overflow-wrap: break-word; }
+.ar-location { margin: 9px 0 0; color: #bad8c5; font-size: clamp(22px, 3.5vw, 29px); font-weight: 450; line-height: 1.25; letter-spacing: -.5px; }
+.ar-location.is-unavailable { font-size: 19px; color: #99a69d; letter-spacing: -.2px; }
+.ar-freshness { margin: 9px 0 0; color: #92a298; font-size: 15px; line-height: 1.4; }
+.ar-metrics { margin: 12px 0 0; color: #a6b6ab; font-size: 19px; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.ar-resume { margin: 10px 0 0; color: #c3d7ba; font-size: 18px; line-height: 1.35; }
+.ar-map { flex: 0 0 auto; width: 135px; margin: 0 0 0 24px; }
+.ar-map-frame { position: relative; width: 100%; line-height: 0; }
+.ar-map-image { display: block; width: 100%; height: auto; opacity: .72; }
+.ar-map-marker { position: absolute; width: 15px; height: 15px; border: 3px solid #f0fff4; border-radius: 50%; background: #75b98d; box-shadow: 0 0 0 4px #000; transform: translate(-50%, -50%); }
+.ar-map-caption { margin-top: 9px; color: #9bb3a4; font-size: 12px; line-height: 1.3; text-align: center; font-variant-numeric: tabular-nums; }
+.ar-map.is-stale .ar-map-image { opacity: .4; }
+.ar-map.is-stale .ar-map-marker { background: #bd9f73; border-color: #dec5a4; }
+.ar-map.is-stale .ar-map-caption { color: #b49c7a; }
+.ar-alerts { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; margin-top: 20px; scrollbar-width: thin; scrollbar-color: #66533b #000; }
+.ar-alerts::-webkit-scrollbar { width: 4px; }
+.ar-alerts::-webkit-scrollbar-thumb { background: #66533b; border-radius: 4px; }
+.ar-alert { display: flex; align-items: flex-start; padding: 16px 0; color: #ddb57a; border-top: 1px solid #3c3020; }
+.ar-alert:first-child { padding-top: 15px; }
+.ar-alert > .icon { width: 27px; height: 27px; margin: 1px 13px 0 0; }
+.ar-alert-copy { min-width: 0; flex: 1; }
+.ar-alert strong { display: block; font-size: clamp(21px, 3.3vw, 26px); font-weight: 550; line-height: 1.25; letter-spacing: -.6px; }
+.ar-alert p { margin: 7px 0 0; color: #b7a184; font-size: 17px; line-height: 1.4; }
+.ar-alert.is-error { color: #e6a69a; border-color: #472b27; }
+.ar-alert.is-error p { color: #bd9c96; }
+.ambient-rocky.has-warning { border-color: #4d3d28; }
+.ambient-rocky.has-error .ar-metrics { display: none; }
+.ambient-rocky.is-stale .ar-freshness { color: #c0a479; }
+.ar-controls { display: flex; flex: 0 0 auto; margin-top: 23px; }
+.ar-control { display: flex; align-items: center; justify-content: center; flex: 1 1 0; min-width: 0; min-height: 62px; padding: 14px 10px; border: 1px solid #35453b; border-radius: 15px; background: #000; color: #c3d8ca; font-size: 18px; font-weight: 500; letter-spacing: -.45px; line-height: 1.2; }
+.ar-control + .ar-control { margin-left: 10px; }
+.ar-control[hidden] + .ar-control { margin-left: 0; }
+.ar-control .icon { width: 23px; height: 23px; margin-right: 8px; }
+.ar-control-primary { border-color: #526e5b; color: #d9ecdf; }
+.ar-control:disabled { opacity: .42; }
+.ar-control:active:not(:disabled) { background: #132017; }
+.ar-control.is-busy { color: #8da896; border-color: #657d6d; }
+.ar-control-error { flex: 0 0 auto; margin: 13px 0 0; color: #e6a69a; font-size: 17px; line-height: 1.35; }
+
+/* The black idle screen keeps the activity and controls legible, at lower light. */
+body[data-sleep="true"] .ambient-rocky { border-color: #19221c; }
+body[data-sleep="true"] .ambient-rocky.has-warning { border-color: #30271b; }
+body[data-sleep="true"] .ar-header { color: #74847a; }
+body[data-sleep="true"] .ar-status { color: #a3b1a8; }
+body[data-sleep="true"] .ar-location { color: #8ba796; }
+body[data-sleep="true"] .ar-freshness, body[data-sleep="true"] .ar-metrics { color: #718077; }
+body[data-sleep="true"] .ambient-rocky.is-stale .ar-freshness { color: #a68d69; }
+body[data-sleep="true"] .ar-map-image { opacity: .38; }
+body[data-sleep="true"] .ar-control { color: #adbfaf; border-color: #2c3b31; }
+body[data-sleep="true"] .ar-control-primary { border-color: #405749; }
+body[data-sleep="true"] .ar-alert { color: #cea66c; }
+body[data-sleep="true"] .ar-alert p { color: #a59175; }
+body[data-sleep="true"] .ar-alert.is-error { color: #ce958a; }
+
+@media (orientation: landscape) {
+  .ambient.has-live-robot .ambient-center { top: 4.5vh; }
+  .ambient.has-live-robot .ambient-time { font-size: clamp(85px, 21vh, 165px); }
+  .ambient.has-live-robot .ambient-date { margin-bottom: 9px; font-size: 22px; }
+  .ambient.has-live-robot .ambient-weather { margin-top: 13px; font-size: 19px; }
+  .ambient-rocky { bottom: 11vh; width: 920px; max-height: 49vh; padding: 18px 25px; border-radius: 22px; }
+  .ar-header { font-size: 17px; }
+  .ar-brand .icon { width: 23px; height: 23px; }
+  .ar-body { margin-top: 11px; }
+  .ar-status { font-size: 31px; }
+  .ar-location { margin-top: 5px; font-size: 25px; }
+  .ar-location.is-unavailable { font-size: 18px; }
+  .ar-freshness { margin-top: 5px; font-size: 14px; }
+  .ar-metrics, .ar-resume { margin-top: 7px; font-size: 17px; }
+  .ar-map { width: 115px; }
+  .ar-map-caption { margin-top: 6px; }
+  .ar-controls { margin-top: 15px; }
+  .ar-control { min-height: 55px; padding: 10px 16px; font-size: 19px; }
+  .ar-alerts { margin-top: 12px; }
+  .ar-alert, .ar-alert:first-child { padding: 12px 0; }
+  .ar-alert strong { font-size: 23px; }
+  .ar-alert p { margin-top: 5px; font-size: 16px; }
+}
+@media (max-width: 600px) {
+  .ambient-rocky { max-width: calc(100% - 36px); padding: 19px 18px; border-radius: 21px; }
+  .ar-header { font-size: 17px; }
+  .ar-status { font-size: 28px; }
+  .ar-location { font-size: 23px; }
+  .ar-map { width: 90px; margin-left: 12px; }
+  .ar-control { min-height: 58px; font-size: 15px; padding: 10px 6px; }
+  .ar-control .icon { width: 20px; height: 20px; margin-right: 5px; }
+  .ar-control + .ar-control { margin-left: 7px; }
+  .ar-control[hidden] + .ar-control { margin-left: 0; }
+  .ar-alert strong { font-size: 21px; }
+  .ar-alert p { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambient-rocky { transition: none; }
+}

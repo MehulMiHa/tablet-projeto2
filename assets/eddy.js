@@ -42,7 +42,7 @@
   var cameraStream = null;
   var cameraCheck = null;
   var cameraGeneration = 0;
-  var draft = { vacuumRooms: [], mopRooms: [], suction: 102, water: 15, tab: 'rooms', zoneMode: 'vacuum' };
+  var draft = { vacuumRooms: [], mopRooms: [], suction: 102, water: 15, tab: 'rooms', roomMode: 'vacuum', zoneMode: 'vacuum' };
   var map = { metadata: null, image: null, loading: false, loadedAt: 0, error: '', rectangle: null, gesture: null, transform: null };
 
   function nativeCall(name, value) {
@@ -177,6 +177,8 @@
         draft.mopRooms = Array.isArray(savedDraft.mopRooms) ? savedDraft.mopRooms.filter(Number.isFinite) : [];
         draft.suction = [101, 102, 103, 104].indexOf(savedDraft.suction) >= 0 ? savedDraft.suction : 102;
         draft.water = number(savedDraft.water) !== null ? Math.max(1, Math.min(30, savedDraft.water)) : 15;
+        draft.roomMode = ['vacuum', 'mop', 'vacuum_mop'].indexOf(savedDraft.roomMode) >= 0 ? savedDraft.roomMode : 'vacuum';
+        draft.zoneMode = ['vacuum', 'mop', 'vacuum_mop'].indexOf(savedDraft.zoneMode) >= 0 ? savedDraft.zoneMode : 'vacuum';
       }
     } catch (error) { /* Storage is optional. */ }
   }
@@ -311,9 +313,13 @@
     }
   }
 
-  function showClock() {
+  function showClock(animate) {
+    var snapshot = null;
+    if (screen !== 'clock' && animate !== false) {
+      try { snapshot = window.EddyPanelTransition.captureView(screen); } catch (error) { /* The clock remains available during recovery. */ }
+    }
     window.EddyPanelTransition.cancel();
-    if (screen === 'lights') transitionPanel('room-out', 520);
+    if (screen === 'lights') transitionPanel('room-out', snapshot ? 1300 : 520);
     closeCleaning();
     cancelSelection();
     $('lightScope').open = false;
@@ -323,11 +329,16 @@
     $('dashboard').setAttribute('aria-hidden', 'true');
     $('ambient').setAttribute('aria-hidden', 'false');
     renderLights();
+    renderAmbient();
+    if (snapshot) {
+      try { window.EddyPanelTransition.play(snapshot, 'clock'); }
+      catch (error) { window.EddyPanelTransition.cancel(); }
+    }
   }
 
   function goToSleep() {
     if (emergencyActive && !$('emergencyLight').hidden) { resetSleepTimer(); return; }
-    showClock();
+    showClock(false);
     document.body.dataset.sleep = 'true';
     nativeCall('setDimmed', true);
   }
@@ -345,10 +356,12 @@
     var clockTransition = null;
     if (previous === 'clock' && withClockAnimation !== false) {
       try { clockTransition = window.EddyPanelTransition.capture(); } catch (error) { /* Navigation still works without the animation. */ }
+    } else if (previous !== view && previous !== 'clock') {
+      try { clockTransition = window.EddyPanelTransition.captureView(previous); } catch (error) { /* Keep navigation responsive. */ }
     }
     window.EddyPanelTransition.cancel();
     if (view === 'lights' && previous !== 'lights') {
-      transitionPanel(clockTransition ? 'room-in' : 'room-tab', clockTransition ? 1300 : 740);
+      transitionPanel(previous === 'clock' && clockTransition ? 'room-in' : 'room-tab', previous === 'clock' && clockTransition ? 1300 : 1000);
     }
     screen = view;
     document.body.dataset.screen = view;
@@ -358,6 +371,7 @@
     $('ambient').setAttribute('aria-hidden', 'true');
     $('lightsView').hidden = view !== 'lights';
     $('robotView').hidden = view !== 'robot';
+    renderAmbient();
     if (clockTransition) {
       try { window.EddyPanelTransition.play(clockTransition, view); }
       catch (error) { window.EddyPanelTransition.cancel(); }
@@ -668,31 +682,35 @@
     var online = robotOnline();
     var label = robot.label || 'A obter estado';
     var job = robot.currentJob;
+    var hasMotion = isCleaning(robot) || isPaused(robot);
+    var atBase = ['charging', 'charged', 'charging_complete', 'docked', 'charging_error'].indexOf(robot.state) >= 0 || ['washing_mops', 'drying_mops', 'attaching_mops', 'detaching_mops', 'emptying_dust'].indexOf(robot.phase) >= 0;
     $('robotState').textContent = online ? label : robot.label ? 'Último estado · ' + label.toLowerCase() : 'Sem ligação ao Rocky';
-    var detail = online ? 'Saros 10R' : 'A tentar restabelecer a ligação';
+    var detail = '';
+    if (!online) detail = 'A tentar restabelecer a ligação';
+    else if (hasMotion) detail = robot.location && robot.location.kind !== 'unknown' ? robot.location.label : 'Localização por confirmar';
+    else if (robot.phase === 'idle' && !robotAlerts.length) detail = 'Pronto para a próxima limpeza';
     if (job && job.message && ['accepted', 'preparing', 'starting', 'running', 'waiting', 'paused', 'interrupted'].indexOf(job.status) >= 0) detail = job.message;
     if (job && job.resumeAt && isPaused(robot)) {
       detail = 'Retoma prevista às ' + new Date(job.resumeAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
     }
     if (job && job.error) detail = job.error;
     $('robotStateDetail').textContent = detail;
+    $('robotStateDetail').hidden = !detail;
     $('robotConnection').textContent = online ? 'Ligado' : 'Sem ligação';
+    $('robotConnection').hidden = online;
     $('robotConnection').classList.toggle('is-offline', !online);
-    $('robotBattery').textContent = number(robot.battery) === null ? '—' : Math.round(robot.battery) + '%';
-    $('robotTime').textContent = number(robot.cleanTimeSeconds) === null ? '—' : Math.round(robot.cleanTimeSeconds / 60) + ' min';
-    $('robotArea').textContent = number(robot.cleanAreaM2) === null ? '—' : robot.cleanAreaM2.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m²';
-    $('robotSuction').textContent = robot.fanLabel || '—';
     $('robotVisual').classList.toggle('is-active', online && screen === 'robot' && (isCleaning(robot) || ['washing_mops', 'drying_mops', 'emptying_dust'].indexOf(robot.phase) >= 0));
     $('robotVisual').classList.toggle('has-alert', robotAlerts.length > 0);
     $('openCleaning').disabled = !online || robotBusy;
+    $('openZoneCleaning').disabled = !online || robotBusy;
     $('robotPause').disabled = !online || robotBusy || (!isCleaning(robot) && !isPaused(robot));
-    $('robotHome').disabled = !online || robotBusy || ['charging', 'charged', 'charging_complete', 'docked'].indexOf(robot.state) >= 0;
+    $('robotHome').disabled = !online || robotBusy || atBase;
     $('robotPause15').disabled = !online || robotBusy || !isCleaning(robot);
-    var hasMotion = isCleaning(robot) || isPaused(robot);
-    var atBase = ['charging', 'charged', 'charging_complete', 'docked'].indexOf(robot.state) >= 0;
-    $('openCleaning').hidden = online && !atBase && (hasMotion || robot.inReturning > 0 || robot.phase === 'returning');
+    var inProgress = online && !atBase && (hasMotion || robot.inReturning > 0 || robot.phase === 'returning');
+    $('robotDestinations').hidden = inProgress;
+    $('robotView').classList.toggle('has-current-cleaning', inProgress);
     $('robotPause').hidden = !online || !hasMotion;
-    $('robotHome').hidden = !online || atBase;
+    $('robotHome').hidden = !online || atBase || robot.phase === 'returning' || robot.inReturning > 0;
     $('robotPause15').hidden = !online || !isCleaning(robot);
     $('robotPause').querySelector('span').textContent = isPaused(robot) ? 'Retomar' : 'Pausar';
     $('robotPause').querySelector('use').setAttribute('href', isPaused(robot) ? '#i-play' : '#i-pause');
@@ -702,7 +720,6 @@
       alerts.dataset.signature = signature;
       renderRobotAlerts(alerts, online);
     }
-    $('roomCount').textContent = state && Array.isArray(state.rooms) && state.rooms.length ? state.rooms.length + ' divisões' : 'A obter divisões';
     renderFreshness();
   }
 
@@ -727,9 +744,7 @@
 
   function renderFreshness() {
     var stamp = state && state.robot ? asTime(state.robot.updatedAt) : 0;
-    if (!stamp) { $('robotFreshness').textContent = ''; return; }
-    var seconds = Math.max(0, Math.round((Date.now() - stamp) / 1000));
-    $('robotFreshness').textContent = robotOnline() && seconds < 30 ? 'Estado atualizado agora' : 'Última leitura às ' + new Date(stamp).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    $('robotConnection').title = stamp ? 'Última leitura às ' + new Date(stamp).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '';
   }
 
   function renderAmbient() {
@@ -740,6 +755,22 @@
       $('ambientAlertTitle').textContent = warning.title || 'Aviso do Rocky';
       $('ambientAlertStatus').textContent = robotOnline() ? 'Rocky · base' : 'Último aviso confirmado · a restabelecer ligação';
       $('ambientAlert').querySelector('use').setAttribute('href', warning.id === 'clean-water-empty' ? '#i-drop' : '#i-alert');
+    }
+    if (window.EddyAmbientRocky) {
+      window.EddyAmbientRocky.render({
+        robot: state && state.robot ? Object.assign({}, state.robot, { alerts: robotAlerts }) : null,
+        online: robotOnline(), busy: robotBusy, visible: screen === 'clock',
+        getMap: async function () {
+          var metadata = await api('/api/robot/map', { timeout: 45000 });
+          if (metadata && metadata.imageUrl) metadata.imageUrl = new URL(metadata.imageUrl, API_BASE).href;
+          return metadata;
+        },
+        onControl: function (action, button) {
+          wake(false);
+          markInteraction();
+          return robotControl(action, button);
+        }
+      });
     }
     var weatherElement = $('ambientWeather');
     var weather = state && state.weather ? state.weather : {};
@@ -791,6 +822,8 @@
     sheetOpen = true;
     $('sheetBackdrop').hidden = false;
     $('cleaningSheet').hidden = false;
+    $('cleaningSettings').open = false;
+    $('roomModePicker').open = false;
     $('cleaningError').hidden = true;
     $('suction').value = draft.suction;
     $('water').value = draft.water;
@@ -810,14 +843,19 @@
     saveDraft();
     $('sheetBackdrop').classList.remove('is-open');
     $('cleaningSheet').classList.remove('is-open');
+    $('roomModePicker').open = false;
     sheetCloseTimer = setTimeout(function () {
       if (!sheetOpen) { $('sheetBackdrop').hidden = true; $('cleaningSheet').hidden = true; }
     }, 260);
+    var opener = draft.tab === 'zone' ? $('openZoneCleaning') : $('openCleaning');
+    if (!opener.disabled && !opener.closest('[hidden]')) opener.focus();
     markInteraction();
   }
 
   function setCleaningTab(tab) {
     draft.tab = tab;
+    $('roomModePicker').open = false;
+    $('selectAllRooms').hidden = tab !== 'rooms';
     $('roomsPanel').hidden = tab !== 'rooms';
     $('zonePanel').hidden = tab !== 'zone';
     $('roomsTab').classList.toggle('is-active', tab === 'rooms');
@@ -828,23 +866,34 @@
       loadMap(true);
       requestAnimationFrame(drawMap);
     }
+    renderRooms();
     updateCleaning();
   }
 
-  function toggleRoom(type, id) {
-    var list = draft[type];
-    var index = list.indexOf(id);
-    if (index >= 0) list.splice(index, 1);
-    else list.push(id);
+  function roomModeKeys() {
+    return draft.roomMode === 'vacuum_mop' ? ['vacuumRooms', 'mopRooms'] : [draft.roomMode === 'mop' ? 'mopRooms' : 'vacuumRooms'];
+  }
+
+  function roomHasMode(id) {
+    return roomModeKeys().every(function (key) { return draft[key].indexOf(id) >= 0; });
+  }
+
+  function toggleRoom(id) {
+    var remove = roomHasMode(id);
+    roomModeKeys().forEach(function (key) {
+      var index = draft[key].indexOf(id);
+      if (remove && index >= 0) draft[key].splice(index, 1);
+      else if (!remove && index < 0) draft[key].push(id);
+    });
     saveDraft();
     renderRooms();
     updateCleaning();
   }
 
-  function selectAllRooms(type) {
+  function selectAllRooms() {
     var rooms = state && Array.isArray(state.rooms) ? state.rooms : [];
-    var allSelected = rooms.length && rooms.every(function (room) { return draft[type].indexOf(room.id) >= 0; });
-    draft[type] = allSelected ? [] : rooms.map(function (room) { return room.id; });
+    var allSelected = rooms.length && rooms.every(function (room) { return roomHasMode(room.id); });
+    roomModeKeys().forEach(function (key) { draft[key] = allSelected ? [] : rooms.map(function (room) { return room.id; }); });
     saveDraft();
     renderRooms();
     updateCleaning();
@@ -853,7 +902,12 @@
   function renderRooms() {
     var list = $('roomList');
     var rooms = state && Array.isArray(state.rooms) ? state.rooms : [];
-    var signature = JSON.stringify(rooms) + JSON.stringify(draft.vacuumRooms) + JSON.stringify(draft.mopRooms) + robotOnline();
+    var validIds = rooms.map(function (room) { return room.id; });
+    if (rooms.length) {
+      draft.vacuumRooms = draft.vacuumRooms.filter(function (id) { return validIds.indexOf(id) >= 0; });
+      draft.mopRooms = draft.mopRooms.filter(function (id) { return validIds.indexOf(id) >= 0; });
+    }
+    var signature = JSON.stringify(rooms) + JSON.stringify(draft.vacuumRooms) + JSON.stringify(draft.mopRooms) + draft.roomMode + robotOnline();
     if (list.dataset.signature === signature) return;
     list.dataset.signature = signature;
     clear(list);
@@ -864,25 +918,37 @@
       list.appendChild(empty);
       return;
     }
-    var validIds = rooms.map(function (room) { return room.id; });
-    draft.vacuumRooms = draft.vacuumRooms.filter(function (id) { return validIds.indexOf(id) >= 0; });
-    draft.mopRooms = draft.mopRooms.filter(function (id) { return validIds.indexOf(id) >= 0; });
     rooms.forEach(function (room) {
-      var row = document.createElement('div');
-      row.className = 'room-row';
+      var row = document.createElement('button');
+      var vacuum = draft.vacuumRooms.indexOf(room.id) >= 0;
+      var mop = draft.mopRooms.indexOf(room.id) >= 0;
+      var selected = roomHasMode(room.id);
+      var partial = draft.roomMode === 'vacuum_mop' && vacuum !== mop;
+      var name = room.name || 'Divisão ' + room.id;
+      row.type = 'button';
+      row.className = 'rocky-room-tile' + (selected ? ' is-selected' : '') + (partial ? ' is-partial' : '');
+      row.dataset.roomId = room.id;
+      row.setAttribute('aria-pressed', partial ? 'mixed' : String(selected));
+      row.setAttribute('aria-label', name + (vacuum || mop ? ', ' + (vacuum && mop ? 'aspirar e lavar' : vacuum ? 'aspirar' : 'lavar') : ', sem limpeza selecionada'));
+      var tick = document.createElement('span');
+      tick.className = 'rocky-room-check';
+      tick.appendChild(icon(selected ? 'check' : partial ? 'vacuum' : 'map'));
+      row.appendChild(tick);
+      var copy = document.createElement('span');
+      copy.className = 'rocky-room-copy';
       var label = document.createElement('span');
       label.className = 'room-name';
-      label.textContent = room.name || 'Divisão ' + room.id;
-      row.appendChild(label);
-      [{ key: 'vacuumRooms', label: 'Aspirar', icon: 'vacuum' }, { key: 'mopRooms', label: 'Lavar', icon: 'drop' }].forEach(function (choice) {
-        var button = document.createElement('button');
-        var selected = draft[choice.key].indexOf(room.id) >= 0;
-        button.className = 'room-choice' + (choice.key === 'mopRooms' ? ' mop' : '') + (selected ? ' is-selected' : '');
-        button.setAttribute('aria-label', choice.label + ' ' + label.textContent);
-        button.setAttribute('aria-pressed', String(selected));
-        button.appendChild(icon(selected ? 'check' : choice.icon));
-        button.addEventListener('click', function () { toggleRoom(choice.key, room.id); });
-        row.appendChild(button);
+      label.textContent = name;
+      copy.appendChild(label);
+      var modes = document.createElement('span');
+      modes.className = 'rocky-room-modes';
+      modes.textContent = vacuum && mop ? 'Aspirar e lavar' : vacuum ? 'Aspirar' : mop ? 'Lavar' : 'Por selecionar';
+      copy.appendChild(modes);
+      row.appendChild(copy);
+      row.addEventListener('click', function () {
+        toggleRoom(room.id);
+        var replacement = list.querySelector('[data-room-id="' + room.id + '"]');
+        if (replacement) replacement.focus({ preventScroll: true });
       });
       list.appendChild(row);
     });
@@ -892,10 +958,25 @@
     var zone = draft.tab === 'zone';
     var vacuum = zone ? draft.zoneMode !== 'mop' : draft.vacuumRooms.length > 0;
     var mop = zone ? draft.zoneMode !== 'vacuum' : draft.mopRooms.length > 0;
+    var mode = zone ? draft.zoneMode : draft.roomMode;
+    $('roomModeName').textContent = mode === 'vacuum_mop' ? 'Aspirar e lavar' : mode === 'mop' ? 'Lavar' : 'Aspirar';
+    $('roomModeIcon').setAttribute('href', mode === 'mop' ? '#i-drop' : '#i-vacuum');
+    document.querySelectorAll('[data-clean-mode]').forEach(function (button) {
+      var active = button.dataset.cleanMode === mode;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    var rooms = state && Array.isArray(state.rooms) ? state.rooms : [];
+    var allSelected = rooms.length && rooms.every(function (room) { return roomHasMode(room.id); });
+    $('selectAllRooms').textContent = allSelected ? 'Desmarcar todas' : 'Todas';
+    $('selectAllRooms').disabled = !rooms.length;
+    $('selectAllRooms').setAttribute('aria-label', (allSelected ? 'Desmarcar' : 'Marcar') + ' todas para ' + $('roomModeName').textContent.toLowerCase());
+    $('cleaningSettings').hidden = !vacuum && !mop;
     $('suctionSetting').hidden = !vacuum;
     $('waterSetting').hidden = !mop;
     $('suctionValue').textContent = SUCTION_LABELS[draft.suction] || 'Normal';
     $('waterValue').textContent = draft.water + ' / 30';
+    $('cleaningSettingSummary').textContent = [vacuum ? SUCTION_LABELS[draft.suction] : '', mop ? 'Água ' + draft.water : ''].filter(Boolean).join(' · ');
     rangeFill($('suction'));
     rangeFill($('water'));
     var valid = robotOnline() && !robotBusy;
@@ -913,10 +994,6 @@
     if (!robotOnline()) summary = 'Aguardamos uma ligação atualizada ao Rocky.';
     $('cleaningSummary').textContent = summary;
     $('startCleaning').disabled = !valid;
-    document.querySelectorAll('[data-zone-mode]').forEach(function (button) {
-      button.classList.toggle('is-active', button.dataset.zoneMode === draft.zoneMode);
-      button.setAttribute('aria-pressed', String(button.dataset.zoneMode === draft.zoneMode));
-    });
   }
 
   async function startCleaning() {
@@ -956,12 +1033,13 @@
     robotBusy = true;
     button.classList.add('is-busy');
     renderRobot();
+    renderAmbient();
     try {
       await api('/api/robot/control', { method: 'POST', body: { requestId: requestId(), action: action }, timeout: 45000 });
       showToast('Pedido enviado. A atualizar o estado do Rocky.');
       await refreshState();
     } catch (error) { showToast(error.message, true); }
-    finally { robotBusy = false; button.classList.remove('is-busy'); renderRobot(); markInteraction(); }
+    finally { robotBusy = false; button.classList.remove('is-busy'); renderRobot(); renderAmbient(); markInteraction(); }
   }
 
   function calibrationTransform(calibration) {
@@ -1039,10 +1117,6 @@
       $('zoneCanvas').hidden = false;
       $('zoneMessage').hidden = true;
       if (!map.transform) map.error = 'A calibração do mapa está indisponível. A escolha por divisão continua disponível.';
-      clear($('mapPreviewContent'));
-      var preview = image.cloneNode();
-      preview.alt = 'Mapa real da casa';
-      $('mapPreviewContent').appendChild(preview);
       drawMap();
     } catch (error) {
       map.error = error.message;
@@ -1247,6 +1321,7 @@
 
   function bindEvents() {
     $('ambient').addEventListener('click', function (event) {
+      if (event.target.closest('#ambientRocky')) return;
       if (event.target.closest('#ambientAlert')) { wake(false); setView('robot'); }
       else openFromClock();
     });
@@ -1282,15 +1357,27 @@
     });
     $('syncToggle').addEventListener('click', toggleSync);
     $('openCleaning').addEventListener('click', function () { openCleaning('rooms'); });
+    $('openZoneCleaning').addEventListener('click', function () { openCleaning('zone'); });
     $('closeCleaning').addEventListener('click', closeCleaning);
     $('sheetBackdrop').addEventListener('click', closeCleaning);
     $('roomsTab').addEventListener('click', function () { setCleaningTab('rooms'); });
     $('zoneTab').addEventListener('click', function () { setCleaningTab('zone'); });
-    $('selectAllVacuum').addEventListener('click', function () { selectAllRooms('vacuumRooms'); });
-    $('selectAllMop').addEventListener('click', function () { selectAllRooms('mopRooms'); });
+    $('selectAllRooms').addEventListener('click', selectAllRooms);
+    document.querySelectorAll('[data-clean-mode]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        if (draft.tab === 'zone') draft.zoneMode = button.dataset.cleanMode;
+        else draft.roomMode = button.dataset.cleanMode;
+        $('roomModePicker').open = false;
+        saveDraft();
+        renderRooms();
+        updateCleaning();
+      });
+    });
+    document.addEventListener('click', function (event) {
+      if (!event.target.closest('#roomModePicker')) $('roomModePicker').open = false;
+    });
     $('suction').addEventListener('input', function () { draft.suction = Number($('suction').value); saveDraft(); updateCleaning(); });
     $('water').addEventListener('input', function () { draft.water = Number($('water').value); saveDraft(); updateCleaning(); });
-    document.querySelectorAll('[data-zone-mode]').forEach(function (button) { button.addEventListener('click', function () { draft.zoneMode = button.dataset.zoneMode; updateCleaning(); }); });
     $('startCleaning').addEventListener('click', startCleaning);
     $('robotPause').addEventListener('click', function () { robotControl(isPaused(state.robot) ? 'resume' : 'pause', $('robotPause')); });
     $('robotHome').addEventListener('click', function () { robotControl('home', $('robotHome')); });
@@ -1306,7 +1393,7 @@
       markInteraction();
       if (event.key === 'Escape') { if (sheetOpen) closeCleaning(); else if (selecting) cancelSelection(); else showClock(); }
       if (event.key === 'Tab' && sheetOpen) {
-        var focusable = Array.from($('cleaningSheet').querySelectorAll('button:not(:disabled), input:not(:disabled)')).filter(function (element) { return element.offsetParent !== null; });
+        var focusable = Array.from($('cleaningSheet').querySelectorAll('button:not(:disabled), input:not(:disabled), summary')).filter(function (element) { return element.offsetParent !== null; });
         if (!focusable.length) return;
         var first = focusable[0];
         var last = focusable[focusable.length - 1];

@@ -1,5 +1,7 @@
 'use strict';
 
+const { errorAlert } = require('./robot-errors');
+
 const STATES = {
   0: ['unknown', 'Estado desconhecido', 'unknown'],
   1: ['starting', 'A iniciar', 'unknown'],
@@ -59,7 +61,43 @@ function field(raw, camel, snake) {
   return raw[camel] === undefined ? raw[snake] : raw[camel];
 }
 
-function normalizeRobot(raw, previous = null, now = Date.now()) {
+function roomId(value) {
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function unknownLocation(updatedAt = null) {
+  return { kind: 'unknown', label: 'Localização por confirmar', roomId: null, updatedAt, source: 'unavailable', stale: true };
+}
+
+function resolveRobotLocation(robot, rooms = []) {
+  if (!robot.online) return { ...(robot.location || unknownLocation()), stale: true };
+  const currentRoomId = roomId(robot.currentRoomId);
+  const currentRoom = rooms.find(room => room.id === currentRoomId);
+  // A target segment describes the destination, never the current room.
+  if (currentRoomId !== null) {
+    return {
+      kind: currentRoom ? 'room' : 'unknown',
+      label: currentRoom ? currentRoom.name : 'Divisão atual por identificar',
+      roomId: currentRoomId, updatedAt: robot.updatedAt,
+      source: 'status.cleaning_info.segment_id', stale: false
+    };
+  }
+  // Returning/docking states are deliberately absent: they do not confirm arrival.
+  if ([8, 22, 23, 25, 100, 202].includes(robot.stateCode)) {
+    return { kind: 'dock', label: 'Na base', roomId: null, updatedAt: robot.updatedAt, source: 'status.state', stale: false };
+  }
+  return { ...unknownLocation(robot.updatedAt), stale: false };
+}
+
+function withRobotLocation(robot, rooms = []) {
+  const target = rooms.find(room => room.id === robot.targetRoomId);
+  const result = { ...robot, location: resolveRobotLocation(robot, rooms) };
+  if (target) result.targetRoomName = target.name;
+  else delete result.targetRoomName;
+  return result;
+}
+
+function normalizeRobot(raw, previous = null, now = Date.now(), rooms = []) {
   if (!raw || typeof raw !== 'object' || numeric(raw.state) === null) {
     throw new Error('O Saros devolveu um estado inválido.');
   }
@@ -72,26 +110,24 @@ function normalizeRobot(raw, previous = null, now = Date.now()) {
   const errorCode = numeric(field(raw, 'errorCode', 'error_code'));
   const dockErrorCode = numeric(field(raw, 'dockErrorStatus', 'dock_error_status'));
   const waterBoxMode = numeric(field(raw, 'waterBoxMode', 'water_box_mode'));
+  const cleaningInfo = field(raw, 'cleaningInfo', 'cleaning_info') || {};
   const alerts = [];
   const previousWaterAlert = previous && previous.alerts && previous.alerts.find(alert => alert.id === 'clean-water-empty');
 
   if (dockErrorCode === 38 || (previousWaterAlert && dockErrorCode !== 0)) {
-    alerts.push({
-      id: 'clean-water-empty', severity: 'warning',
-      title: 'Encher depósito de água limpa',
-      detail: 'Enche e volta a colocar o depósito de água limpa na base.'
-    });
+    alerts.push(errorAlert(38, 'dock'));
   }
   if (errorCode !== null && errorCode !== 0) {
-    alerts.push({
-      id: `robot-error-${errorCode}`, severity: 'error',
-      title: 'O Rocky precisa de ajuda', detail: `Verifica o aviso ${errorCode} na app Roborock.`
-    });
+    alerts.push(errorAlert(errorCode, 'robot'));
   }
   if (dockErrorCode !== null && dockErrorCode !== 0 && dockErrorCode !== 38) {
+    alerts.push(errorAlert(dockErrorCode, 'dock'));
+  }
+  if ((errorCode === null || errorCode === 0) && [9, 12].includes(stateCode)) {
     alerts.push({
-      id: `dock-error-${dockErrorCode}`, severity: 'warning',
-      title: 'Verificar a base do Rocky', detail: `A base reportou o aviso ${dockErrorCode}.`
+      id: 'robot-error-unreported', severity: 'error', source: 'robot', code: null,
+      title: stateCode === 9 ? 'Verificar carregamento' : 'O Rocky precisa de ajuda',
+      detail: stateCode === 9 ? 'Verifica os contactos de carga e a alimentação da base. O Rocky não indicou um código de erro.' : 'O Rocky reportou um erro sem indicar o código. Consulta o aviso na app Roborock.'
     });
   }
 
@@ -111,7 +147,7 @@ function normalizeRobot(raw, previous = null, now = Date.now()) {
     label = 'A secar as mopas';
   }
 
-  return {
+  return withRobotLocation({
     online: stateCode !== 101, stateCode, state: descriptor[0], label, phase,
     battery, cleanTimeSeconds: cleanTime,
     cleanAreaM2: cleanArea === null ? null : cleanArea / 1000000,
@@ -122,8 +158,11 @@ function normalizeRobot(raw, previous = null, now = Date.now()) {
     washStatus: numeric(field(raw, 'washStatus', 'wash_status')),
     dryStatus: numeric(field(raw, 'dryStatus', 'dry_status')),
     lastCleanTime: numeric(field(raw, 'lastCleanT', 'last_clean_t')),
+    currentRoomId: roomId(field(cleaningInfo, 'segmentId', 'segment_id')),
+    targetRoomId: roomId(field(cleaningInfo, 'targetSegmentId', 'target_segment_id')),
+    location: previous ? previous.location : null,
     updatedAt: now, alerts, currentJob: previous ? previous.currentJob || null : null
-  };
+  }, rooms);
 }
 
 function normalizeRooms(roomMapping, mapInfo) {
@@ -194,4 +233,4 @@ function hueLight(id, state) {
   };
 }
 
-module.exports = { normalizeRobot, normalizeRooms, hueLight, temperatureRgb, xyRgb, numeric };
+module.exports = { normalizeRobot, normalizeRooms, withRobotLocation, unknownLocation, hueLight, temperatureRgb, xyRgb, numeric };

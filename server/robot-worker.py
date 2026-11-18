@@ -74,6 +74,11 @@ class RobotAdapter:
         if image[:8] != b"\x89PNG\r\n\x1a\n":
             raise ValueError("O formato da imagem do mapa é inválido.")
         width, height = struct.unpack(">II", image[16:24])
+        # vacuum-map-parser-roborock 0.1.5 reads the segmented pixel directly
+        # under vacuum_position; it does not choose the nearest room.
+        current_room_id = getattr(data, "vacuum_room", None)
+        if type(current_room_id) is not int or current_room_id <= 0:
+            current_room_id = None
         return {
             "imageBase64": base64.b64encode(image).decode("ascii"),
             "width": width,
@@ -81,6 +86,8 @@ class RobotAdapter:
             "calibration": data.calibration(),
             "robotPosition": data.vacuum_position.as_dict() if data.vacuum_position else None,
             "charger": data.charger.as_dict() if data.charger else None,
+            "currentRoomId": current_room_id,
+            "currentRoomSource": "map.vacuum_room" if current_room_id is not None else None,
         }
 
     async def command(self, request):

@@ -22,6 +22,15 @@ O Termux:Boot inicia o servidor após o arranque do Android, assim que o armazen
 cd server
 node --test *.test.js
 python3 robot_protocol_test.py
+python3 robot_worker_test.py
 ```
 
 Os testes do servidor não enviam ordens à casa. No tablet, confirma o mapa e os estados reais. Depois de configurar o arranque automático, reinicia o Android e confirma que o painel está aberto e o endpoint `/api/health` responde.
+
+## Interface 2.2
+
+O Rocky abre na escolha de divisões ou de uma área no mapa. A seleção guarda separadamente as divisões a aspirar e a lavar. As opções de potência e água ficam em «Ajustes».
+
+Enquanto o Rocky trabalha, o relógio mostra a tarefa, localização confirmada, avisos e comandos contextuais. Durante uma falha de ligação, mantém a última leitura identificada como antiga e desativa os comandos. O aviso de água limpa, quando está parado na base, continua compacto e visível no repouso preto.
+
+A localização atual usa o segmento reportado pelo aspirador; o destino da ordem é guardado separadamente. Quando esse segmento não está disponível, o painel pode usar o segmento do mapa real, com a hora da leitura. Sem dados suficientes, mostra que a localização está por confirmar.

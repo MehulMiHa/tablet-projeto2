@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { RobotClient } = require('./robot-client');
 const { HomeClients } = require('./home-clients');
-const { normalizeRobot, normalizeRooms } = require('./normalize');
+const { normalizeRobot, normalizeRooms, withRobotLocation, unknownLocation } = require('./normalize');
 const { Jobs, ApiError } = require('./jobs');
 
 const MIME = {
@@ -36,10 +36,10 @@ function createApp(config, dependencies = {}) {
   const state = {
     connections: { hue: initialConnection(), robot: initialConnection(), sync: initialConnection() },
     lights: cached.lights || { items: [] }, sync: { active: null },
-    robot: cached.robot ? { ...cached.robot, online: false } : {
+    robot: cached.robot ? withRobotLocation({ ...cached.robot, online: false }, cached.rooms || []) : {
       online: false, stateCode: null, state: 'unknown', label: 'A ligar ao Rocky', phase: 'unknown',
       battery: null, cleanTimeSeconds: null, cleanAreaM2: null, fanPower: null, fanLabel: null,
-      updatedAt: null, alerts: [], currentJob: null
+      updatedAt: null, alerts: [], currentJob: null, location: unknownLocation(), currentRoomId: null, targetRoomId: null
     },
     rooms: cached.rooms || [],
     weather: cached.weather || { outdoorTemperature: null, indoorTemperature: null, rainProbability: null, updatedAt: null }
@@ -55,6 +55,7 @@ function createApp(config, dependencies = {}) {
   let lastSaved = 0;
   let savedAlerts = '';
   let map = null;
+  const mapVersions = new Map();
   const revision = { hue: 0, sync: 0 };
 
   function emit(event) {
@@ -99,12 +100,12 @@ function createApp(config, dependencies = {}) {
     return runPoll('robot', async () => {
       try {
         const raw = await robot.call('status');
-        state.robot = normalizeRobot(raw, state.robot);
+        state.robot = normalizeRobot(raw, state.robot, Date.now(), state.rooms);
         jobs.observeStatus(state.robot);
         connection('robot', state.robot.online ? null : new Error('O aspirador está sem ligação.'));
         persist();
       } catch (error) {
-        state.robot.online = false;
+        state.robot = withRobotLocation({ ...state.robot, online: false }, state.rooms);
         connection('robot', error);
       }
       emit({ type: 'state', robotUpdatedAt: state.robot.updatedAt });
@@ -153,7 +154,10 @@ function createApp(config, dependencies = {}) {
       try {
         const data = await robot.call('rooms');
         state.rooms = normalizeRooms(data.rooms, data.maps);
+        state.robot = withRobotLocation(state.robot, state.rooms);
+        delete state.roomsError;
         persist();
+        emit({ type: 'state', robotUpdatedAt: state.robot.updatedAt });
       } catch (error) {
         if (!state.rooms.length) state.roomsError = error.message;
       }
@@ -166,15 +170,31 @@ function createApp(config, dependencies = {}) {
     });
   }
 
+  function namedMap(currentMap) {
+    const currentRoomId = Number.isInteger(currentMap.currentRoomId) && currentMap.currentRoomId > 0 ? currentMap.currentRoomId : null;
+    const room = state.rooms.find(room => room.id === currentRoomId);
+    return {
+      ...currentMap, currentRoomId,
+      currentRoomName: room ? room.name : undefined,
+      currentRoomSource: currentRoomId === null ? null : 'map.vacuum_room'
+    };
+  }
+
   async function getMap() {
-    if (map && Date.now() - map.updatedAt < 30000) return map;
-    return runPoll('map', async () => {
+    if (map && Date.now() - map.updatedAt < 30000) return namedMap(map);
+    const receivedMap = await runPoll('map', async () => {
       const received = await robot.call('map');
       const image = Buffer.from(received.imageBase64 || '', 'base64');
       if (image.length < 24 || image.length > 10 * 1024 * 1024 || !Number.isInteger(received.width) || !Number.isInteger(received.height)) throw new ApiError('O Rocky ainda não devolveu um mapa válido.', 502);
-      map = { ...received, image, imageBase64: undefined, updatedAt: Date.now(), imageUrl: '/api/robot/map.png' };
+      const updatedAt = Date.now();
+      map = { ...received, image, imageBase64: undefined, updatedAt, imageUrl: `/api/robot/map.png?mapVersion=${updatedAt}` };
+      // A second consumer can refresh the map between metadata and PNG reads.
+      // Keep both snapshots so each marker/calibration uses its exact image.
+      mapVersions.set(String(updatedAt), map);
+      while (mapVersions.size > 2) mapVersions.delete(mapVersions.keys().next().value);
       return map;
     });
+    return namedMap(receivedMap);
   }
 
   const jobs = new Jobs({
@@ -302,7 +322,10 @@ function createApp(config, dependencies = {}) {
         return;
       }
       if (pathname === '/api/robot/map.png' && request.method === 'GET') {
-        const currentMap = await getMap();
+        const version = url.searchParams.get('mapVersion');
+        if (version !== null && !/^\d{1,16}$/.test(version)) throw new ApiError('A versão do mapa é inválida.', 400);
+        const currentMap = version === null ? await getMap() : mapVersions.get(version);
+        if (!currentMap) throw new ApiError('O mapa foi atualizado. Volta a carregar o mapa.', 409);
         response.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': currentMap.image.length, 'Cache-Control': 'no-store' });
         response.end(currentMap.image);
         return;
@@ -332,6 +355,9 @@ function createApp(config, dependencies = {}) {
     if (closed) return;
     const currentMode = Date.now() - lastClient > 30000 ? 'sleep' : mode;
     const intervals = currentMode === 'active' ? { robot: 3000, hue: 2500, sync: 5000 } : currentMode === 'idle' ? { robot: 10000, hue: 5000, sync: 15000 } : { robot: 15000, hue: 10000, sync: 30000 };
+    const activeRobot = state.robot.inCleaning > 0 || state.robot.inReturning > 0 ||
+      ['vacuuming', 'mopping', 'vacuum_mop', 'returning', 'washing_mops', 'drying_mops', 'attaching_mops', 'detaching_mops', 'emptying_dust', 'mapping', 'patrol'].includes(state.robot.phase);
+    if (activeRobot) intervals.robot = 3000;
     const operations = { robot: pollRobot, hue: pollLights, sync: pollSync, rooms: pollRooms, weather: pollWeather };
     for (const [name, operation] of Object.entries(operations)) {
       const interval = intervals[name] || (name === 'rooms' ? 300000 : 600000);

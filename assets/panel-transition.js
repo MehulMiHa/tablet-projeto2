@@ -69,9 +69,32 @@
     Array.prototype.forEach.call(weather.children, function (reading) {
       sources.push(textInk(reading));
     });
-    sources.push(textInk(document.getElementById('ambientHint')));
     if (!alert.hidden) sources.push(textInk(document.getElementById('ambientAlertTitle')));
-    return { digits: captureDigits(time), groups: sources.filter(function (group) { return group.length; }) };
+    var live = document.getElementById('ambientRocky');
+    if (live && !live.hidden) {
+      sources.push(textInk(live.querySelector('.ar-status')));
+      sources.push(textInk(live.querySelector('.ar-location')));
+    }
+    return { from: 'clock', digits: captureDigits(time), groups: sources.filter(function (group) { return group.length; }) };
+  }
+
+  function textTargets(view) {
+    var selectors;
+    if (view === 'clock') {
+      selectors = ['#ambientDate', '#ambientWeather > span:nth-child(1)', '#ambientWeather > span:nth-child(2)', '#ambientWeather > span:nth-child(3)', '#ambientAlertTitle', '#ambientRocky .ar-status', '#ambientRocky .ar-location'];
+    } else if (view === 'lights') {
+      selectors = ['#selectedLightTitle', '#lightsView label[for="brightness"]', '#lightsView label[for="temperature"]', '.sync-copy strong', '#selectedLightStatus'];
+    } else {
+      selectors = ['#robotTitle', '#openCleaning .rocky-choice-name strong', '#openZoneCleaning .rocky-choice-name strong', '#robotState'];
+    }
+    return selectors.map(function (selector) { return document.querySelector(selector); }).filter(Boolean);
+  }
+
+  function captureView(view) {
+    if (motionPreference.matches || !Element.prototype.animate) return null;
+    var groups = textTargets(view).map(textInk).filter(function (group) { return group.length; });
+    if (view === 'lights') groups.push(outlineInk());
+    return { from: view, digits: captureDigits(document.getElementById('headerTime')), groups: groups };
   }
 
   function planGeometry() {
@@ -143,8 +166,8 @@
     document.body.classList.remove('clock-in-flight', 'ink-transition');
   }
 
-  function launchDigits(layer, digits, animations) {
-    var target = captureDigits(document.getElementById('headerTime'));
+  function launchDigits(layer, digits, animations, view) {
+    var target = captureDigits(document.getElementById(view === 'clock' ? 'ambientTime' : 'headerTime'));
     digits.forEach(function (digit, index) {
       if (!target[index] || !digit.rect.width) return;
       var destination = target[index].rect;
@@ -164,7 +187,7 @@
       var arc = (index - (digits.length - 1) / 2) * 15;
       var animation = glyph.animate([
         { transform: 'translate(0, 0) scale(1)', offset: 0 },
-        { transform: 'translate(' + (dx * .34 + arc) + 'px,' + (dy * .43 - 22 - Math.abs(arc)) + 'px) scale(.67)', offset: .47 },
+        { transform: 'translate(' + (dx * .34 + arc) + 'px,' + (dy * .43 - 22 - Math.abs(arc)) + 'px) scale(' + Math.sqrt(factor) + ')', offset: .47 },
         { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + factor + ')', offset: 1 }
       ], { duration: 760 + index * 42, delay: index * 34, easing: 'cubic-bezier(.27,.68,.22,1)', fill: 'both' });
       animations.push(animation);
@@ -186,10 +209,13 @@
     if (!context) return;
     context.scale(ratio, ratio);
 
-    var selectors = view === 'lights'
-      ? ['#lightsView h1', '#lightsView label[for="brightness"]', '#lightsView label[for="temperature"]', '.sync-copy strong', '#selectedLightTitle']
-      : ['#robotView h1', '#robotState', '.robot-stats > div:nth-child(1) label', '.robot-stats > div:nth-child(3) label', '.view-tab[data-view="robot"]'];
-    var targets = selectors.map(function (selector) { return document.querySelector(selector); }).filter(Boolean);
+    var clockJourney = view === 'clock' || snapshot.from === 'clock';
+    var travelDuration = clockJourney ? 930 : 650;
+    var revealAt = clockJourney ? 895 : 600;
+    var totalDuration = clockJourney ? duration : 940;
+    document.body.classList.add('ink-transition');
+    var targets = textTargets(view);
+    if (!targets.length) { document.body.classList.remove('ink-transition'); return; }
     var roomInk = view === 'lights' ? outlineInk() : [];
     var streams = snapshot.groups.map(function (source, index) {
       var element = targets[index % targets.length];
@@ -205,15 +231,25 @@
     var transition = { layer: layer, digits: [], held: targets, frame: null, timer: null };
     active = transition;
     targets.forEach(function (element) { element.classList.add('ink-arrival'); });
-    document.body.classList.add('clock-in-flight', 'ink-transition');
-    launchDigits(layer, snapshot.digits, transition.digits);
+    document.body.classList.add('ink-transition');
+    if (clockJourney) {
+      document.body.classList.add('clock-in-flight');
+      launchDigits(layer, snapshot.digits, transition.digits, view);
+    } else {
+      var arrivingView = document.getElementById(view === 'lights' ? 'lightsView' : 'robotView');
+      var direction = view === 'robot' ? 1 : -1;
+      transition.digits.push(arrivingView.animate([
+        { opacity: 0, transform: 'perspective(1100px) translateX(' + (direction * 42) + 'px) rotateY(' + (direction * 5) + 'deg) scale(.97)' },
+        { opacity: 1, transform: 'perspective(1100px) translateX(0) rotateY(0) scale(1)' }
+      ], { duration: 700, easing: 'cubic-bezier(.2,.78,.2,1)' }));
+    }
 
     var started = performance.now();
     var reveal = false;
     function draw(now) {
       if (active !== transition) return;
       var elapsed = now - started;
-      if (!reveal && elapsed > 895) {
+      if (!reveal && elapsed > revealAt) {
         reveal = true;
         targets.forEach(function (element) {
           element.classList.remove('ink-arrival');
@@ -225,7 +261,7 @@
       streams.forEach(function (stream, group) {
         context.fillStyle = group % 3 === 2 ? '#d8cfb9' : group % 3 === 1 ? '#b4d9c9' : '#e7ede8';
         stream.forEach(function (particle) {
-          var t = Math.min(1, Math.max(0, (elapsed - particle.delay) / 930));
+          var t = Math.min(1, Math.max(0, (elapsed - particle.delay) / travelDuration));
           var progress = t * t * (3 - 2 * t);
           var arc = Math.sin(Math.PI * progress) * particle.bend;
           var x = particle.from.x + (particle.to.x - particle.from.x) * progress + arc * .33;
@@ -237,8 +273,8 @@
       transition.frame = requestAnimationFrame(draw);
     }
     transition.frame = requestAnimationFrame(draw);
-    transition.timer = setTimeout(cancel, duration);
+    transition.timer = setTimeout(cancel, totalDuration);
   }
 
-  window.EddyPanelTransition = { capture: capture, play: play, cancel: cancel };
+  window.EddyPanelTransition = { capture: capture, captureView: captureView, play: play, cancel: cancel };
 }());

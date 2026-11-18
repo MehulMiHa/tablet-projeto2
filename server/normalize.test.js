@@ -50,3 +50,60 @@ test('installed-version states distinguish idle, charger loss, manual control an
   for (const [code, state] of examples) assert.equal(normalizeRobot({ state: code }).state, state);
   assert.equal(normalizeRobot({ state: 101 }).online, false);
 });
+
+test('actual cleaning_info reports current room separately from its target', () => {
+  const rooms = [{ id: 2, name: 'Sala de estar' }, { id: 3, name: 'Cozinha' }];
+  const robot = normalizeRobot({ state: 6305, cleaning_info: { segment_id: 2, target_segment_id: 3 } }, null, 2000, rooms);
+  assert.deepEqual(robot.location, { kind: 'room', label: 'Sala de estar', roomId: 2, updatedAt: 2000, source: 'status.cleaning_info.segment_id', stale: false });
+  assert.equal(robot.targetRoomName, 'Cozinha');
+  assert.equal(robot.phase, 'vacuuming');
+});
+
+test('the real dock sentinel is not a room and a destination alone never invents current location', () => {
+  const rooms = [{ id: 2, name: 'Sala de estar' }];
+  const docked = normalizeRobot({ state: 8, cleaning_info: { segment_id: -1, target_segment_id: -1 } }, null, 2000, rooms);
+  assert.equal(docked.location.kind, 'dock');
+  assert.equal(docked.location.roomId, null);
+  assert.equal(docked.targetRoomName, undefined);
+  for (const state of [6, 10, 15, 16, 18]) {
+    const away = normalizeRobot({ state, cleaning_info: { segment_id: -1, target_segment_id: 2 } }, null, 2000, rooms);
+    assert.equal(away.location.kind, 'unknown');
+    assert.equal(away.location.label, 'Localização por confirmar');
+    assert.equal(away.targetRoomName, 'Sala de estar');
+  }
+});
+
+test('unmapped rooms remain explicit and fresh status never reuses an old room', () => {
+  const first = normalizeRobot({ state: 18, cleaning_info: { segment_id: 2 } }, null, 1000, [{ id: 2, name: 'Sala' }]);
+  const unknown = normalizeRobot({ state: 18, cleaning_info: { segment_id: 44 } }, first, 2000, [{ id: 2, name: 'Sala' }]);
+  assert.equal(unknown.location.kind, 'unknown');
+  assert.equal(unknown.location.roomId, 44);
+  assert.equal(unknown.location.label, 'Divisão atual por identificar');
+  const omitted = normalizeRobot({ state: 18 }, first, 3000, [{ id: 2, name: 'Sala' }]);
+  assert.equal(omitted.location.kind, 'unknown');
+  assert.equal(omitted.location.roomId, null);
+});
+
+test('offline status retains only the last confirmed location and its timestamp as stale', () => {
+  const first = normalizeRobot({ state: 18, cleaning_info: { segment_id: 2 } }, null, 1000, [{ id: 2, name: 'Sala' }]);
+  const offline = normalizeRobot({ state: 101, cleaning_info: { segment_id: 3 } }, first, 2000, [{ id: 3, name: 'Cozinha' }]);
+  assert.equal(offline.online, false);
+  assert.deepEqual(offline.location, { ...first.location, stale: true });
+  assert.equal(offline.location.updatedAt, 1000);
+});
+
+test('verified robot and dock codes provide specific actions while unknown codes remain visible', () => {
+  const robot = normalizeRobot({ state: 12, error_code: 5, dock_error_status: 39 });
+  assert.equal(robot.alerts[0].title, 'Escova principal bloqueada');
+  assert.match(robot.alerts[0].detail, /escova principal/);
+  assert.equal(robot.alerts[0].code, 5);
+  assert.equal(robot.alerts[0].source, 'robot');
+  assert.equal(robot.alerts[1].title, 'Esvaziar depósito de água suja');
+  assert.match(robot.alerts[1].detail, /Esvazia/);
+  const unknown = normalizeRobot({ state: 12, error_code: 888 });
+  assert.match(unknown.alerts[0].title, /888/);
+  assert.match(unknown.alerts[0].detail, /não identificado/);
+  const unreported = normalizeRobot({ state: 12, error_code: 0 });
+  assert.equal(unreported.alerts[0].id, 'robot-error-unreported');
+  assert.match(unreported.alerts[0].detail, /sem indicar o código/);
+});

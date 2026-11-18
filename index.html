@@ -8,7 +8,11 @@
     <title>Eddy</title>
     <link rel="stylesheet" href="assets/eddy.css" />
     <link rel="stylesheet" href="assets/room-motion.css" />
+    <link rel="stylesheet" href="assets/rocky-cleaning.css" />
+    <link rel="stylesheet" href="assets/ambient-rocky.css" />
+    <link rel="stylesheet" href="assets/navigation.css" />
     <script defer src="assets/panel-transition.js"></script>
+    <script defer src="assets/ambient-rocky.js"></script>
     <script defer src="assets/eddy.js"></script>
   </head>
   <body data-screen="clock">
@@ -86,9 +90,6 @@
           <time id="ambientTime" class="ambient-time">--:--</time>
           <div id="ambientWeather" class="ambient-weather" aria-label="Temperaturas"></div>
         </div>
-        <button id="ambientHint" class="ambient-hint" type="button">
-          Tocar para controlar <span aria-hidden="true">↑</span>
-        </button>
         <button id="ambientAlert" class="ambient-alert" hidden>
           <svg class="icon" aria-hidden="true"><use href="#i-drop" /></svg
           ><span
@@ -96,6 +97,7 @@
             ><span id="ambientAlertStatus" class="alert-status"></span></span
           ><svg class="icon alert-chevron" aria-hidden="true"><use href="#i-chevron" /></svg>
         </button>
+        <div id="ambientRocky" class="ambient-rocky" hidden></div>
       </section>
 
       <div id="dashboard" class="dashboard" aria-hidden="true">
@@ -117,9 +119,18 @@
 
         <section id="lightsView" class="view lights-view" aria-label="Iluminação da sala">
           <div class="room-heading">
-            <div>
-              <h1>Sala de estar</h1>
-            </div>
+            <details id="lightScope" class="scope-picker">
+              <summary>
+                <span id="selectedLightTitle">Sala</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
+              </summary>
+              <div class="scope-options" role="group" aria-label="Grupo de luzes">
+                <button type="button" data-light-group="all" class="is-active">Sala inteira</button>
+                <button type="button" data-light-group="spots">Focos</button>
+                <button type="button" data-light-group="led">Fita LED</button>
+                <button type="button" id="selectLights"><svg class="icon" aria-hidden="true"><use href="#i-select" /></svg>Selecionar na planta</button>
+              </div>
+            </details>
           </div>
           <div class="lights-layout">
             <div class="room-plan" id="roomPlan">
@@ -179,18 +190,6 @@
               <div class="control-card">
                 <div class="power-row">
                   <div>
-                    <details id="lightScope" class="scope-picker">
-                      <summary>
-                        <span id="selectedLightTitle">Sala</span>
-                        <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
-                      </summary>
-                      <div class="scope-options" role="group" aria-label="Grupo de luzes">
-                        <button type="button" data-light-group="all" class="is-active">Sala inteira</button>
-                        <button type="button" data-light-group="spots">Focos</button>
-                        <button type="button" data-light-group="led">Fita LED</button>
-                        <button type="button" id="selectLights"><svg class="icon" aria-hidden="true"><use href="#i-select" /></svg>Selecionar na planta</button>
-                      </div>
-                    </details>
                     <p id="selectedLightStatus" class="muted">A obter estado</p>
                   </div>
                   <button
@@ -250,63 +249,44 @@
         </section>
 
         <section id="robotView" class="view robot-view" aria-label="Aspirador Rocky" hidden>
-          <div class="robot-heading">
-            <div>
-              <h1>Rocky</h1>
-            </div>
-            <span id="robotConnection" class="status-pill">A ligar</span>
-          </div>
-          <div class="robot-layout">
-            <div class="robot-overview">
-              <div id="robotVisual" class="robot-visual" aria-hidden="true">
-                <div class="robot-orbit"></div>
-                <div class="robot-dock"><span></span></div>
-                <div class="robot-puck">
-                  <div class="puck-turret"></div>
-                  <div class="puck-mark"></div>
-                  <div class="puck-eye"></div>
-                  <div class="puck-seam"></div>
-                </div>
-              </div>
-              <div class="robot-state-copy">
-                <h2 id="robotState">A obter estado</h2>
-                <p id="robotStateDetail" class="muted">A comunicar com o Rocky</p>
-              </div>
-              <div class="robot-stats">
-                <div><span id="robotBattery">—</span><label>Bateria</label></div>
-                <div><span id="robotTime">—</span><label>Tempo</label></div>
-                <div><span id="robotArea">—</span><label>Área limpa</label></div>
-                <div><span id="robotSuction">—</span><label>Sucção</label></div>
-              </div>
-              <div class="robot-primary-actions">
-                <button id="openCleaning" class="button primary" disabled>
-                  <svg class="icon"><use href="#i-vacuum" /></svg>Limpar</button
-                ><button id="robotPause" class="button secondary" disabled>
-                  <svg class="icon"><use href="#i-pause" /></svg><span>Pausar</span></button
-                ><button id="robotHome" class="button secondary" aria-label="Regressar à base" disabled>
-                  <svg class="icon"><use href="#i-home" /></svg>Base
+          <div class="rocky-clean-home">
+            <div id="robotDestinations" class="rocky-destinations">
+              <h1 id="robotTitle">Onde vamos limpar?</h1>
+              <div class="rocky-choices">
+                <button id="openCleaning" class="rocky-choice rocky-choice-rooms" type="button" disabled>
+                  <span class="rocky-choice-symbol"><svg class="icon" aria-hidden="true"><use href="#i-map" /></svg></span>
+                  <span class="rocky-choice-name"><strong>Divisões</strong><span>Escolhe os espaços</span></span>
+                  <svg class="icon rocky-choice-arrow" aria-hidden="true"><use href="#i-chevron" /></svg>
+                </button>
+                <button id="openZoneCleaning" class="rocky-choice rocky-choice-zone" type="button" disabled>
+                  <span class="rocky-choice-symbol"><svg class="icon" aria-hidden="true"><use href="#i-area" /></svg></span>
+                  <span class="rocky-choice-name"><strong>Uma área</strong><span>Marca uma zona no mapa</span></span>
+                  <svg class="icon rocky-choice-arrow" aria-hidden="true"><use href="#i-chevron" /></svg>
                 </button>
               </div>
-              <button id="robotPause15" class="text-button pause-timed" disabled>
-                <svg class="icon"><use href="#i-clock" /></svg>Pausar durante 15 minutos
-              </button>
             </div>
-            <div class="robot-details">
-              <div id="robotAlerts" class="robot-alerts" aria-live="polite"></div>
-              <div class="map-preview">
-                <div class="map-preview-top">
-                  <span
-                    ><svg class="icon"><use href="#i-map" /></svg>Mapa da casa</span
-                  >
+            <div class="rocky-current" aria-live="polite">
+              <div class="rocky-current-state">
+                <div id="robotVisual" class="rocky-state-icon" aria-hidden="true"><svg class="icon"><use href="#i-robot" /></svg></div>
+                <div>
+                  <h2 id="robotState">A obter estado</h2>
+                  <p id="robotStateDetail" class="muted">A comunicar com o Rocky</p>
                 </div>
-                <div id="mapPreviewContent" class="map-preview-content">
-                  <svg class="icon"><use href="#i-map" /></svg
-                  ><span>Mapa disponível em Limpar</span>
-                </div>
-                <div id="roomCount" class="map-preview-footer">A obter divisões</div>
+                <span id="robotConnection" class="status-pill" hidden>Sem ligação</span>
               </div>
-              <p id="robotFreshness" class="freshness"></p>
+              <div class="rocky-active-actions">
+                <button id="robotPause" class="button primary" type="button" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="#i-pause" /></svg><span>Pausar</span>
+                </button>
+                <button id="robotPause15" class="button secondary" type="button" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg><span>Pausar 15 min</span>
+                </button>
+                <button id="robotHome" class="button secondary" type="button" aria-label="Regressar à base" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="#i-home" /></svg><span>Base</span>
+                </button>
+              </div>
             </div>
+            <div id="robotAlerts" class="rocky-alerts" aria-live="polite"></div>
           </div>
         </section>
       </div>
@@ -315,18 +295,15 @@
     <div id="sheetBackdrop" class="sheet-backdrop" hidden></div>
     <section
       id="cleaningSheet"
-      class="sheet"
+      class="sheet rocky-clean-sheet"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cleaningTitle"
       hidden
     >
       <header class="sheet-header">
-        <div>
-          <p class="eyebrow">NOVA LIMPEZA</p>
-          <h2 id="cleaningTitle">Onde vamos limpar?</h2>
-        </div>
-        <button id="closeCleaning" class="icon-button" aria-label="Fechar">
+        <h2 id="cleaningTitle">Onde limpar?</h2>
+        <button id="closeCleaning" class="icon-button" type="button" aria-label="Fechar">
           <svg class="icon"><use href="#i-close" /></svg>
         </button>
       </header>
@@ -337,21 +314,27 @@
         </button>
       </div>
       <div class="sheet-scroll">
+        <div class="rocky-room-tools">
+            <details id="roomModePicker" class="scope-picker">
+              <summary>
+                <svg class="icon" aria-hidden="true"><use id="roomModeIcon" href="#i-vacuum" /></svg>
+                <span id="roomModeName">Aspirar</span>
+                <svg class="icon rocky-mode-chevron" aria-hidden="true"><use href="#i-chevron" /></svg>
+              </summary>
+              <div class="scope-options" role="group" aria-label="Modo de limpeza">
+                <button type="button" data-clean-mode="vacuum"><svg class="icon" aria-hidden="true"><use href="#i-vacuum" /></svg>Aspirar</button>
+                <button type="button" data-clean-mode="mop"><svg class="icon" aria-hidden="true"><use href="#i-drop" /></svg>Lavar</button>
+                <button type="button" data-clean-mode="vacuum_mop"><svg class="icon" aria-hidden="true"><use href="#i-robot" /></svg>Ambos</button>
+              </div>
+            </details>
+            <button id="selectAllRooms" class="text-button rocky-all-rooms" type="button">Todas</button>
+        </div>
         <div id="roomsPanel" role="tabpanel" aria-labelledby="roomsTab">
-          <div class="room-list-head">
-            <span>Divisão</span><button id="selectAllVacuum">Aspirar <span>todas</span></button
-            ><button id="selectAllMop">Lavar <span>todas</span></button>
-          </div>
           <div id="roomList" class="room-list">
             <p class="empty-state">A obter divisões do Rocky…</p>
           </div>
         </div>
         <div id="zonePanel" role="tabpanel" aria-labelledby="zoneTab" hidden>
-          <div class="zone-mode" role="group" aria-label="Modo de limpeza da área">
-            <button class="is-active" data-zone-mode="vacuum">Aspirar</button
-            ><button data-zone-mode="vacuum_mop">Aspirar e lavar</button
-            ><button data-zone-mode="mop">Lavar</button>
-          </div>
           <div id="zoneStage" class="zone-stage">
             <p id="zoneMessage" class="empty-state">A obter o mapa real…</p>
             <canvas
@@ -362,7 +345,12 @@
           </div>
           <p id="zoneHint" class="zone-hint">Arrasta a área e ajusta os cantos.</p>
         </div>
-        <div class="cleaning-settings">
+        <details id="cleaningSettings" class="rocky-settings" hidden>
+          <summary>
+            <span>Intensidade</span><span id="cleaningSettingSummary"></span>
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
+          </summary>
+          <div class="cleaning-settings">
           <div id="suctionSetting" class="range-control">
             <div class="range-heading">
               <label for="suction">Sucção</label><output id="suctionValue">Normal</output>
@@ -375,7 +363,8 @@
             </div>
             <input id="water" type="range" min="1" max="30" value="15" />
           </div>
-        </div>
+          </div>
+        </details>
       </div>
       <footer class="sheet-footer">
         <p id="cleaningSummary" aria-live="polite">Escolhe pelo menos uma divisão.</p>

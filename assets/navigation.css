@@ -1,0 +1,13 @@
+/* The room picker is the heading, within reach without duplicating its name. */
+.room-heading { margin-bottom: 16px; }
+.room-heading .scope-picker summary { min-height: 54px; font-size: 32px; gap: 13px; }
+.room-heading .scope-picker summary .icon { width: 19px; height: 19px; }
+.room-heading .scope-options { top: calc(100% + 8px); bottom: auto; left: 0; min-width: 250px; }
+.room-heading .scope-options button { min-height: 57px; padding: 14px 17px; font-size: 20px; }
+.power-row { min-height: 70px; }
+.power-row p { font-size: 19px; line-height: 1.35; }
+.view-tab { transition: color .3s ease, background .3s ease, box-shadow .3s ease; }
+@media (orientation: landscape) and (max-height: 800px) {
+  .room-heading { margin-bottom: 6px; }
+  .room-heading .scope-picker summary { min-height: 46px; font-size: 28px; }
+}

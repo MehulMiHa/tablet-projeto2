@@ -16,7 +16,8 @@
 body.clock-in-flight #ambientTime, body.clock-in-flight #headerTime { visibility: hidden; }
 .ink-arrival { opacity: 0; }
 body[data-panel-transition="room-in"] .dashboard { transform: none; }
-body.ink-transition .ambient { transition-duration: .24s; }
+body.ink-transition .ambient,
+body.ink-transition .dashboard { transform: none; transition-property: opacity, visibility; transition-duration: .24s; }
 
 /* Lift the plan from the clock screen and let its real fixture states settle into view. */
 body[data-screen="lights"] #lightPlan {
