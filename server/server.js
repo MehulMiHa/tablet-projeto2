@@ -3,6 +3,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const { RobotClient } = require('./robot-client');
 const { HomeClients } = require('./home-clients');
 const { normalizeRobot, normalizeRooms, withRobotLocation, unknownLocation } = require('./normalize');
@@ -36,6 +37,7 @@ function createApp(config, dependencies = {}) {
   const state = {
     connections: { hue: initialConnection(), robot: initialConnection(), sync: initialConnection() },
     lights: cached.lights || { items: [] }, sync: { active: null },
+    presence: { motion: null, online: false, stale: true, revision: null, updatedAt: null, changedAt: null, sensorIds: [] },
     robot: cached.robot ? withRobotLocation({ ...cached.robot, online: false }, cached.rooms || []) : {
       online: false, stateCode: null, state: 'unknown', label: 'A ligar ao Rocky', phase: 'unknown',
       battery: null, cleanTimeSeconds: null, cleanAreaM2: null, fanPower: null, fanLabel: null,
@@ -57,6 +59,21 @@ function createApp(config, dependencies = {}) {
   let map = null;
   const mapVersions = new Map();
   const revision = { hue: 0, sync: 0 };
+
+  function observePresence(event) {
+    const confirmed = event.online === true && event.stale !== true && typeof event.motion === 'boolean' && typeof event.signature === 'string';
+    if (!confirmed) {
+      state.presence = { ...state.presence, motion: null, online: false, stale: true };
+      emit({ type: 'state' });
+      return;
+    }
+    state.presence = {
+      motion: event.motion, online: true, stale: false, revision: createHash('sha256').update(event.signature).digest('hex'),
+      updatedAt: Date.now(), changedAt: event.changedAt || null, sensorIds: event.sensorIds || []
+    };
+    // Consumers fetch the versioned current state; repeated snapshots are harmless.
+    emit({ type: 'state' });
+  }
 
   function emit(event) {
     const message = `data: ${JSON.stringify(event)}\n\n`;
@@ -119,7 +136,12 @@ function createApp(config, dependencies = {}) {
       try {
         const received = await home.lights();
         if (expected === revision.hue) { state.lights = received; connection('hue'); persist(); }
-      } catch (error) { if (expected === revision.hue) connection('hue', error); }
+      } catch (error) {
+        if (expected === revision.hue) {
+          connection('hue', error);
+          observePresence({ motion: null });
+        }
+      }
     });
   }
 
@@ -279,6 +301,7 @@ function createApp(config, dependencies = {}) {
         if (clients.size >= 12) throw new ApiError('Existem demasiadas ligações ao painel.', 429);
         response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
         response.write('retry: 5000\n\n');
+        response.write('data: {"type":"state"}\n\n');
         clients.add(response);
         request.on('close', () => clients.delete(response));
         return;
@@ -368,6 +391,7 @@ function createApp(config, dependencies = {}) {
 
   function start() {
     home.watchHue(event => {
+      if (event.type === 'presence') { observePresence(event); return; }
       emit(event);
       if (event.type !== 'button') return;
       pollLights().catch(() => {});

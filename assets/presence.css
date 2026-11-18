@@ -1,0 +1,22 @@
+/* Hue absence means a completely black display, including cached notices. */
+body[data-sleep="true"] {
+  background: #000 !important;
+  background-image: none !important;
+}
+
+body[data-sleep="true"] > :not(#emergencyLight),
+body[data-sleep="true"] > :not(#emergencyLight) *,
+body[data-sleep="true"]::before,
+body[data-sleep="true"]::after {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+
+/* The power-failure white light remains available above the black display. */
+body[data-sleep="true"] #emergencyLight:not([hidden]) {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}

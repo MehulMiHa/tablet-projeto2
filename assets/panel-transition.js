@@ -197,6 +197,7 @@
   function play(snapshot, view) {
     cancel();
     if (!snapshot || (!snapshot.groups.length && !snapshot.digits.length)) return;
+    if (snapshot.from !== 'clock' && view !== 'clock') return;
     var layer = document.createElement('div');
     layer.className = 'panel-transition-layer';
     layer.setAttribute('aria-hidden', 'true');
@@ -209,10 +210,9 @@
     if (!context) return;
     context.scale(ratio, ratio);
 
-    var clockJourney = view === 'clock' || snapshot.from === 'clock';
-    var travelDuration = clockJourney ? 930 : 650;
-    var revealAt = clockJourney ? 895 : 600;
-    var totalDuration = clockJourney ? duration : 940;
+    var travelDuration = 930;
+    var revealAt = 895;
+    var totalDuration = duration;
     document.body.classList.add('ink-transition');
     var targets = textTargets(view);
     if (!targets.length) { document.body.classList.remove('ink-transition'); return; }
@@ -231,18 +231,8 @@
     var transition = { layer: layer, digits: [], held: targets, frame: null, timer: null };
     active = transition;
     targets.forEach(function (element) { element.classList.add('ink-arrival'); });
-    document.body.classList.add('ink-transition');
-    if (clockJourney) {
-      document.body.classList.add('clock-in-flight');
-      launchDigits(layer, snapshot.digits, transition.digits, view);
-    } else {
-      var arrivingView = document.getElementById(view === 'lights' ? 'lightsView' : 'robotView');
-      var direction = view === 'robot' ? 1 : -1;
-      transition.digits.push(arrivingView.animate([
-        { opacity: 0, transform: 'perspective(1100px) translateX(' + (direction * 42) + 'px) rotateY(' + (direction * 5) + 'deg) scale(.97)' },
-        { opacity: 1, transform: 'perspective(1100px) translateX(0) rotateY(0) scale(1)' }
-      ], { duration: 700, easing: 'cubic-bezier(.2,.78,.2,1)' }));
-    }
+    document.body.classList.add('clock-in-flight');
+    launchDigits(layer, snapshot.digits, transition.digits, view);
 
     var started = performance.now();
     var reveal = false;

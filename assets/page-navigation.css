@@ -1,0 +1,17 @@
+.dashboard { position: relative; }
+.dashboard.page-sliding { overflow: hidden; }
+.lights-view, .robot-view { touch-action: pan-y; animation: none !important; }
+.page-slide-layer {
+  position: absolute !important;
+  margin: 0 !important;
+  animation: none !important;
+  will-change: transform;
+  pointer-events: none;
+  background: #000;
+}
+.page-slide-layer #lightPlan,
+.page-slide-layer .room-trace,
+.page-slide-layer .fixture { animation: none !important; }
+.page-arrived #lightPlan,
+.page-arrived .room-trace,
+.page-arrived .fixture { animation: none !important; }

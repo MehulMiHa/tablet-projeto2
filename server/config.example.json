@@ -14,7 +14,8 @@
       "foco-1": "11", "foco-2": "10", "foco-3": "9", "foco-4": "7",
       "foco-5": "6", "foco-6": "8", "foco-7": "15", "foco-8": "14"
     },
-    "buttons": {}
+    "buttons": {},
+    "motionSensorIds": []
   },
   "sync": {
     "host": "",

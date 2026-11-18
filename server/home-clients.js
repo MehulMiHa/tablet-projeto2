@@ -5,6 +5,7 @@ const https = require('node:https');
 const tls = require('node:tls');
 const { hueLight } = require('./normalize');
 const { discoverServices } = require('./discovery');
+const { selectMotionResources, motionPresence, mergeMotionResource } = require('./presence');
 
 function serviceUrl(host, secure = false) {
   const url = new URL(host.includes('://') ? host : `${secure ? 'https' : 'http'}://${host}`);
@@ -237,13 +238,37 @@ class HomeClients {
   watchHue(callback) {
     const hue = this.config.hue || {};
     if (!hue.host || !hue.token || !hue.fingerprint256) return;
+    let generation = 0;
     const connect = () => {
       if (this.closed) return;
+      const currentGeneration = ++generation;
+      let selected = new Map();
+      let bufferedMotion = [];
+      let hydrating = true;
+      const publishPresence = () => callback({ type: 'presence', ...motionPresence([...selected.values()]) });
+      const receiveMotion = (item, creationtime) => {
+        if (!selected.has(item.id)) return;
+        selected.set(item.id, mergeMotionResource(selected.get(item.id), item, creationtime));
+      };
       const url = new URL('/eventstream/clip/v2', serviceUrl(hue.host, true));
       const request = https.get(url, {
         agent: this.hueAgent, headers: { 'hue-application-key': hue.token, Accept: 'text/event-stream' }
       }, response => {
         if (response.statusCode !== 200) { response.resume(); request.destroy(); return; }
+        this.readPresenceResources().then(resources => {
+          if (this.closed || generation !== currentGeneration || request.destroyed) return;
+          selected = new Map(selectMotionResources(resources, this.config).map(item => [item.id, item]));
+          for (const [item, creationtime] of bufferedMotion) receiveMotion(item, creationtime);
+          bufferedMotion = [];
+          hydrating = false;
+          publishPresence();
+        }).catch(() => {
+          if (this.closed || generation !== currentGeneration || request.destroyed) return;
+          bufferedMotion = [];
+          hydrating = false;
+          callback({ type: 'presence', motion: null, online: false, stale: true });
+          request.destroy();
+        });
         let buffer = '';
         response.setEncoding('utf8');
         response.on('data', chunk => {
@@ -258,8 +283,14 @@ class HomeClients {
               try {
                 for (const envelope of JSON.parse(data)) {
                   for (const item of envelope.data || []) {
-                    if (item.type === 'motion' && item.motion && typeof item.motion.motion === 'boolean') {
-                      callback({ type: 'motion', id: item.id, motion: item.motion.motion, active: item.motion.motion });
+                    if (item.type === 'motion' && item.motion) {
+                      if (hydrating) {
+                        if (bufferedMotion.length >= 256) { request.destroy(); return; }
+                        bufferedMotion.push([item, envelope.creationtime]);
+                      } else if (selected.has(item.id)) {
+                        receiveMotion(item, envelope.creationtime);
+                        publishPresence();
+                      }
                     }
                     const mapping = (hue.buttons || {})[item.id];
                     if (item.type === 'button' && item.button && item.button.last_event === 'initial_press' && mapping) {
@@ -277,11 +308,21 @@ class HomeClients {
       this.eventsRequest = request;
       request.setTimeout(90000, () => request.destroy());
       request.once('close', () => {
+        if (!this.closed && generation === currentGeneration) callback({ type: 'presence', motion: null, online: false, stale: true });
         if (!this.closed) this.eventsTimer = setTimeout(connect, 5000);
       });
       request.on('error', () => {});
     };
     connect();
+  }
+
+  async readPresenceResources() {
+    const hue = this.config.hue || {};
+    const result = await requestJson(new URL('/clip/v2/resource', serviceUrl(hue.host, true)), {
+      agent: this.hueAgent, headers: { 'hue-application-key': hue.token }
+    });
+    if (!Array.isArray(result.data) || result.errors && result.errors.length) throw new Error('A Bridge não confirmou o sensor de presença.');
+    return result.data;
   }
 
   async weather() {

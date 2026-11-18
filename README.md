@@ -1,6 +1,6 @@
 # Eddy
 
-Painel Android para o tablet da sala. O APK inclui a interface e liga-se ao servidor Eddy em `http://127.0.0.1:3000`. O servidor comunica com a Bridge Hue, a Sync Box e o Saros 10R. A interface continua a mostrar o relógio e o último aviso confirmado durante uma interrupção.
+Painel Android para o tablet da sala. O APK inclui a interface e liga-se ao servidor Eddy em `http://127.0.0.1:3000`. O servidor comunica com a Bridge Hue, a Sync Box e o Saros 10R. Durante uma interrupção, guarda os últimos estados confirmados. Sem presença, o ecrã fica completamente preto.
 
 ## Compilar o APK
 
@@ -27,10 +27,14 @@ python3 robot_worker_test.py
 
 Os testes do servidor não enviam ordens à casa. No tablet, confirma o mapa e os estados reais. Depois de configurar o arranque automático, reinicia o Android e confirma que o painel está aberto e o endpoint `/api/health` responde.
 
-## Interface 2.2
+## Interface 2.3
 
 O Rocky abre na escolha de divisões ou de uma área no mapa. A seleção guarda separadamente as divisões a aspirar e a lavar. As opções de potência e água ficam em «Ajustes».
 
-Enquanto o Rocky trabalha, o relógio mostra a tarefa, localização confirmada, avisos e comandos contextuais. Durante uma falha de ligação, mantém a última leitura identificada como antiga e desativa os comandos. O aviso de água limpa, quando está parado na base, continua compacto e visível no repouso preto.
+Enquanto o Rocky trabalha, o relógio mostra a tarefa, localização confirmada, avisos e comandos contextuais. Durante uma falha de ligação, mantém a última leitura identificada como antiga e desativa os comandos. Um aviso de água limpa, quando está parado na base, fica compacto no relógio. Quando o sensor confirma ausência, desaparece toda a interface, incluindo avisos, controlos e notificações. O primeiro toque acorda apenas o relógio. Uma falha de energia mantém a luz e voz de emergência disponíveis.
+
+A passagem entre Sala e Rocky usa duas páginas que deslizam horizontalmente, tanto pelos separadores como pelo gesto de arrastar. A transição das letras fica reservada ao relógio. Os gestos não interferem com os sliders, a seleção de luzes ou o desenho de uma área no mapa.
+
+A voz de emergência usa uma voz portuguesa offline quando instalada e o volume de alarme configurado no Android. As mensagens aguardam a inicialização do motor de voz; a reposição da energia cancela avisos ainda pendentes. A app respeita o volume e o modo Não incomodar.
 
 A localização atual usa o segmento reportado pelo aspirador; o destino da ordem é guardado separadamente. Quando esse segmento não está disponível, o painel pode usar o segmento do mapa real, com a hora da leitura. Sem dados suficientes, mostra que a localização está por confirmar.

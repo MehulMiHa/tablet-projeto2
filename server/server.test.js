@@ -170,3 +170,71 @@ test('HTTP exposes only public assets and blocks untrusted origins without devic
   assert.deepEqual(values.calls, []);
   await app.close();
 });
+
+test('current presence initializes unknown and preserves observation revisions across polls and reconnection', async () => {
+  const values = fixtures();
+  let receive;
+  values.home.watchHue = callback => { receive = callback; };
+  const app = createApp({}, { ...values, persist: false });
+  assert.equal(app.snapshot().presence.motion, null);
+  assert.equal(app.snapshot().presence.stale, true);
+  app.start();
+  const absence = { type: 'presence', motion: false, online: true, stale: false, signature: 'known-sensor:false:100', changedAt: 100, sensorIds: ['known-sensor'] };
+  try {
+    receive(absence);
+    const first = app.snapshot().presence;
+    assert.equal(first.motion, false);
+    assert.equal(first.stale, false);
+    assert.ok(first.revision);
+    receive(absence);
+    assert.equal(app.snapshot().presence.revision, first.revision, 'Repeated observations do not interrupt manual wake');
+    receive({ type: 'presence', motion: null, online: false, stale: true });
+    assert.equal(app.snapshot().presence.motion, null, 'A broken stream is unknown, not absence');
+    assert.equal(app.snapshot().presence.revision, first.revision);
+    receive(absence);
+    assert.equal(app.snapshot().presence.revision, first.revision, 'Unchanged reconnect hydration does not replay old absence');
+    receive({ ...absence, signature: 'known-sensor:false:200', changedAt: 200 });
+    assert.notEqual(app.snapshot().presence.revision, first.revision, 'A newer device observation applies once');
+    const second = app.snapshot().presence.revision;
+    values.home.lights = async () => { throw new Error('Mock Hue read failure'); };
+    await app.refresh.lights();
+    assert.equal(app.snapshot().presence.motion, null);
+    assert.equal(app.snapshot().presence.online, false);
+    assert.equal(app.snapshot().presence.revision, second);
+    assert.deepEqual(values.calls.filter(call => !['status', 'rooms'].includes(call)), [], 'Presence never commands a device');
+  } finally { await app.close(); }
+});
+
+test('a new or reconnected event subscriber receives a current-state notification without replaying motion', async () => {
+  const app = createApp({}, { ...fixtures(), persist: false });
+  await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
+  const baseUrl = `http://127.0.0.1:${app.server.address().port}`;
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const controller = new AbortController();
+      const response = await fetch(baseUrl + '/api/events', { signal: controller.signal });
+      const reader = response.body.getReader();
+      const first = new TextDecoder().decode((await reader.read()).value);
+      assert.match(first, /data: {"type":"state"}/);
+      assert.doesNotMatch(first, /"motion"/);
+      controller.abort();
+      await reader.cancel().catch(() => {});
+    }
+  } finally { await app.close(); }
+});
+
+test('the same sensor observation keeps its revision across server restarts', async () => {
+  const revisions = [];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const values = fixtures();
+    let receive;
+    values.home.watchHue = callback => { receive = callback; };
+    const app = createApp({}, { ...values, persist: false });
+    app.start();
+    try {
+      receive({ type: 'presence', motion: false, online: true, stale: false, signature: 'same-device:false:100', changedAt: 100, sensorIds: ['same-device'] });
+      revisions.push(app.snapshot().presence.revision);
+    } finally { await app.close(); }
+  }
+  assert.equal(revisions[0], revisions[1], 'A restarted server must not replay old absence over manual wake');
+});

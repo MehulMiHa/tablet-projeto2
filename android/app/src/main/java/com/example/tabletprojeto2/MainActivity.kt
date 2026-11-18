@@ -10,15 +10,19 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.AudioAttributes
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
@@ -49,6 +53,7 @@ import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
+import java.util.ArrayDeque
 import java.util.Date
 import java.util.Locale
 
@@ -59,6 +64,8 @@ class MainActivity : ComponentActivity() {
     private var webView: WebView? = null
     private var speech: TextToSpeech? = null
     private var speechReady = false
+    private val pendingSpeech = ArrayDeque<PendingSpeech>()
+    private var utteranceSequence = 0L
     private var resumed = false
     private var charging = true
     private var dimmed = false
@@ -69,6 +76,7 @@ class MainActivity : ComponentActivity() {
     private var flushScheduled = false
     private var persistedAlerts = "[]"
     private var recoveryClock: TextView? = null
+    private var recoveryContent: LinearLayout? = null
     private lateinit var serverWatchdog: LocalServerWatchdog
     @Volatile private var generation = 0L
     @Volatile private var trustedPage = false
@@ -120,17 +128,7 @@ class MainActivity : ComponentActivity() {
         configureWindow()
         val policy = getSystemService(DevicePolicyManager::class.java)
         if (policy?.isLockTaskPermitted(packageName) == true) startLockTask()
-        speech = TextToSpeech(applicationContext) { status ->
-            if (!destroyed) {
-                speechReady = status == TextToSpeech.SUCCESS
-                if (speechReady) {
-                    val result = speech?.setLanguage(Locale.forLanguageTag("pt-PT"))
-                    if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                        speech?.language = Locale.forLanguageTag("pt-BR")
-                    }
-                }
-            }
-        }
+        initializeSpeech()
         ContextCompat.registerReceiver(this, batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -178,6 +176,7 @@ class MainActivity : ComponentActivity() {
         persistSnapshot.run()
         webView?.let { disposeWebView(it) }
         speechReady = false
+        pendingSpeech.clear()
         speech?.stop()
         speech?.shutdown()
         speech = null
@@ -192,6 +191,96 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun initializeSpeech() {
+        if (destroyed || speech != null) return
+        // Post the callback so even an immediately available engine is assigned first.
+        speech = TextToSpeech(applicationContext) { status -> handler.post {
+            if (destroyed) return@post
+            val engine = speech ?: return@post
+            if (status != TextToSpeech.SUCCESS) {
+                Log.w(TAG, "Speech engine initialization failed: $status")
+                engine.shutdown()
+                speech = null
+                return@post
+            }
+            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) { Log.i(TAG, "Speech started: $utteranceId") }
+                override fun onDone(utteranceId: String?) { Log.i(TAG, "Speech completed: $utteranceId") }
+                @Deprecated("Used by older speech engines")
+                override fun onError(utteranceId: String?) { Log.w(TAG, "Speech failed: $utteranceId") }
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    Log.w(TAG, "Speech failed: $utteranceId, code=$errorCode")
+                }
+            })
+            // Outage announcements follow the user's alarm volume, including DND policy.
+            // Media volume can be zero on a wall display; never change either volume.
+            val audioResult = engine.setAudioAttributes(AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build())
+            speechReady = selectPortugueseVoice(engine) && audioResult == TextToSpeech.SUCCESS
+            if (speechReady) {
+                Log.i(TAG, "Speech ready: engine=${engine.defaultEngine}, voice=${engine.voice?.name}, locale=${engine.voice?.locale}, network=${engine.voice?.isNetworkConnectionRequired}, usage=alarm")
+                flushSpeech()
+            } else {
+                Log.w(TAG, "Speech unavailable: Portuguese voice or alarm audio configuration missing")
+                engine.shutdown()
+                speech = null
+            }
+        } }
+    }
+
+    private fun selectPortugueseVoice(engine: TextToSpeech): Boolean {
+        // Prefer installed offline speech: an electricity failure can also remove internet.
+        val offlineVoices = engine.voices.orEmpty().filter {
+            it.locale.language in setOf("pt", "por") && !it.isNetworkConnectionRequired &&
+                TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in it.features
+        }.sortedWith(compareBy({ when (it.locale.country.uppercase(Locale.ROOT)) {
+            "PT", "PRT" -> 0
+            "BR", "BRA" -> 1
+            else -> 2
+        } }, { -it.quality }, { it.latency }, { it.name }))
+        for (voice in offlineVoices) {
+            if (engine.setVoice(voice) == TextToSpeech.SUCCESS) return true
+        }
+        for (language in listOf("pt-PT", "pt-BR", "pt")) {
+            if (engine.setLanguage(Locale.forLanguageTag(language)) >= TextToSpeech.LANG_AVAILABLE) {
+                Log.w(TAG, "No installed offline Portuguese voice reported; using engine language $language")
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun enqueueSpeech(text: String, pageGeneration: Long) {
+        val message = text.trim().take(500)
+        if (message.isEmpty()) return
+        if (pendingSpeech.size >= 4) pendingSpeech.removeFirst()
+        pendingSpeech.addLast(PendingSpeech(message, pageGeneration, SystemClock.elapsedRealtime()))
+        if (speechReady) flushSpeech() else initializeSpeech()
+    }
+
+    private fun flushSpeech() {
+        val engine = speech ?: return
+        if (!speechReady) return
+        while (pendingSpeech.isNotEmpty()) {
+            val message = pendingSpeech.removeFirst()
+            if (message.generation != generation || !trustedPage ||
+                SystemClock.elapsedRealtime() - message.queuedAt > 30_000) continue
+            val id = "eddy-${++utteranceSequence}"
+            if (engine.speak(message.text, TextToSpeech.QUEUE_ADD, null, id) == TextToSpeech.ERROR) {
+                Log.w(TAG, "Speech request rejected: $id")
+            }
+        }
+    }
+
+    private fun stopSpeech() {
+        pendingSpeech.clear()
+        speech?.stop()
+    }
+
+    private data class PendingSpeech(val text: String, val generation: Long, val queuedAt: Long)
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun createWebView() {
         if (destroyed) return
@@ -200,6 +289,9 @@ class MainActivity : ComponentActivity() {
         handler.removeCallbacks(stalledRenderer)
         webView?.let { disposeWebView(it) }
         recoveryClock = null
+        recoveryContent = null
+        container.setOnClickListener(null)
+        container.isClickable = false
         container.removeAllViews()
         container.translationX = 0f
         generation++
@@ -251,6 +343,7 @@ class MainActivity : ComponentActivity() {
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 if (currentGeneration == generation) {
+                    stopSpeech()
                     trustedPage = isPanelNavigation(Uri.parse(url))
                     setEmergencyBrightnessOverride(false)
                 }
@@ -304,6 +397,7 @@ class MainActivity : ComponentActivity() {
         if (view === webView) {
             trustedPage = false
             webView = null
+            stopSpeech()
             setEmergencyBrightnessOverride(false)
         }
         if (!rendererGone) view.removeJavascriptInterface("AndroidSync")
@@ -361,12 +455,14 @@ class MainActivity : ComponentActivity() {
         layout.addView(clock)
         layout.addView(warning)
         layout.addView(message)
-        layout.setOnClickListener {
+        container.setOnClickListener {
             rendererFailures = 0
             createWebView()
         }
         container.addView(layout, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         recoveryClock = clock
+        recoveryContent = layout
+        applyBrightness()
         tickRecovery.run()
     }
 
@@ -377,6 +473,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyBrightness() {
+        recoveryContent?.visibility = if (dimmed) View.INVISIBLE else View.VISIBLE
         if (resumed) window.attributes = window.attributes.apply {
             screenBrightness = when {
                 emergencyBrightness -> WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
@@ -459,8 +556,13 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface
         fun falar(text: String) {
             if (active()) handler.post {
-                if (active() && speechReady) speech?.speak(text.take(500), TextToSpeech.QUEUE_FLUSH, null, "eddy")
+                if (active()) enqueueSpeech(text, pageGeneration)
             }
+        }
+
+        @JavascriptInterface
+        fun pararFala() {
+            if (active()) handler.post { if (active()) stopSpeech() }
         }
 
         @JavascriptInterface

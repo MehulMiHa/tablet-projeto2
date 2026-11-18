@@ -9,6 +9,7 @@
   var state = null;
   var robotAlerts = [];
   var lastRobotUpdate = 0;
+  var lastPresenceRevision = null;
   var serverOnline = false;
   var stateAttempted = false;
   var selectedLights = new Set(LIGHT_IDS);
@@ -23,6 +24,8 @@
   var eventStream = null;
   var inactivityTimer = null;
   var sleepTimer = null;
+  var wakeGestureActive = false;
+  var suppressWakeInputUntil = 0;
   var pointerDown = false;
   var lightDrag = null;
   var suppressFixtureClickUntil = 0;
@@ -218,6 +221,14 @@
     state.robot.alerts = robotAlerts;
     serverOnline = true;
     rememberSnapshot(previousAlerts !== JSON.stringify(robotAlerts));
+    applyPresence(incoming.presence);
+  }
+
+  function applyPresence(presence) {
+    if (!presence || presence.online !== true || presence.stale === true || typeof presence.motion !== 'boolean' || !presence.revision || presence.revision === lastPresenceRevision) return;
+    lastPresenceRevision = presence.revision;
+    if (presence.motion) wake(false);
+    else goToSleep();
   }
 
   async function refreshState() {
@@ -246,6 +257,7 @@
   function attachEvents() {
     if (!window.EventSource || eventStream) return;
     eventStream = new EventSource(API_BASE + '/api/events');
+    eventStream.onopen = refreshState;
     var receive = function (event) {
       try { handleDeviceEvent(JSON.parse(event.data), event.type); } catch (error) { /* A malformed event is ignored. */ }
     };
@@ -257,6 +269,7 @@
     var type = event.type || eventType;
     if (type === 'motion') {
       if (event.motion === true) wake(false);
+      else if (event.motion === false) goToSleep();
       return;
     }
     if (type === 'button') {
@@ -308,7 +321,7 @@
     resetSleepTimer();
     if (openControls) setView('lights');
     else if (wasSleeping) {
-      showClock();
+      showClock(false);
       refreshState();
     }
   }
@@ -319,6 +332,7 @@
       try { snapshot = window.EddyPanelTransition.captureView(screen); } catch (error) { /* The clock remains available during recovery. */ }
     }
     window.EddyPanelTransition.cancel();
+    if (window.EddyPages) window.EddyPages.cancel();
     if (screen === 'lights') transitionPanel('room-out', snapshot ? 1300 : 520);
     closeCleaning();
     cancelSelection();
@@ -338,9 +352,33 @@
 
   function goToSleep() {
     if (emergencyActive && !$('emergencyLight').hidden) { resetSleepTimer(); return; }
-    showClock(false);
+    clearTimeout(sleepTimer);
+    clearTimeout(inactivityTimer);
+    pointerDown = false;
+    lightDrag = null;
+    map.gesture = null;
     document.body.dataset.sleep = 'true';
+    showClock(false);
+    if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
     nativeCall('setDimmed', true);
+  }
+
+  function captureSleepWake(event) {
+    // Consume the complete wake gesture before any hidden control can receive it.
+    if (!$('emergencyLight').hidden) return;
+    var sleeping = document.body.dataset.sleep === 'true';
+    if (!sleeping && !wakeGestureActive && Date.now() >= suppressWakeInputUntil) return;
+    if (sleeping) {
+      wakeGestureActive = /(?:down|start)$/.test(event.type);
+      suppressWakeInputUntil = Date.now() + 800;
+      wake(false);
+    }
+    if (/(?:up|end|cancel)$/.test(event.type)) {
+      wakeGestureActive = false;
+      suppressWakeInputUntil = Date.now() + 500;
+    }
+    if (event.cancelable) event.preventDefault();
+    event.stopImmediatePropagation();
   }
 
   function openFromClock() {
@@ -351,17 +389,24 @@
     setView(showRobot ? 'robot' : 'lights', !wasSleeping);
   }
 
-  function setView(view, withClockAnimation) {
+  function setView(view, withClockAnimation, slideGesture) {
     var previous = screen;
     var clockTransition = null;
+    if (previous === 'clock') {
+      $('lightsView').classList.remove('page-arrived');
+      $('robotView').classList.remove('page-arrived');
+    }
     if (previous === 'clock' && withClockAnimation !== false) {
       try { clockTransition = window.EddyPanelTransition.capture(); } catch (error) { /* Navigation still works without the animation. */ }
-    } else if (previous !== view && previous !== 'clock') {
-      try { clockTransition = window.EddyPanelTransition.captureView(previous); } catch (error) { /* Keep navigation responsive. */ }
     }
     window.EddyPanelTransition.cancel();
-    if (view === 'lights' && previous !== 'lights') {
-      transitionPanel(previous === 'clock' && clockTransition ? 'room-in' : 'room-tab', previous === 'clock' && clockTransition ? 1300 : 1000);
+    var slide = slideGesture || (previous !== view && previous !== 'clock' && window.EddyPages ? window.EddyPages.prepare(previous, view) : null);
+    if (!slide && window.EddyPages) window.EddyPages.cancel();
+    if (view === 'lights' && previous === 'clock') {
+      transitionPanel(clockTransition ? 'room-in' : 'room-tab', clockTransition ? 1300 : 520);
+    } else {
+      clearTimeout(panelTransitionTimer);
+      delete document.body.dataset.panelTransition;
     }
     screen = view;
     document.body.dataset.screen = view;
@@ -372,6 +417,7 @@
     $('lightsView').hidden = view !== 'lights';
     $('robotView').hidden = view !== 'robot';
     renderAmbient();
+    if (slide) window.EddyPages.play(slide);
     if (clockTransition) {
       try { window.EddyPanelTransition.play(clockTransition, view); }
       catch (error) { window.EddyPanelTransition.cancel(); }
@@ -759,7 +805,7 @@
     if (window.EddyAmbientRocky) {
       window.EddyAmbientRocky.render({
         robot: state && state.robot ? Object.assign({}, state.robot, { alerts: robotAlerts }) : null,
-        online: robotOnline(), busy: robotBusy, visible: screen === 'clock',
+        online: robotOnline(), busy: robotBusy, visible: screen === 'clock' && document.body.dataset.sleep !== 'true',
         getMap: async function () {
           var metadata = await api('/api/robot/map', { timeout: 45000 });
           if (metadata && metadata.imageUrl) metadata.imageUrl = new URL(metadata.imageUrl, API_BASE).href;
@@ -1254,6 +1300,8 @@
     emergencyTimer = null;
     setEmergencyLight(false);
     stopCamera();
+    nativeCall('pararFala');
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
   }
 
   function stopCamera() {
@@ -1320,6 +1368,9 @@
   }
 
   function bindEvents() {
+    ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'touchstart', 'touchmove', 'touchend', 'touchcancel', 'mousedown', 'mouseup', 'click', 'keydown', 'keyup'].forEach(function (type) {
+      document.addEventListener(type, captureSleepWake, { capture: true, passive: false });
+    });
     $('ambient').addEventListener('click', function (event) {
       if (event.target.closest('#ambientRocky')) return;
       if (event.target.closest('#ambientAlert')) { wake(false); setView('robot'); }
@@ -1327,6 +1378,12 @@
     });
     $('clockButton').addEventListener('click', showClock);
     document.querySelectorAll('[data-view]').forEach(function (button) { button.addEventListener('click', function () { setView(button.dataset.view); }); });
+    if (window.EddyPages) window.EddyPages.mount({
+      getView: function () { return screen; },
+      canSwipe: function () { return screen !== 'clock' && !sheetOpen && !selecting && !emergencyActive && document.body.dataset.sleep !== 'true'; },
+      onNavigate: function (view, token) { setView(view, false, token); },
+      onInteraction: function () { markInteraction(); }
+    });
     $('selectLights').addEventListener('click', function () { $('lightScope').open = false; beginSelection(); });
     $('cancelSelection').addEventListener('click', cancelSelection);
     $('finishSelection').addEventListener('click', finishSelection);
@@ -1437,7 +1494,9 @@
       events.forEach(function (event) {
         if (!Array.isArray(event.data)) return;
         event.data.forEach(function (item) {
-          if (item.type === 'motion' && item.motion && item.motion.motion) wake(false);
+          if (item.type === 'motion' && item.motion && typeof item.motion.motion === 'boolean') {
+            handleDeviceEvent({ type: 'motion', motion: item.motion.motion });
+          }
           if (item.type === 'button' && item.button && item.button.last_event === 'initial_press') wake(true);
         });
       });
