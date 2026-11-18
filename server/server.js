@@ -8,6 +8,7 @@ const { pipeline } = require('node:stream/promises');
 const { RobotClient } = require('./robot-client');
 const { HomeClients } = require('./home-clients');
 const { FrameStore, PHOTO_ID, uploadImage } = require('./frame-store');
+const { DIRECTORY: FAMILY_DIRECTORY, FamilyFiles } = require('./family-files');
 const { normalizeRobot, normalizeRooms, withRobotLocation, unknownLocation } = require('./normalize');
 const { Jobs, ApiError } = require('./jobs');
 
@@ -34,6 +35,7 @@ function createApp(config, dependencies = {}) {
   const publicRoot = dependencies.publicRoot || path.resolve(__dirname, '..');
   const dataDirectory = config.dataDir || path.join(__dirname, 'runtime');
   const frame = dependencies.frame || new FrameStore(path.join(dataDirectory, 'frame'));
+  const familyFiles = dependencies.familyFiles || new FamilyFiles(path.join(dataDirectory, FAMILY_DIRECTORY));
   let frameUploads = 0;
   const cacheFile = dependencies.persist === false ? null : path.join(dataDirectory, 'last-state.json');
   const cached = cacheFile ? readJson(cacheFile, {}) : {};
@@ -479,7 +481,7 @@ function createApp(config, dependencies = {}) {
     await new Promise(resolve => server.close(resolve));
   }
 
-  return { server, state, jobs, start, close, snapshot, refresh: { robot: pollRobot, lights: pollLights, sync: pollSync, rooms: pollRooms, weather: pollWeather } };
+  return { server, state, jobs, frame, familyFiles, start, close, snapshot, refresh: { robot: pollRobot, lights: pollLights, sync: pollSync, rooms: pollRooms, weather: pollWeather } };
 }
 
 if (require.main === module) {
@@ -492,7 +494,9 @@ if (require.main === module) {
     const panelPort = app.server.address().port;
     console.log(`Eddy disponível em http://127.0.0.1:${panelPort}`);
     app.start();
-    frameAdmin = startConfiguredFrameAdmin({ dataDirectory: frameAdminDirectory, panelPort });
+    app.frame.list().catch(error => console.error('A pasta da moldura está indisponível:', error.code || error.name));
+    app.familyFiles.list(false).catch(error => console.error('A pasta da família está indisponível:', error.code || error.name));
+    frameAdmin = startConfiguredFrameAdmin({ dataDirectory: frameAdminDirectory, panelPort, familyFiles: app.familyFiles });
   });
   let stopping = false;
   const shutdown = () => {

@@ -220,4 +220,4 @@ class FrameStore {
   }
 }
 
-module.exports = { FrameStore, PHOTO_ID, MAX_UPLOAD_BYTES, uploadImage };
+module.exports = { FrameStore, PHOTO_ID, MAX_UPLOAD_BYTES, uploadImage, writeAtomic };

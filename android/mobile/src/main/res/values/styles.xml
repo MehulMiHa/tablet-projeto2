@@ -1,0 +1,10 @@
+<resources>
+    <style name="EddyMobileTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0E1513</item>
+        <item name="android:statusBarColor">#0E1513</item>
+        <item name="android:navigationBarColor">#0E1513</item>
+        <item name="android:colorAccent">#C6E8D9</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

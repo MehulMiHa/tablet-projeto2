@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Tablet Projeto 2"
 include(":app")
+include(":mobile")

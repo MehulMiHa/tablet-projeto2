@@ -39,11 +39,13 @@ A voz de emergência usa uma voz portuguesa offline quando instalada e o volume 
 
 A localização atual usa o segmento reportado pelo aspirador; o destino da ordem é guardado separadamente. Quando esse segmento não está disponível, o painel pode usar o segmento do mapa real, com a hora da leitura. Sem dados suficientes, mostra que a localização está por confirmar.
 
-## Moldura 2.4
+## Moldura e ficheiros da família
 
-No tablet, abre **Funções → Moldura**. A apresentação começa após 30 segundos no relógio com presença, se houver fotos. Toca numa foto para voltar ao relógio. O Rocky e os avisos têm prioridade. Em repouso preto, a app deixa de apresentar e carregar fotos.
+No tablet, abre **Funções → Moldura**. A apresentação começa após 30 segundos no relógio com presença, se houver fotos. Cada foto fica visível cerca de dez segundos e as transições variam entre vinte animações sem repetição consecutiva. Toca numa foto para voltar ao relógio. O Rocky e os avisos têm prioridade. Em repouso preto, a app deixa de apresentar e carregar fotos.
 
-As fotos são escolhidas no navegador do telemóvel. A página reduz cada imagem para até 2048 píxeis no lado maior, converte-a em JPEG e envia a cópia para o armazenamento do tablet. Apagar uma imagem na página retira-a da moldura. Os originais ficam na galeria do telemóvel.
+Na app Android do telemóvel, o separador **Fotos** gere a moldura. O Eddy reduz as fotos para até 2048 píxeis no lado maior e guarda cópias JPEG em `frame/`. O separador **Família** usa a pasta `family/`, dentro do mesmo diretório de dados do servidor no tablet. A família pode adicionar, ver e descarregar ficheiros. O utilizador `eddy` também pode apagar. A pasta da família guarda até 2 GB e aceita até 100 MB por ficheiro. A página no navegador continua disponível.
+
+Para compilar o APK do telemóvel, corre `gradlew.bat :mobile:assembleDebug` dentro de `android`.
 
 ### Acesso pelo telemóvel
 
@@ -53,20 +55,21 @@ As fotos são escolhidas no navegador do telemóvel. A página reduz cada imagem
    {
      "tagOwners": { "tag:eddy-fotos": ["autogroup:owner"] },
      "grants": [
-       { "src": ["autogroup:owner"], "dst": ["tag:eddy-fotos"], "ip": ["tcp:8787"] }
+       { "src": ["autogroup:member"], "dst": ["tag:eddy-fotos"], "ip": ["tcp:8787"] }
      ]
    }
    ```
 
 2. Instala Tailscale no [tablet Android](https://tailscale.com/docs/install/android) e no [telemóvel](https://tailscale.com/docs/install). Entra com a mesma conta nos dois. Na lista [Machines](https://login.tailscale.com/admin/machines), aplica a etiqueta `tag:eddy-fotos` apenas ao tablet e copia o IPv4 Tailscale do tablet.
-3. No Termux do tablet, corre os comandos abaixo com esse endereço. No primeiro arranque, o comando gera a palavra-passe privada da página. Guarda-a. O título da moldura no tablet apresenta o endereço depois de o servidor reiniciar.
+3. No Termux do tablet, corre os comandos abaixo com esse endereço. Guarda as palavras-passe de `eddy` e `familia` geradas. O separador «Funções» apresenta o endereço depois de o servidor reiniciar.
 
    ```sh
    cd ~/eddy/server
-   node frame-admin-setup.cjs IP_TAILSCALE_DO_TABLET
+   node frame-admin-setup.cjs IP_TAILSCALE_DO_TABLET --family
    PM2_HOME="$HOME/.pm2-eddy" pm2 restart eddy-server
    ```
 
-4. Liga Tailscale no telemóvel, abre o endereço indicado no navegador e entra com o utilizador `eddy` e a palavra-passe gerada. Adiciona uma foto, confirma que aparece na moldura e testa o acesso por dados móveis. Confirma também que a porta 3000 do tablet está inacessível pelo Tailscale.
+4. Liga Tailscale no telemóvel, abre a app Eddy e indica o IP, `eddy` e a respetiva palavra-passe. Testa o envio de uma foto e de um ficheiro primeiro em casa e depois por dados móveis. Confirma também que a porta 3000 do tablet está inacessível pelo Tailscale.
+5. Em [Users](https://login.tailscale.com/admin/users), convida os familiares como membros. Cada um entra com a sua conta no Tailscale e com `familia` na app Eddy ou na página de gestão.
 
 Para um teste por USB antes do Tailscale, executa `node frame-admin-setup.cjs` sem IP, reinicia o servidor e faz `adb forward tcp:8787 tcp:8787` no PC. Abre `http://127.0.0.1:8787/` no navegador do PC. Quando adicionares o endereço do tablet, a palavra-passe continua a mesma. Usa `--rotate` apenas para a substituir.

@@ -2,8 +2,7 @@
   'use strict';
 
   var idleDelay = 30000;
-  var slideDelay = 30000;
-  var reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  var slideDelay = 10000;
   var options;
   var elements;
   var album = null;
@@ -18,7 +17,7 @@
   var pendingImage = null;
   var currentImage = null;
   var outgoingImage = null;
-  var fade = null;
+  var transition = null;
   var cursor = 0;
 
   function safeManageAddress(value) {
@@ -41,8 +40,9 @@
       if (currentIndex === -1) stop();
       else cursor = currentIndex + 1;
     }
+    if (outgoingImage && !photos.some(function (photo) { return photo.id === outgoingImage.dataset.photoId; })) clearTransition();
     if (pendingImage && !photos.some(function (photo) { return photo.id === pendingImage.dataset.photoId; })) stop();
-    if (currentImage && photos.length > 1 && timer === null) schedule(slideDelay, nextPhoto);
+    if (currentImage && photos.length > 1 && timer === null && !transition) schedule(slideDelay, nextPhoto);
   }
 
   function renderSettings() {
@@ -122,9 +122,9 @@
     image.remove();
   }
 
-  function clearFade() {
-    if (fade) fade.cancel();
-    fade = null;
+  function clearTransition() {
+    if (transition) transition.cancel();
+    transition = null;
     release(outgoingImage);
     outgoingImage = null;
   }
@@ -133,7 +133,7 @@
     clearTimeout(timer);
     timer = null;
     clearTimeout(imageTimeout);
-    clearFade();
+    clearTransition();
     release(pendingImage);
     release(currentImage);
     pendingImage = null;
@@ -149,16 +149,21 @@
   }
 
   function display(image) {
-    clearFade();
+    clearTransition();
     var previous = currentImage;
     currentImage = image;
     image.hidden = false;
     elements.slide.hidden = false;
-    if (previous && !reducedMotion.matches && typeof image.animate === 'function') {
+    if (previous && window.EddyFrameTransitions) {
       outgoingImage = previous;
-      fade = image.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 480, easing: 'ease-in-out' });
-      fade.onfinish = clearFade;
+      transition = window.EddyFrameTransitions.play(elements.slide, previous, image, function () {
+        clearTransition();
+        if (canPlay() && album.photos.length > 1) schedule(slideDelay, nextPhoto);
+      });
+      if (transition) return true;
+      clearTransition();
     } else release(previous);
+    return false;
   }
 
   function nextPhoto() {
@@ -183,7 +188,9 @@
       image.onerror = null;
       pendingImage = null;
       if (!canPlay()) { release(image); return; }
-      if (success) display(image);
+      if (success) {
+        if (display(image)) return;
+      }
       else release(image);
       if (!currentImage || album.photos.length > 1) schedule(slideDelay, nextPhoto);
     }
