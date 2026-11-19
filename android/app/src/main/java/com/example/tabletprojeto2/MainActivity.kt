@@ -3,7 +3,6 @@ package com.example.tabletprojeto2
 import android.Manifest
 import android.annotation.SuppressLint
 import android.annotation.TargetApi
-import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -126,8 +125,6 @@ class MainActivity : ComponentActivity() {
         container = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         setContentView(container)
         configureWindow()
-        val policy = getSystemService(DevicePolicyManager::class.java)
-        if (policy?.isLockTaskPermitted(packageName) == true) startLockTask()
         initializeSpeech()
         ContextCompat.registerReceiver(this, batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
@@ -144,6 +141,7 @@ class MainActivity : ComponentActivity() {
         resumed = true
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         configureWindow()
+        EddyKiosk.enter(this)
         if (webView == null) createWebView() else webView?.onResume()
         applyBrightness()
         publishBattery()
@@ -162,6 +160,12 @@ class MainActivity : ComponentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) configureWindow()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (resumed) EddyKiosk.enter(this)
     }
 
     override fun onDestroy() {

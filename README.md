@@ -16,6 +16,25 @@ Abre a pasta `android` no Android Studio ou corre `gradlew.bat :app:assembleDebu
 
 O Termux:Boot inicia o servidor após o arranque do Android, assim que o armazenamento do utilizador estiver disponível. O PM2 reinicia o processo se ele terminar. A app verifica a disponibilidade do serviço local. Uma falha de ligação a um aparelho é apresentada no painel.
 
+## Tablet em modo quiosque
+
+A versão 2.7 permite gerir o tablet dedicado como **Device Owner**. Com o dispositivo já preparado e o PC autorizado por USB, a configuração inicial é `adb shell dpm set-device-owner com.example.tabletprojeto2/.EddyDeviceAdmin`. Este comando depende do estado do Android e pode ser recusado se existirem contas ou outro administrador; não faz uma reposição de fábrica. Não o apliques ao telemóvel de uso pessoal.
+
+O modo gerido fixa a Eddy como início, impede a desinstalação pelas definições e bloqueia a barra de notificações, início e recentes. O botão voltar é tratado dentro da Eddy. As barras ficam escondidas em ecrã inteiro. O menu físico de energia continua disponível para desligar ou reiniciar; após o arranque, a Eddy volta ao quiosque. A manutenção por USB continua disponível no PC anteriormente autorizado.
+
+Não há saída de manutenção por toque na interface. Estes comandos explícitos são aceites apenas pelo shell privilegiado do Android; outras apps não têm a permissão `android.permission.DUMP` exigida pelo receiver:
+
+```sh
+# Suspender o quiosque para manutenção, conservando os dados
+adb shell am broadcast -n com.example.tabletprojeto2/.EddyMaintenanceReceiver --es operation pause
+# Retomar o quiosque e abrir a Eddy
+adb shell am broadcast -n com.example.tabletprojeto2/.EddyMaintenanceReceiver --es operation resume
+# Remover a gestão da Eddy, sem apagar o tablet
+adb shell am broadcast -n com.example.tabletprojeto2/.EddyMaintenanceReceiver --es operation remove-owner
+```
+
+Em Sala, Rocky e Funções, dois toques próximos no fundo preto abrem o relógio e as fotos. Um toque isolado mantém a página; botões, sliders, mapas, seleção de luzes e folhas abertas conservam os seus gestos.
+
 ## Verificar as alterações
 
 ```sh

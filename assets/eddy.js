@@ -1418,6 +1418,34 @@
   }
 
   function bindEvents() {
+    var backgroundTap = null;
+    var backgroundDown = null;
+    function isBlankBackground(target) {
+      if (screen === 'clock' || sheetOpen || selecting || emergencyActive || document.body.dataset.sleep === 'true') return false;
+      if (!(target instanceof Element)) return false;
+      if (target.closest('button, input, select, textarea, a, summary, details, label, [role="button"], [role="slider"], svg, canvas, #roomPlan, #robotMap, #zoneCanvas, .sheet, .frame-toggle')) return false;
+      if (!target.matches('body, #app, #dashboard, .app-header, .view, .lights-layout, .room-heading, .frame-settings, .rocky-clean-home, .rocky-destinations, .rocky-choices, .rocky-current, .rocky-current-state, .rocky-active-actions, .rocky-alerts')) return false;
+      var text = Array.from(target.childNodes).some(function (node) { return node.nodeType === 3 && node.textContent.trim(); });
+      return !text;
+    }
+    document.addEventListener('pointerdown', function (event) {
+      if (event.isPrimary === false || event.button > 0 || !isBlankBackground(event.target)) { backgroundTap = null; backgroundDown = null; return; }
+      backgroundDown = { x: event.clientX, y: event.clientY, time: performance.now(), view: screen };
+    }, { passive: true });
+    document.addEventListener('pointermove', function (event) {
+      if (backgroundDown && Math.hypot(event.clientX - backgroundDown.x, event.clientY - backgroundDown.y) > 14) {
+        backgroundDown = null; backgroundTap = null;
+      }
+    }, { passive: true });
+    document.addEventListener('pointercancel', function () { backgroundDown = null; backgroundTap = null; }, { passive: true });
+    document.addEventListener('pointerup', function (event) {
+      var start = backgroundDown; backgroundDown = null;
+      if (!start || start.view !== screen || !isBlankBackground(event.target) || performance.now() - start.time > 280 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 14) { backgroundTap = null; return; }
+      var tap = { x: event.clientX, y: event.clientY, time: performance.now(), view: screen };
+      if (backgroundTap && backgroundTap.view === screen && tap.time - backgroundTap.time < 360 && Math.hypot(tap.x - backgroundTap.x, tap.y - backgroundTap.y) < 38) {
+        backgroundTap = null; showClock(); markInteraction();
+      } else backgroundTap = tap;
+    }, { passive: true });
     if (window.EddyFrame) window.EddyFrame.mount({ request: api, apiBase: API_BASE, onDismiss: markInteraction });
     ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'touchstart', 'touchmove', 'touchend', 'touchcancel', 'mousedown', 'mouseup', 'click', 'keydown', 'keyup'].forEach(function (type) {
       document.addEventListener(type, captureSleepWake, { capture: true, passive: false });
