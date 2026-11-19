@@ -66,7 +66,9 @@ Na app Android do telemóvel, o separador **Fotos** gere a moldura. O Eddy reduz
 
 A Família dispõe de 40 GB internos, até 8 GB por ficheiro e 10 000 itens. A barra mostra a percentagem da quota usada e o espaço efetivamente disponível, considerando os outros dados do tablet e uma reserva de 2 GB para o sistema. Os envios usam streaming, podem ser cancelados e não substituem itens com o mesmo nome. O catálogo anterior é migrado mantendo os ficheiros existentes; os nomes e a hierarquia são metadados, e os bytes permanecem em ficheiros identificados por UUID. A migração futura para cartão SD ainda requer a configuração do respetivo armazenamento.
 
-Para compilar o APK do telemóvel, corre `gradlew.bat :mobile:assembleDebug` dentro de `android`.
+Para compilar o APK do telemóvel, corre `gradlew.bat :mobile:assembleDebug` dentro de `android`. A versão 1.3.2 inclui o motor de rede privado no AAR ARM64 em `android/mobile/libs/`; os fontes, dependências fixadas, testes e instruções para o reconstruir estão em [android/tunnel](android/tunnel/README.md). O APK inclui os avisos de distribuição das bibliotecas.
+
+O APK privado da família lê a configuração de compilação `android/mobile-access.properties`, fora do Git: `tabletAddress`, `user` e `password`. Não há campos de login ou de edição desses dados na app. A ligação ao tablet é automática depois da autorização do dispositivo. Uma compilação sem configuração mostra uma mensagem de instalação por configurar. Estes valores fazem parte do APK e podem ser extraídos; não publiques o APK privado nem o ficheiro de configuração. A autorização individual da rede privada continua obrigatória.
 
 Para a instalação habitual, usa `:mobile:assembleRelease` com uma chave própria. A configuração opcional `android/mobile-signing.properties` contém `storeFile`, `storePassword`, `keyAlias` e `keyPassword`; fica fora do Git, tal como a chave. Conserva ambos para assinar futuras atualizações. A versão release do telemóvel e o APK de desenvolvimento do tablet são instalados sem depuração.
 
@@ -83,7 +85,7 @@ Para a instalação habitual, usa `:mobile:assembleRelease` com uma chave própr
    }
    ```
 
-2. Instala Tailscale no [tablet Android](https://tailscale.com/docs/install/android) e no [telemóvel](https://tailscale.com/docs/install). Ambos têm de pertencer à mesma rede privada; podem usar contas individuais convidadas. Na lista [Machines](https://login.tailscale.com/admin/machines), aplica a etiqueta `tag:eddy-fotos` apenas ao tablet e copia o IPv4 Tailscale do tablet.
+2. Instala Tailscale no [tablet Android](https://tailscale.com/docs/install/android). Nos telemóveis, instala apenas a Eddy 1.3.2: a ligação privada já vem incluída. Na lista [Machines](https://login.tailscale.com/admin/machines), aplica a etiqueta `tag:eddy-fotos` apenas ao tablet e copia o IPv4 Tailscale do tablet.
 3. No Termux do tablet, corre os comandos abaixo com esse endereço. Guarda as palavras-passe de `eddy` e `familia` geradas. O separador «Funções» apresenta o endereço depois de o servidor reiniciar.
 
    ```sh
@@ -92,11 +94,15 @@ Para a instalação habitual, usa `:mobile:assembleRelease` com uma chave própr
    PM2_HOME="$HOME/.pm2-eddy" pm2 restart eddy-server
    ```
 
-4. Liga Tailscale no telemóvel, abre a app Eddy e indica o IP, `eddy` e a respetiva palavra-passe. Testa o envio de uma foto e de um ficheiro primeiro em casa e depois por dados móveis. Confirma também que a porta 3000 do tablet está inacessível pelo Tailscale.
-5. Em [Users](https://login.tailscale.com/admin/users), convida os familiares como membros. Cada um entra com a sua conta no Tailscale e com `familia` na app Eddy ou na página de gestão.
+4. Abre a Eddy no telemóvel. Na primeira utilização, a app mostra um QR code e uma ligação de autorização. Abre esse pedido no teu PC ou noutro telemóvel e autoriza-o com a tua conta principal da rede da família, mantendo a Eddy aberta. O telemóvel que está a ser autorizado não precisa de abrir o navegador nem de iniciar sessão Google. Quando a autorização termina, a Eddy entra automaticamente nas fotos e ficheiros.
+5. Repete a autorização para os telemóveis dos pais com a tua conta principal. Cada instalação mantém a sua própria chave privada. O utilizador de ficheiros `familia`, incluído na configuração privada do APK, tem os mesmos controlos de ficheiros e fotos que `eddy`. Testa os envios em casa e por dados móveis.
 
 Para um teste por USB antes do Tailscale, executa `node frame-admin-setup.cjs` sem IP, reinicia o servidor e faz `adb forward tcp:8787 tcp:8787` no PC. Abre `http://127.0.0.1:8787/` no navegador do PC. Quando adicionares o endereço do tablet, a palavra-passe continua a mesma. Usa `--rotate` apenas para a substituir.
 
 O servidor de controlo da casa escuta apenas `127.0.0.1:3000`. A gestão de ficheiros escuta `127.0.0.1:8787` e, depois de configurado, o endereço Tailscale exato do tablet na porta 8787. Não escuta `0.0.0.0` nem o endereço Wi-Fi. O cliente Tailscale Android entrega as ligações ao endereço da interface VPN do Android; não as redireciona automaticamente para o loopback. Se o servidor arrancar antes dessa interface, mantém o acesso local e tenta abrir o endereço privado de dois em dois segundos. Parar o servidor cancela essas tentativas e fecha os dois acessos. Ambos partilham o limite de tentativas de autenticação.
 
-O Tailscale tem de estar ligado nos dois dispositivos. O HTTP privado da Eddy fica dentro do túnel WireGuard; não se destina a publicação na Internet nem a encaminhamento de portas no router. A app do telemóvel associa a comunicação à rede VPN escolhida, usa essa rede explicitamente nas leituras e transferências e recusa novos pedidos quando ela muda. O Android permite confirmar uma VPN ativa, mas não atribuí-la com segurança ao Tailscale a partir desta app: usa o cliente Tailscale e um telemóvel de confiança. Após 20 palavras-passe inválidas numa janela de 30 segundos, o gateway suspende temporariamente as verificações. Ativa a autenticação de dois fatores na conta usada no Tailscale, mantém os aparelhos atualizados e convida apenas os familiares pretendidos.
+A Eddy 1.3.2 usa o `tsnet` oficial dentro do próprio processo. A ligação serve apenas a app e não cria uma VPN global do Android. Abrir a Eddy inicia a ligação; sair encerra-a após três segundos, conservando-a durante o seletor de ficheiros ou transferências em curso. Voltar à app usa a identidade guardada no armazenamento privado sem cópias de segurança. Terminar o processo também termina os seus sockets; não existe uma app VPN externa para ficar ligada.
+
+O transporte HTTP da interface usa apenas um proxy em `127.0.0.1`, numa porta aleatória e com uma chave de execução de 256 bits exigida em cada pedido. O proxy só alcança o endereço privado configurado, na porta 8787, pelo túnel WireGuard. Não existe encaminhamento para a Internet pública nem para a porta 3000. Host, Origin, destino e chave são verificados; os vídeos e ficheiros usam streaming e conservam os pedidos Range. A identidade de rede é individual por instalação. O APK não inclui chaves de adesão ou administração do Tailscale.
+
+O Tailscale do tablet mantém-se ligado para receber ligações remotas. Não são necessárias portas públicas no router. Após 20 palavras-passe inválidas numa janela de 30 segundos, o gateway suspende temporariamente as verificações. Ativa a autenticação de dois fatores na conta usada para autorizar o acesso, mantém os aparelhos atualizados e convida apenas as contas pretendidas.

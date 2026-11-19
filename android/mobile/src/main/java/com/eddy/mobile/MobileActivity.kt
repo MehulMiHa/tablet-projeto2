@@ -2,25 +2,31 @@ package com.eddy.mobile
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
+import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Bundle
-import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.os.PersistableBundle
 import android.provider.DocumentsContract
-import android.text.InputType
 import android.util.Base64
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
 import android.webkit.HttpAuthHandler
 import android.webkit.JavascriptInterface
@@ -34,19 +40,23 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
-import android.widget.CheckBox
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ProgressBar
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.FilterInputStream
@@ -57,8 +67,8 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 class MobileActivity : ComponentActivity() {
-    private data class Connection(val address: String, val user: String, val password: String, val network: Network) {
-        val origin get() = "http://$address:8787"
+    private data class Connection(val address: String, val user: String, val password: String, val tunnel: EmbeddedTunnel.Snapshot) {
+        val origin get() = tunnel.origin
         val authorization get() = "Basic ${Base64.encodeToString("$user:$password".toByteArray(), Base64.NO_WRAP)}"
     }
     private data class Download(val connection: Connection, val path: String)
@@ -70,13 +80,54 @@ class MobileActivity : ComponentActivity() {
     private val muted = Color.rgb(172, 193, 182)
     private val worker = Executors.newFixedThreadPool(2)
     private lateinit var root: FrameLayout
-    private lateinit var saved: SavedConnection
-    private lateinit var addressInput: EditText
-    private lateinit var userInput: EditText
-    private lateinit var passwordInput: EditText
-    private lateinit var remember: CheckBox
+    private val lifecycleHandler = Handler(Looper.getMainLooper())
+    private var foreground = false
+    @Volatile private var tunnelId = 0L
+    private var waitingForTunnel = false
+    private var connectWhenReady = false
+    private var tunnelDeadline = 0L
+    private var loginInProgress = false
+    private var uploadInProgress = false
+    private var nativeDownloads = 0
+    private var authorizationDialog: AlertDialog? = null
+    private var authorizationURL = ""
+    private val stopTunnel = Runnable { releaseTunnel() }
+    private val waitForTunnel = object : Runnable {
+        override fun run() {
+            if (!waitingForTunnel || !foreground || isFinishing || isDestroyed) return
+            val snapshot = EmbeddedTunnel.snapshot(tunnelId)
+            if (snapshot.id != tunnelId) return
+            reconcileAuthorization(snapshot)
+            authorizeButton.visibility = if (snapshot.state == "needs-login" && loginURL(snapshot.authURL) != null) View.VISIBLE else View.GONE
+            if (snapshot.state == "running") {
+                waitingForTunnel = false
+                setConnectionState("A abrir os ficheiros da família…", loading = true)
+                if (connectWhenReady && web == null) { connectWhenReady = false; connect() }
+            } else if (snapshot.state == "needs-login") {
+                val ready = loginURL(snapshot.authURL) != null
+                setConnectionState(if (ready) "Autoriza este telemóvel a partir de outro dispositivo." else "A preparar o pedido de acesso…", loading = !ready, authorize = ready)
+                if (ready && promptedAuthorizationURL != snapshot.authURL) {
+                    promptedAuthorizationURL = snapshot.authURL
+                    authorizeAccess()
+                }
+                tunnelDeadline = SystemClock.elapsedRealtime() + 45_000
+                lifecycleHandler.postDelayed(this, 500)
+            } else if (snapshot.state == "error" || snapshot.state == "stopped") {
+                waitingForTunnel = false
+                connectWhenReady = false
+                setConnectionState("Não foi possível preparar a ligação privada. Confirma a Internet e tenta novamente.", retry = true)
+            } else if (SystemClock.elapsedRealtime() >= tunnelDeadline) {
+                waitingForTunnel = false
+                connectWhenReady = false
+                setConnectionState("A ligação privada demorou demasiado. Confirma a Internet e tenta novamente.", retry = true)
+            } else lifecycleHandler.postDelayed(this, 400)
+        }
+    }
     private lateinit var status: TextView
-    private lateinit var connectButton: Button
+    private lateinit var retryButton: Button
+    private lateinit var authorizeButton: Button
+    private lateinit var loadingIndicator: ProgressBar
+    private var promptedAuthorizationURL = ""
     private var web: WebView? = null
     private var connection: Connection? = null
     @Volatile private var generation = 0
@@ -84,9 +135,17 @@ class MobileActivity : ComponentActivity() {
     private var download: Download? = null
     private var networkCallbackRegistered = false
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onLost(network: Network) = runOnUiThread { checkSessionNetwork() }
-        override fun onAvailable(network: Network) = runOnUiThread { checkSessionNetwork() }
-        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = runOnUiThread { checkSessionNetwork() }
+        override fun onAvailable(network: Network) = EmbeddedTunnel.networkChanged(tunnelId)
+        override fun onLost(network: Network) = EmbeddedTunnel.networkChanged(tunnelId)
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = EmbeddedTunnel.networkChanged(tunnelId)
+        override fun onLinkPropertiesChanged(network: Network, properties: LinkProperties) = EmbeddedTunnel.networkChanged(tunnelId)
+    }
+    private val checkTunnel = object : Runnable {
+        override fun run() {
+            if (isFinishing || isDestroyed) return
+            checkSessionTunnel()
+            if (foreground || transferOrPickerActive()) lifecycleHandler.postDelayed(this, 1_000)
+        }
     }
 
     private val picker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -96,19 +155,18 @@ class MobileActivity : ComponentActivity() {
         } else WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
         pickFiles?.onReceiveValue(files?.filter { it.scheme == "content" }?.toTypedArray())
         pickFiles = null
+        scheduleTunnelStop()
     }
     private val saveFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val pending = download
         download = null
         if (uri != null && pending != null) writeDownload(pending, uri)
+        scheduleTunnelStop()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        saved = SavedConnection(this)
-        val vpnRequest = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_VPN)
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build()
-        getSystemService(ConnectivityManager::class.java).registerNetworkCallback(vpnRequest, networkCallback)
+        getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         networkCallbackRegistered = true
         WindowCompat.setDecorFitsSystemWindows(window, false)
         root = FrameLayout(this).apply { setBackgroundColor(pageBackground) }
@@ -122,15 +180,13 @@ class MobileActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val view = web
-                if (view == null) finish()
+                if (view == null) leaveEddy()
                 else view.evaluateJavascript("window.EddyCloseOverlay && window.EddyCloseOverlay()") { closed ->
-                    if (closed != "true") finish()
+                    if (closed != "true") leaveEddy()
                 }
             }
         })
-        val password = saved.password()
-        showConnection(password = password)
-        if (password != null && vpnConnected()) connect()
+        showConnection()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + .5f).toInt()
@@ -151,25 +207,6 @@ class MobileActivity : ComponentActivity() {
         return label
     }
 
-    private fun LinearLayout.field(label: String, initial: String, hintText: String, secret: Boolean = false): EditText {
-        label(label, 13f, muted, 16, true)
-        val field = EditText(this@MobileActivity).apply {
-            hint = hintText
-            setSingleLine()
-            inputType = InputType.TYPE_CLASS_TEXT or if (secret) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_URI
-            setText(initial)
-            setTextColor(this@MobileActivity.textColor)
-            setHintTextColor(muted)
-            setPadding(dp(16), 0, dp(16), 0)
-            textSize = 16f
-            background = rounded(panel)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-            contentDescription = label
-        }
-        addView(field, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(6) })
-        return field
-    }
-
     private fun LinearLayout.action(copy: String, prominent: Boolean, action: () -> Unit): Button {
         val button = Button(this@MobileActivity).apply {
             text = copy
@@ -185,40 +222,187 @@ class MobileActivity : ComponentActivity() {
         return button
     }
 
-    private fun showConnection(message: String = "", password: String? = connection?.password) {
+    private fun configuredAddress(): String? = parseAddress(BuildConfig.MOBILE_TABLET_ADDRESS.trim())
+
+    private fun configured(): Boolean = configuredAddress() != null &&
+        BuildConfig.MOBILE_USER in setOf("eddy", "familia") && BuildConfig.MOBILE_PASSWORD.isNotEmpty()
+
+    private fun setConnectionState(message: String, loading: Boolean = false, retry: Boolean = false, authorize: Boolean = false) {
+        status.text = message
+        loadingIndicator.visibility = if (loading) View.VISIBLE else View.GONE
+        retryButton.visibility = if (retry && configured()) View.VISIBLE else View.GONE
+        authorizeButton.visibility = if (authorize) View.VISIBLE else View.GONE
+    }
+
+    private fun showConnection(message: String = "") {
         generation++
+        closeAuthorization()
+        loginInProgress = false
         closeWeb()
-        val previous = connection
         val scroll = ScrollView(this).apply { isFillViewport = true }
         val stack = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(28), dp(22), dp(28), dp(22))
+            setPadding(dp(34), dp(36), dp(34), dp(36))
         }
         scroll.addView(stack, FrameLayout.LayoutParams(-1, -2))
         root.removeAllViews()
         root.addView(scroll, FrameLayout.LayoutParams(-1, -1))
-        stack.label("Eddy", 17f, primary, 0, true)
-        stack.label("Liga ao teu tablet", 34f, textColor, 22, true)
-        stack.label("As tuas fotos e os ficheiros da família.", 16f, muted, 8)
-        addressInput = stack.field("Endereço Tailscale do tablet", previous?.address ?: saved.address, "100.x.x.x")
-        userInput = stack.field("Utilizador", previous?.user ?: saved.user, "eddy ou familia")
-        passwordInput = stack.field("Palavra-passe da Eddy", password.orEmpty(), "Palavra-passe", secret = true)
-        remember = CheckBox(this).apply {
-            text = "Guardar neste telemóvel"
-            setTextColor(muted)
-            buttonTintList = ColorStateList.valueOf(primary)
-            isChecked = password != null && saved.password() != null
+        val icon = ImageView(this).apply {
+            setImageDrawable(applicationInfo.loadIcon(packageManager))
+            contentDescription = null
         }
-        stack.addView(remember, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
-        status = stack.label(message, 14f, muted, 1).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
-        connectButton = stack.action("Ligar", true, ::connect)
-        stack.action("Abrir Tailscale", false) {
-            val launch = packageManager.getLaunchIntentForPackage("com.tailscale.ipn")
-            startActivity(launch ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.tailscale.ipn")))
+        stack.addView(icon, LinearLayout.LayoutParams(dp(92), dp(92)).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        stack.label("Eddy", 38f, textColor, 22, true).gravity = Gravity.CENTER
+        stack.label("As fotos e os ficheiros da tua família,\nsempre por perto.", 17f, muted, 10).apply { gravity = Gravity.CENTER; setLineSpacing(dp(4).toFloat(), 1f) }
+        loadingIndicator = ProgressBar(this).apply { indeterminateTintList = ColorStateList.valueOf(primary) }
+        stack.addView(loadingIndicator, LinearLayout.LayoutParams(dp(30), dp(30)).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(32) })
+        status = stack.label("", 16f, muted, 24).apply {
+            gravity = Gravity.CENTER
+            setLineSpacing(dp(4).toFloat(), 1f)
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
+        authorizeButton = stack.action("Autorizar acesso privado", true, ::authorizeAccess).apply { visibility = View.GONE }
+        retryButton = stack.action("Tentar novamente", false, ::connect).apply { visibility = View.GONE }
+        if (configured()) setConnectionState(message.ifEmpty { "A preparar a ligação privada…" }, loading = message.isEmpty(), retry = message.isNotEmpty())
+        else setConnectionState("Esta instalação precisa de ser configurada.")
         stack.isFocusableInTouchMode = true
         stack.requestFocus()
+        scheduleTunnelStop()
+    }
+
+    private fun transferOrPickerActive(): Boolean =
+        pickFiles != null || download != null || uploadInProgress || nativeDownloads > 0
+
+    private fun leaveEddy() {
+        // Keep the activity and its transfers alive when leaving with Back.
+        if (transferOrPickerActive()) moveTaskToBack(true) else finish()
+    }
+
+    private fun beginTunnel(connectAfter: Boolean) {
+        if (!foreground || isFinishing || isDestroyed) return
+        lifecycleHandler.removeCallbacks(stopTunnel)
+        connectWhenReady = connectWhenReady || connectAfter
+        if (web != null && connection?.let(::connectionTunnelAvailable) == true) return
+        val address = configuredAddress()
+        if (!configured() || address == null) {
+            setConnectionState("Esta instalação precisa de ser configurada.")
+            return
+        }
+        if (!waitingForTunnel) {
+            closeAuthorization()
+            promptedAuthorizationURL = ""
+            tunnelId = EmbeddedTunnel.start(applicationContext, address)
+            waitingForTunnel = true
+            tunnelDeadline = SystemClock.elapsedRealtime() + 45_000
+            setConnectionState("A estabelecer a ligação privada…", loading = true)
+        }
+        lifecycleHandler.removeCallbacks(waitForTunnel)
+        lifecycleHandler.post(waitForTunnel)
+    }
+
+    private fun scheduleTunnelStop() {
+        lifecycleHandler.removeCallbacks(stopTunnel)
+        if (!foreground && !transferOrPickerActive()) lifecycleHandler.postDelayed(stopTunnel, 3_000)
+    }
+
+    private fun releaseTunnel() {
+        if (foreground || transferOrPickerActive()) return
+        waitingForTunnel = false
+        connectWhenReady = false
+        lifecycleHandler.removeCallbacks(waitForTunnel)
+        closeAuthorization()
+        if (web != null) showConnection("A ligação privada volta a ligar quando abrires a Eddy.")
+        else {
+            generation++
+            loginInProgress = false
+            if (::status.isInitialized) setConnectionState("A ligação privada volta a ligar quando abrires a Eddy.")
+        }
+        lifecycleHandler.removeCallbacks(stopTunnel)
+        // The only HTTP destination in this process is the private loopback proxy.
+        EmbeddedTunnel.stop(tunnelId)
+        lifecycleHandler.removeCallbacks(checkTunnel)
+    }
+
+    private fun loginURL(raw: String): Uri? = try {
+        Uri.parse(raw).takeIf { it.scheme == "https" && it.host == "login.tailscale.com" &&
+            it.port in listOf(-1, 443) && it.userInfo == null && it.fragment == null }
+    } catch (_: Exception) { null }
+
+    private fun authorizeAccess() {
+        val snapshot = EmbeddedTunnel.snapshot(tunnelId)
+        val uri = loginURL(snapshot.authURL) ?: return
+        if (snapshot.id != tunnelId || snapshot.state != "needs-login") return
+        if (authorizationDialog?.isShowing == true && authorizationURL == uri.toString()) return
+        closeAuthorization()
+        val link = uri.toString()
+        val qr = try {
+            val matrix = QRCodeWriter().encode(link, BarcodeFormat.QR_CODE, 512, 512,
+                mapOf(EncodeHintType.MARGIN to 4, EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M))
+            val pixels = IntArray(512 * 512) { index -> if (matrix[index % 512, index / 512]) Color.BLACK else Color.WHITE }
+            Bitmap.createBitmap(pixels, 512, 512, Bitmap.Config.ARGB_8888)
+        } catch (_: Exception) {
+            status.text = "Não foi possível preparar o pedido de acesso. Tenta novamente."
+            return
+        }
+        val contents = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(8), dp(24), dp(8))
+        }
+        contents.label("Lê este código com outro telemóvel ou abre a ligação num computador. Autoriza o acesso com a conta da família nesse dispositivo.", 15f, muted, 0)
+        val image = ImageView(this).apply {
+            setImageBitmap(qr)
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(Color.WHITE)
+            contentDescription = "Código QR para autorizar este telemóvel noutro dispositivo"
+        }
+        contents.addView(image, LinearLayout.LayoutParams(-1, dp(250)).apply { topMargin = dp(18) })
+        contents.label("Mantém a Eddy aberta enquanto autorizas o acesso no outro dispositivo. O pedido fecha automaticamente quando estiver concluído.", 14f, muted, 16)
+        contents.label("Pedido de acesso", 13f, primary, 16, true)
+        val linkLabel = contents.label(link, 13f, textColor, 6).apply {
+            setTextIsSelectable(true)
+        }
+        val scroll = ScrollView(this).apply { addView(contents) }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Autorizar noutro dispositivo")
+            .setView(scroll)
+            .setPositiveButton("Fechar", null)
+            .setNeutralButton("Copiar ligação") { _, _ -> }
+            .create()
+        dialog.setOnDismissListener {
+            image.setImageDrawable(null)
+            linkLabel.text = ""
+            if (authorizationDialog === dialog) { authorizationDialog = null; authorizationURL = "" }
+        }
+        authorizationURL = link
+        authorizationDialog = dialog
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(rounded(panel, 24))
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(primary)
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).apply {
+            setTextColor(primary)
+            setOnClickListener {
+                val active = EmbeddedTunnel.snapshot(tunnelId)
+                if (active.id != tunnelId || active.state != "needs-login" || active.authURL != link) { closeAuthorization(); return@setOnClickListener }
+                val clip = ClipData.newPlainText("Pedido de acesso Eddy", link).apply {
+                    description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+                }
+                getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+                Toast.makeText(this@MobileActivity, "Ligação copiada.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun reconcileAuthorization(snapshot: EmbeddedTunnel.Snapshot) {
+        if (authorizationDialog != null && (snapshot.id != tunnelId || snapshot.state != "needs-login" || snapshot.authURL != authorizationURL)) closeAuthorization()
+    }
+
+    private fun closeAuthorization() {
+        authorizationDialog?.dismiss()
+        authorizationDialog = null
+        authorizationURL = ""
     }
 
     private fun parseAddress(input: String): String? {
@@ -231,49 +415,61 @@ class MobileActivity : ComponentActivity() {
         return parts.joinToString(".") { it.toInt().toString() }
     }
 
-    private fun vpnNetwork(): Network? {
-        val manager = getSystemService(ConnectivityManager::class.java)
-        val network = manager.activeNetwork ?: return null
-        return network.takeIf { manager.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true }
-    }
+    private fun connectionTunnelAvailable(target: Connection): Boolean = EmbeddedTunnel.available(target.tunnel)
 
-    private fun vpnConnected(): Boolean = vpnNetwork() != null
-
-    private fun connectionNetworkAvailable(target: Connection): Boolean = vpnNetwork() == target.network
-
-    private fun checkSessionNetwork() {
+    private fun checkSessionTunnel() {
+        reconcileAuthorization(EmbeddedTunnel.snapshot(tunnelId))
         val current = connection ?: return
-        if (!isFinishing && !isDestroyed && web != null && !connectionNetworkAvailable(current)) {
-            showConnection(if (vpnConnected()) "A ligação VPN mudou. Toca em Ligar para retomar."
-                else "A ligação VPN terminou. Liga o Tailscale e volta a ligar ao tablet.")
+        if (!isFinishing && !isDestroyed && web != null && !connectionTunnelAvailable(current)) {
+            showConnection("A ligação privada foi interrompida.")
+            if (foreground) beginTunnel(connectAfter = true)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        checkSessionNetwork()
+        web?.onResume()
+        EmbeddedTunnel.networkChanged(tunnelId)
+        checkSessionTunnel()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        foreground = true
+        lifecycleHandler.removeCallbacks(stopTunnel)
+        beginTunnel(connectAfter = true)
+        lifecycleHandler.removeCallbacks(checkTunnel)
+        lifecycleHandler.post(checkTunnel)
+    }
+
+    override fun onStop() {
+        foreground = false
+        // Playback stops on leaving; uploads continue until their completion callback releases the tunnel.
+        web?.evaluateJavascript("document.querySelectorAll('audio,video').forEach(function(media){media.pause();})", null)
+        web?.onPause()
+        scheduleTunnelStop()
+        super.onStop()
     }
 
     private fun connect() {
-        val address = parseAddress(addressInput.text.toString().trim())
-        if (address == null) { status.text = "Confirma o endereço Tailscale do tablet."; return }
-        val user = userInput.text.toString().trim().lowercase()
-        val password = passwordInput.text.toString()
-        if (user !in listOf("eddy", "familia") || password.isEmpty()) {
-            status.text = "Indica o teu utilizador e a palavra-passe da Eddy."
+        if (loginInProgress || !foreground) return
+        val address = configuredAddress()
+        if (!configured() || address == null) { setConnectionState("Esta instalação precisa de ser configurada."); return }
+        val snapshot = EmbeddedTunnel.snapshot(tunnelId)
+        if (snapshot.target == address && snapshot.state == "needs-login") {
+            connectWhenReady = true
+            authorizeAccess()
             return
         }
-        val network = vpnNetwork()
-        if (network == null) { status.text = "Liga o Tailscale e volta a tentar."; return }
-        val manager = getSystemService(ConnectivityManager::class.java)
-        // Keep WebView writes on this VPN. Losing it must not fall back to Wi-Fi or mobile data.
-        if (!manager.bindProcessToNetwork(network)) { status.text = "A ligação VPN mudou. Volta a tentar."; return }
-        val candidate = Connection(address, user, password, network)
-        val persist = remember.isChecked
+        if (snapshot.target != address || snapshot.state != "running" || !EmbeddedTunnel.available(snapshot)) {
+            if (snapshot.target != address) waitingForTunnel = false
+            beginTunnel(connectAfter = true)
+            return
+        }
+        val candidate = Connection(address, BuildConfig.MOBILE_USER, BuildConfig.MOBILE_PASSWORD, snapshot)
         val session = ++generation
-        connectButton.isEnabled = false
-        status.text = "A ligar ao tablet…"
-        getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(connectButton.windowToken, 0)
+        loginInProgress = true
+        setConnectionState("A abrir os ficheiros da família…", loading = true)
         worker.execute {
             val error = try {
                 val request = request(candidate, "/api/session")
@@ -281,23 +477,21 @@ class MobileActivity : ComponentActivity() {
                     when (request.responseCode) {
                         200 -> {
                             val role = request.inputStream.bufferedReader().use { JSONObject(it.readLine()).optString("role") }
-                            if (role in listOf("owner", "family")) null else "O tablet precisa da Eddy 2.5."
+                            if (role in listOf("owner", "family")) null else "A Eddy do tablet precisa de ser atualizada."
                         }
-                        401, 403 -> "Confirma o utilizador e a palavra-passe."
-                        404 -> "O tablet precisa da Eddy 2.5."
+                        401, 403 -> "Esta instalação precisa de atualizar o acesso à família."
+                        404 -> "A Eddy do tablet precisa de ser atualizada."
                         429 -> "Demasiadas tentativas. Aguarda 30 segundos e volta a tentar."
                         else -> "A Eddy do tablet ainda está a iniciar."
                     }
                 } finally { request.disconnect() }
-            } catch (_: Exception) { "O tablet não respondeu. Confirma se está ligado ao Tailscale." }
+            } catch (_: Exception) { "O tablet não respondeu. Confirma se está ligado à Internet e tenta novamente." }
             runOnUiThread {
                 if (session != generation || isFinishing || isDestroyed) return@runOnUiThread
-                if (error != null || !connectionNetworkAvailable(candidate)) {
-                    status.text = error ?: "A ligação VPN mudou. Toca em Ligar para retomar."
-                    connectButton.isEnabled = true
+                loginInProgress = false
+                if (error != null || !connectionTunnelAvailable(candidate)) {
+                    setConnectionState(error ?: "A ligação privada mudou. Tenta novamente para retomar.", retry = true)
                 } else {
-                    try { saved.save(candidate.address, candidate.user, password.takeIf { persist }) }
-                    catch (_: Exception) { Toast.makeText(this, "Não foi possível guardar a palavra-passe.", Toast.LENGTH_SHORT).show() }
                     connection = candidate
                     showWeb(candidate)
                 }
@@ -306,17 +500,18 @@ class MobileActivity : ComponentActivity() {
     }
 
     private fun request(target: Connection, path: String): HttpURLConnection {
-        if (!connectionNetworkAvailable(target)) throw IOException("A ligação VPN mudou.")
-        return (target.network.openConnection(URL(target.origin + path), Proxy.NO_PROXY) as HttpURLConnection).apply {
+        if (!connectionTunnelAvailable(target) || !path.startsWith("/") || path.startsWith("//")) throw IOException("A ligação privada mudou.")
+        return (URL(target.origin + path).openConnection(Proxy.NO_PROXY) as HttpURLConnection).apply {
             instanceFollowRedirects = false
             connectTimeout = 7000
             readTimeout = 15000
             setRequestProperty("Authorization", target.authorization)
+            setRequestProperty("X-Eddy-Tunnel-Key", target.tunnel.token)
         }
     }
 
     private fun allowed(uri: Uri, target: Connection): Boolean =
-        uri.scheme == "http" && uri.host == target.address && uri.port == 8787 && uri.userInfo == null
+        uri.scheme == "http" && uri.host == "127.0.0.1" && uri.port == Uri.parse(target.origin).port && uri.userInfo == null
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun showWeb(target: Connection) {
@@ -336,13 +531,24 @@ class MobileActivity : ComponentActivity() {
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
         view.addJavascriptInterface(object {
             @JavascriptInterface fun authorization(): String = if (session == generation && view === web) target.authorization else ""
+            @JavascriptInterface fun tunnelHeader(): String = if (session == generation && view === web && connectionTunnelAvailable(target)) target.tunnel.token else ""
 
             @JavascriptInterface fun changeConnection() = runOnUiThread {
-                if (session == generation && view === web) showConnection()
+                if (session == generation && view === web) {
+                    showConnection()
+                    beginTunnel(connectAfter = true)
+                }
             }
 
             @JavascriptInterface fun download(path: String, name: String) = runOnUiThread {
                 if (session == generation && view === web) prepareDownload(target, path, name)
+            }
+
+            @JavascriptInterface fun uploadState(active: Boolean) = runOnUiThread {
+                if (session == generation && view === web) {
+                    uploadInProgress = active
+                    scheduleTunnelStop()
+                }
             }
         }, "EddyMobile")
         view.webViewClient = object : WebViewClient() {
@@ -350,8 +556,8 @@ class MobileActivity : ComponentActivity() {
                 !allowed(request.url, target) || request.url.path != "/"
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                if (!allowed(request.url, target) || !connectionNetworkAvailable(target) || session != generation) {
-                    runOnUiThread { if (session == generation) checkSessionNetwork() }
+                if (!allowed(request.url, target) || !connectionTunnelAvailable(target) || session != generation) {
+                    runOnUiThread { if (session == generation) checkSessionTunnel() }
                     return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
                 }
                 if (request.method != "GET" && request.method != "HEAD") return null
@@ -379,8 +585,8 @@ class MobileActivity : ComponentActivity() {
             }
 
             override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) {
-                val knownHost = host == target.address || host == "${target.address}:8787"
-                if (session == generation && knownHost && realm == "Eddy" && connectionNetworkAvailable(target) && handler.useHttpAuthUsernamePassword()) {
+                val knownHost = host == "127.0.0.1" || host == "127.0.0.1:${Uri.parse(target.origin).port}"
+                if (session == generation && knownHost && realm == "Eddy" && connectionTunnelAvailable(target) && handler.useHttpAuthUsernamePassword()) {
                     handler.proceed(target.user, target.password)
                 } else handler.cancel()
             }
@@ -410,20 +616,26 @@ class MobileActivity : ComponentActivity() {
         }
         root.removeAllViews()
         root.addView(view, FrameLayout.LayoutParams(-1, -1))
-        view.loadUrl(target.origin + "/", mapOf("Authorization" to target.authorization))
+        view.loadUrl(target.origin + "/", mapOf("Authorization" to target.authorization, "X-Eddy-Tunnel-Key" to target.tunnel.token))
     }
 
     private fun prepareDownload(target: Connection, path: String, name: String) {
-        if (download != null || !Regex("/api/family/files/[0-9a-f]{32}").matches(path) || !connectionNetworkAvailable(target)) return
+        if (download != null || !Regex("/api/family/files/[0-9a-f]{32}").matches(path) || !connectionTunnelAvailable(target)) return
         val fileName = name.replace(Regex("[\\\\/\\p{Cntrl}]"), "_").take(120).ifBlank { "Ficheiro Eddy" }
         download = Download(target, path)
-        saveFile.launch(fileName)
+        try { saveFile.launch(fileName) }
+        catch (_: Exception) {
+            download = null
+            scheduleTunnelStop()
+            Toast.makeText(this, "Não foi possível escolher onde guardar o ficheiro.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun writeDownload(pending: Download, uri: Uri) {
+        nativeDownloads++
         worker.execute {
             val success = try {
-                if (!connectionNetworkAvailable(pending.connection)) throw IOException()
+                if (!connectionTunnelAvailable(pending.connection)) throw IOException()
                 val request = request(pending.connection, pending.path)
                 try {
                     if (request.responseCode != 200) throw IOException()
@@ -452,7 +664,11 @@ class MobileActivity : ComponentActivity() {
                 false
             }
             runOnUiThread {
-                Toast.makeText(this, if (success) "Ficheiro guardado." else "A transferência falhou. Volta a tentar.", Toast.LENGTH_SHORT).show()
+                nativeDownloads = (nativeDownloads - 1).coerceAtLeast(0)
+                if (!isDestroyed) {
+                    Toast.makeText(this, if (success) "Ficheiro guardado." else "A transferência falhou. Volta a tentar.", Toast.LENGTH_SHORT).show()
+                    scheduleTunnelStop()
+                }
             }
         }
     }
@@ -460,6 +676,7 @@ class MobileActivity : ComponentActivity() {
     private fun closeWeb() {
         pickFiles?.onReceiveValue(null)
         pickFiles = null
+        uploadInProgress = false
         val view = web ?: return
         web = null
         (view.parent as? ViewGroup)?.removeView(view)
@@ -469,12 +686,17 @@ class MobileActivity : ComponentActivity() {
 
     override fun onDestroy() {
         generation++
+        closeAuthorization()
+        lifecycleHandler.removeCallbacksAndMessages(null)
         if (networkCallbackRegistered) {
             getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback)
             networkCallbackRegistered = false
         }
         closeWeb()
         worker.shutdownNow()
+        if (!isChangingConfigurations) {
+            EmbeddedTunnel.stop(tunnelId)
+        }
         super.onDestroy()
     }
 }

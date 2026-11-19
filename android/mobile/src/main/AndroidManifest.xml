@@ -2,13 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <queries><package android:name="com.tailscale.ipn" /></queries>
     <application
         android:label="Eddy"
         android:icon="@mipmap/eddy_mobile_icon"
         android:roundIcon="@mipmap/eddy_mobile_icon"
         android:allowBackup="false"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/eddy_mobile_network_security"
         android:theme="@style/EddyMobileTheme">
         <activity android:name=".MobileActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden">
             <intent-filter>

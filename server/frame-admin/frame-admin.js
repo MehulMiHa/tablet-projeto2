@@ -74,6 +74,7 @@ async function request(path, options = {}) {
   try {
     const headers = new Headers(fetchOptions.headers);
     if (typeof window.EddyMobile?.authorization === 'function') headers.set('Authorization', window.EddyMobile.authorization());
+    if (typeof window.EddyMobile?.tunnelHeader === 'function') headers.set('X-Eddy-Tunnel-Key', window.EddyMobile.tunnelHeader());
     if (fetchOptions.method && window.EddyMobile) headers.set('X-Eddy-Client', 'android');
     const response = await fetch(path, {
       ...fetchOptions, headers, cache: 'no-store', credentials: 'same-origin', signal: controller.signal
@@ -235,6 +236,7 @@ function sendFile(path, body, headers, onProgress) {
     xhr.withCredentials = true;
     for (const [key, value] of Object.entries(headers)) xhr.setRequestHeader(key, value);
     if (typeof window.EddyMobile?.authorization === 'function') xhr.setRequestHeader('Authorization', window.EddyMobile.authorization());
+    if (typeof window.EddyMobile?.tunnelHeader === 'function') xhr.setRequestHeader('X-Eddy-Tunnel-Key', window.EddyMobile.tunnelHeader());
     if (window.EddyMobile) xhr.setRequestHeader('X-Eddy-Client', 'android');
     xhr.upload.onprogress = event => onProgress(event.loaded, event.lengthComputable ? event.total : body.size);
     byId('cancelUpload').hidden = false;
@@ -472,6 +474,7 @@ async function previewAttachment(file) {
   try {
     const headers = new Headers();
     if (typeof window.EddyMobile?.authorization === 'function') headers.set('Authorization', window.EddyMobile.authorization());
+    if (typeof window.EddyMobile?.tunnelHeader === 'function') headers.set('X-Eddy-Tunnel-Key', window.EddyMobile.tunnelHeader());
     const reply = await fetch(file.url, { headers, signal: controller.signal, cache: 'no-store', credentials: 'same-origin' });
     if (!reply.ok) throw new Error('O tablet não devolveu o ficheiro.');
     const attachment = await reply.blob();
@@ -605,6 +608,8 @@ async function addItems(area, files) {
   const view = views[area];
   if (mutation || !view.data || !files.length) return;
   mutation = true;
+  // The native app keeps its private tunnel connected until the complete upload batch settles.
+  try { window.EddyMobile?.uploadState?.(true); } catch { /* Browser clients have no native lifecycle. */ }
   uploadCancelled = false;
   const uploadParent = familyParent;
   updateControls();
@@ -641,6 +646,7 @@ async function addItems(area, files) {
     progress('');
     uploadRequest = null; byId('cancelUpload').hidden = true;
     mutation = false;
+    try { window.EddyMobile?.uploadState?.(false); } catch { /* The native page may already be closing. */ }
     updateControls();
   }
 }
@@ -712,6 +718,8 @@ window.EddyCloseOverlay = () => {
 };
 if (typeof window.EddyMobile?.changeConnection === 'function') {
   const settings = byId('connectionSettings');
+  settings.setAttribute('aria-label', 'Voltar a ligar ao tablet');
+  settings.setAttribute('title', 'Voltar a ligar');
   settings.hidden = false;
   settings.addEventListener('click', () => window.EddyMobile.changeConnection());
 }

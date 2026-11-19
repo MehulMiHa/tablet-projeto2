@@ -10,5 +10,7 @@ android/.kotlin/
 android/**/build/
 android/local.properties
 android/mobile-signing.properties
+android/mobile-access.properties
+android/mobile/libs/*-sources.jar
 android/*.jks
 android/*.keystore
