@@ -82,6 +82,37 @@
   pointer-events: none;
 }
 
+.ambient.with-frame .ambient-center {
+  position: absolute;
+  z-index: 5;
+  top: var(--frame-clock-top, 6vh);
+  left: 50%;
+  width: var(--frame-clock-width, 92%);
+  margin: 0;
+  padding: 14px 8px 22px;
+  transform: translate(calc(-50% + var(--oled-x)), calc(var(--oled-y-factor) * 14px));
+  pointer-events: none;
+  color: #fff;
+  text-shadow: 0 2px 12px #000c, 0 0 3px #000;
+  isolation: isolate;
+  transition: opacity .3s ease;
+}
+.ambient.with-frame .ambient-center::before {
+  content: '';
+  position: absolute;
+  inset: -35px -30px;
+  background: radial-gradient(ellipse at center, #000b 0, #0007 43%, #0000 73%);
+  z-index: -1;
+  pointer-events: none;
+}
+.ambient.with-frame .ambient-time { font-size: clamp(106px, min(23vw, 20vh), 216px); font-weight: 480; }
+.ambient.with-frame .ambient-date { color: #fff; font-size: clamp(20px, 3.8vw, 32px); margin-bottom: 12px; }
+.ambient.with-frame .ambient-weather { color: #fff; font-size: clamp(20px, 3.5vw, 28px); margin-top: 18px; }
+.ambient.with-frame .ambient-weather small { color: #f0f2ee; }
+.ambient.with-frame .frame-slide { z-index: 1; }
+.ambient.with-frame .ambient-alert, .ambient.with-frame .ambient-rocky { z-index: 7; }
+@media (prefers-reduced-motion: reduce) { .ambient.with-frame .ambient-center { transition: none; } }
+
 @media (max-width: 600px) {
   .view-tab { min-width: 70px; padding-inline: 10px; }
 }

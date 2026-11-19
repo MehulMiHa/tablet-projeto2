@@ -175,3 +175,56 @@ test('family upload enforces both declared and streamed limits before committing
   const [entry] = (await store.list(false)).files;
   assert.deepEqual(await fs.readFile(path.join(directory, `${entry.id}.data`)), Buffer.concat([Buffer.alloc(6, 0x41), Buffer.alloc(7, 0x42)]));
 });
+
+test('folders migrate old files, preserve bytes through moves, reject cycles and delete only a confirmed subtree', async context => {
+  const directory = await dataDirectory(context);
+  const id = 'a'.repeat(32);
+  await fs.writeFile(path.join(directory, `${id}.data`), 'legacy');
+  await fs.writeFile(path.join(directory, 'files.json'), JSON.stringify([{ id, name: 'Antes.txt', size: 6, type: 'text/plain', createdAt: new Date().toISOString() }]));
+  const store = new FamilyFiles(directory);
+  assert.equal((await store.list(true)).files[0].name, 'Antes.txt');
+  const first = (await store.createFolder({ name: 'Férias' })).folders[0];
+  const second = (await store.createFolder({ name: 'Vídeos', parentId: first.id })).folders[0];
+  await assert.rejects(store.change(first.id, true, { parentId: second.id }), /dentro de si/);
+  await assert.rejects(store.createFolder({ name: 'férias' }), /Já existe/);
+  const listing = await store.change(id, false, { name: 'Notas.txt', parentId: second.id });
+  assert.equal(listing.files[0].name, 'Notas.txt');
+  assert.deepEqual(listing.breadcrumbs.map(item => item.name), ['Família', 'Férias', 'Vídeos']);
+  assert.deepEqual((await new FamilyFiles(directory).list(true, second.id)).files, listing.files);
+  assert.equal(await fs.readFile(path.join(directory, `${id}.data`), 'utf8'), 'legacy');
+  await assert.rejects(store.removeFolder(first.id, false), /contém itens/);
+  assert.equal((await store.list(true, second.id)).files.length, 1);
+  assert.deepEqual((await store.removeFolder(first.id, true)).folders, []);
+  await assert.rejects(fs.access(path.join(directory, `${id}.data`)));
+  assert.ok((await store.list(true)).effectiveFreeBytes > 0);
+});
+
+test('private previews stream byte ranges, support HEAD and never serve HTML inline', async context => {
+  const directory = await dataDirectory(context);
+  const gateway = await listen(context, createFrameAdminServer({ config, familyFiles: new FamilyFiles(directory) }));
+  const headers = { authorization: credentials(family), origin: gateway };
+  const bytes = Buffer.from('RIFF0123456789WAVE');
+  async function upload(name, type) {
+    const response = await fetch(gateway + '/api/family/files', { method: 'POST', headers: { ...headers, 'x-file-name': name, 'content-type': type }, body: bytes });
+    assert.equal(response.status, 201);
+    return (await response.json()).files.find(item => item.name === name);
+  }
+  const audio = await upload('Som.wav', 'audio/wav');
+  const range = await fetch(gateway + audio.previewUrl, { headers: { ...headers, Range: 'bytes=4-8' } });
+  assert.equal(range.status, 206);
+  assert.equal(range.headers.get('content-range'), `bytes 4-8/${bytes.length}`);
+  assert.deepEqual(Buffer.from(await range.arrayBuffer()), bytes.subarray(4, 9));
+  const suffix = await fetch(gateway + audio.previewUrl, { headers: { ...headers, Range: 'bytes=-4' } });
+  assert.deepEqual(Buffer.from(await suffix.arrayBuffer()), Buffer.from('WAVE'));
+  const head = await fetch(gateway + audio.previewUrl, { method: 'HEAD', headers });
+  assert.equal(head.status, 200); assert.equal(head.headers.get('content-length'), String(bytes.length));
+  assert.equal((await head.arrayBuffer()).byteLength, 0);
+  const invalid = await fetch(gateway + audio.previewUrl, { headers: { ...headers, Range: 'bytes=9999-' } });
+  assert.equal(invalid.status, 416);
+  const html = await upload('Página.html', 'text/html');
+  assert.equal(html.previewUrl, null);
+  assert.equal((await fetch(gateway + html.url + '/preview', { headers })).status, 415);
+  assert.equal((await fetch(gateway + audio.url, { method: 'PATCH', headers: { authorization: credentials(family), 'content-type': 'application/json' }, body: '{"name":"Outro.wav"}' })).status, 403);
+  const changed = await fetch(gateway + audio.url, { method: 'PATCH', headers: { ...headers, 'content-type': 'application/json' }, body: '{"name":"Outro.wav"}' });
+  assert.equal(changed.status, 200);
+});

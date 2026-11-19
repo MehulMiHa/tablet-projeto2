@@ -26,6 +26,12 @@
     <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M19 10a7 7 0 1 0-.7 6M19 5v5h-5"/></symbol>
     <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M5 7h14m-9-3h4m-7 3 .7 11a2 2 0 0 0 2 2h4.6a2 2 0 0 0 2-2L17 7m-7 4v5m4-5v5"/></symbol>
     <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+    <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="icon-back" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
+    <symbol id="icon-rename" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1 11-11a2 2 0 0 0-5-5L4 14z"/></symbol>
+    <symbol id="icon-move" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 14h7m-3-3 3 3-3 3"/></symbol>
+    <symbol id="icon-video" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></symbol>
+    <symbol id="icon-audio" viewBox="0 0 24 24"><path d="M9 17V6l11-2v11M9 9l11-2"/><ellipse cx="6" cy="17" rx="3" ry="2"/><ellipse cx="17" cy="15" rx="3" ry="2"/></symbol>
   </svg>
 
   <main class="page">
@@ -38,7 +44,7 @@
     </header>
 
     <div id="transfer" class="transfer" role="status" aria-live="polite" hidden>
-      <p id="transferTitle"></p>
+      <div class="transfer-top"><p id="transferTitle"></p><button id="cancelUpload" type="button" class="icon-button" aria-label="Cancelar envio" hidden><svg aria-hidden="true"><use href="#icon-close"/></svg></button></div>
       <progress id="transferProgress" max="1" value="0" aria-label="Progresso do envio"></progress>
     </div>
     <div id="notice" class="notice" role="status" hidden>
@@ -67,16 +73,22 @@
       <div class="hero hero-family">
         <div aria-hidden="true" class="hero-art family-art"><i></i><i></i><i></i></div>
         <h1 id="familyTitle">Família</h1>
-        <p id="familyVolume">Ficheiros partilhados no tablet</p>
+        <p id="familyVolume">Um lugar para os ficheiros de todos</p>
         <input id="familyPicker" type="file" multiple hidden>
-        <button id="addFiles" type="button" class="button primary" disabled><svg aria-hidden="true"><use href="#icon-upload"/></svg> Enviar ficheiros</button>
+        <div class="family-tools"><button id="addFiles" type="button" class="button primary" disabled><svg aria-hidden="true"><use href="#icon-upload"/></svg> Enviar ficheiros</button><button id="newFolder" type="button" class="button" disabled><svg aria-hidden="true"><use href="#icon-add"/></svg> Nova pasta</button></div>
       </div>
 
-      <div class="list-header">
-        <h2>Ficheiros <span id="familyCount" hidden></span></h2>
+      <section id="familyStorage" class="storage" aria-label="Espaço para a Família" hidden>
+        <div class="storage-top"><p>Espaço da Família</p><strong id="storagePercent"></strong></div>
+        <progress id="storageProgress" max="100" value="0" aria-label="Espaço utilizado"></progress>
+        <p id="storageDetail" class="storage-detail"></p>
+      </section>
+      <div class="list-header family-header">
+        <div class="folder-heading"><button id="folderBack" type="button" class="icon-button" aria-label="Voltar à pasta anterior" hidden><svg aria-hidden="true"><use href="#icon-back"/></svg></button><h2 id="folderTitle">Ficheiros <span id="familyCount" hidden></span></h2></div>
         <button class="icon-button refresh" type="button" data-reload="family" aria-label="Atualizar ficheiros"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button>
       </div>
-      <label id="searchWrap" class="search" hidden><svg aria-hidden="true"><use href="#icon-search"/></svg><input id="familySearch" type="search" placeholder="Procurar um ficheiro" aria-label="Procurar um ficheiro"></label>
+      <nav id="familyBreadcrumbs" class="breadcrumbs" aria-label="Caminho da pasta" hidden></nav>
+      <label id="searchWrap" class="search" hidden><svg aria-hidden="true"><use href="#icon-search"/></svg><input id="familySearch" type="search" placeholder="Procurar nesta pasta" aria-label="Procurar nesta pasta"></label>
       <div id="familyPlaceholder" class="placeholder" aria-live="polite"></div>
       <ul id="familyList" class="family-list"></ul>
     </section>
@@ -94,13 +106,28 @@
     </header>
     <div id="previewVisual" class="preview-visual" hidden>
       <img id="previewImage" alt="" decoding="async" hidden>
+      <video id="previewVideo" controls playsinline preload="metadata" hidden></video>
+      <audio id="previewAudio" controls preload="metadata" hidden></audio>
       <pre id="previewText" hidden></pre>
       <p id="previewMessage" role="status" hidden></p>
     </div>
     <footer class="preview-footer" id="previewActions">
-      <button id="removeItem" type="button" class="button danger" hidden><svg aria-hidden="true"><use href="#icon-trash"/></svg> Apagar</button>
       <a id="downloadItem" class="button primary" download hidden><svg aria-hidden="true"><use href="#icon-download"/></svg> Guardar ficheiro</a>
+      <div class="item-tools"><button id="renameItem" type="button" class="button" hidden><svg aria-hidden="true"><use href="#icon-rename"/></svg> Mudar nome</button><button id="moveItem" type="button" class="button" hidden><svg aria-hidden="true"><use href="#icon-move"/></svg> Mover</button><button id="removeItem" type="button" class="button danger" hidden><svg aria-hidden="true"><use href="#icon-trash"/></svg> Apagar</button></div>
     </footer>
+    <form id="nameForm" class="name-form" hidden>
+      <label for="itemName">Nome</label><input id="itemName" type="text" maxlength="180" autocomplete="off" required>
+      <p id="nameError" class="form-error" role="alert" hidden></p>
+      <div class="panel-actions"><button id="cancelName" type="button" class="button">Cancelar</button><button id="saveName" type="submit" class="button primary">Guardar</button></div>
+    </form>
+    <section id="movePanel" class="move-panel" aria-labelledby="moveTitle" hidden>
+      <h3 id="moveTitle">Escolhe a pasta de destino</h3>
+      <nav id="moveBreadcrumbs" class="breadcrumbs" aria-label="Pasta de destino"></nav>
+      <p id="moveStatus" class="move-status" role="status"></p>
+      <ul id="moveFolders" class="family-list move-folders"></ul>
+      <p id="moveError" class="form-error" role="alert" hidden></p>
+      <div class="panel-actions"><button id="cancelMove" type="button" class="button">Cancelar</button><button id="confirmMove" type="button" class="button primary" disabled>Mover para aqui</button></div>
+    </section>
     <section class="confirmation" id="removeConfirmation" aria-labelledby="removeTitle" hidden>
       <h3 id="removeTitle">Apagar do tablet?</h3>
       <p id="removeDetail"></p>

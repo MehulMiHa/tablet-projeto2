@@ -26,6 +26,15 @@ let selection = null;
 let previewController = null;
 let previewUrl = null;
 let dismissNotice = 0;
+let familyParent = null;
+let familyGeneration = 0;
+let moveGeneration = 0;
+let moveParent = null;
+let nameMode = '';
+let uploadRequest = null;
+let uploadCancelled = false;
+const mediaVideo = byId('previewVideo');
+const mediaAudio = byId('previewAudio');
 
 function icon(name) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -127,6 +136,10 @@ function updateControls() {
   }
   byId('removeItem').disabled = mutation;
   byId('confirmRemove').disabled = mutation;
+  byId('newFolder').disabled = mutation || !views.family.data;
+  byId('saveName').disabled = mutation;
+  byId('renameItem').disabled = mutation;
+  byId('moveItem').disabled = mutation;
 }
 
 function goodItems(data, view) {
@@ -137,6 +150,7 @@ function goodItems(data, view) {
 function accept(name, data) {
   const view = views[name];
   view.data = { ...data, [view.list]: goodItems(data, view) };
+  if (name === 'family') view.data.folders = Array.isArray(data.folders) ? data.folders.filter(item => photoId.test(item.id) && typeof item.name === 'string' && item.url === '/api/family/folders/' + item.id) : [];
   render(name);
 }
 
@@ -182,6 +196,8 @@ function renderPhotos() {
 }
 
 function fileKind(file) {
+  if (file.type?.startsWith('video/')) return 'video';
+  if (file.type?.startsWith('audio/')) return 'audio';
   if (safeImages.has(file.type)) return 'image';
   if (file.type === 'application/pdf') return 'pdf';
   if (/\.(zip|rar|7z|gz)$/i.test(file.name)) return 'archive';
@@ -192,39 +208,163 @@ function searchKey(value) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT');
 }
 
+function folderPath(id) { return '/api/family' + (id ? '?parent=' + encodeURIComponent(id) : ''); }
+
+function breadcrumbs(element, items, select) {
+  element.hidden = false;
+  element.replaceChildren();
+  for (const [index, item] of items.entries()) {
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = item.name;
+    button.setAttribute('aria-current', index === items.length - 1 ? 'location' : 'false');
+    button.addEventListener('click', () => select(item.id)); element.append(button);
+    if (index < items.length - 1) element.append(icon('chevron'));
+  }
+}
+
+function navigateFolder(id) {
+  if (mutation || id === familyParent && views.family.data) return;
+  closeDetail(); familyGeneration++; familyParent = id; views.family.busy = false; views.family.data = null;
+  byId('familySearch').value = ''; byId('familyList').replaceChildren(); setPlaceholder('family', 'A abrir pasta…');
+  load('family');
+}
+
+function sendFile(path, body, headers, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest(); uploadRequest = xhr;
+    xhr.open('POST', path); xhr.timeout = 2 * 60 * 60 * 1000;
+    xhr.withCredentials = true;
+    for (const [key, value] of Object.entries(headers)) xhr.setRequestHeader(key, value);
+    if (typeof window.EddyMobile?.authorization === 'function') xhr.setRequestHeader('Authorization', window.EddyMobile.authorization());
+    if (window.EddyMobile) xhr.setRequestHeader('X-Eddy-Client', 'android');
+    xhr.upload.onprogress = event => onProgress(event.loaded, event.lengthComputable ? event.total : body.size);
+    byId('cancelUpload').hidden = false;
+    xhr.onload = () => {
+      let data; try { data = JSON.parse(xhr.responseText); } catch { /* Incomplete response. */ }
+      if (xhr.status < 200 || xhr.status >= 300 || !data) reject(new Error(data?.error || 'O envio não foi confirmado. Atualiza a pasta antes de repetir.'));
+      else { setNetwork('online'); resolve(data); }
+    };
+    xhr.onerror = () => { setNetwork('offline'); reject(new Error('A ligação caiu. Os ficheiros completos já enviados foram mantidos.')); };
+    xhr.ontimeout = () => reject(new Error('O envio demorou demasiado. Confirma a ligação e volta a tentar.'));
+    xhr.onabort = () => reject(new Error('Envio cancelado.'));
+    xhr.send(body);
+  });
+}
+
+function namePanel(mode) {
+  if (mutation) return;
+  nameMode = mode;
+  byId('previewActions').hidden = true; byId('removeConfirmation').hidden = true; byId('movePanel').hidden = true;
+  byId('nameForm').hidden = false; byId('nameError').hidden = true;
+  byId('itemName').value = mode === 'new' ? '' : selection.item.name;
+  byId('itemName').focus(); byId('itemName').select();
+}
+
+function newFolder() {
+  if (mutation || !views.family.data) return;
+  resetPreviewMedia(); selection = null; byId('previewTitle').textContent = 'Nova pasta'; byId('previewMeta').hidden = true;
+  namePanel('new'); dialog.showModal();
+}
+
+async function submitName(event) {
+  event.preventDefault();
+  if (mutation) return;
+  const name = byId('itemName').value.trim(); if (!name) return;
+  mutation = true; updateControls(); byId('nameError').hidden = true;
+  try {
+    const data = await request(nameMode === 'new' ? '/api/family/folders' : selection.item.url, {
+      method: nameMode === 'new' ? 'POST' : 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, ...(nameMode === 'new' ? { parentId: familyParent } : {}) })
+    });
+    accept('family', data); closeDetail(); notice(nameMode === 'new' ? 'Pasta criada.' : 'Nome atualizado.');
+  } catch (error) { byId('nameError').textContent = error.message; byId('nameError').hidden = false; }
+  finally { mutation = false; updateControls(); }
+}
+
+async function chooseMoveFolder(id) {
+  const generation = ++moveGeneration; moveParent = id;
+  byId('confirmMove').disabled = true; byId('moveError').hidden = true;
+  byId('moveStatus').textContent = 'A abrir pasta…'; byId('moveFolders').replaceChildren();
+  try {
+    const data = await request(folderPath(id));
+    if (generation !== moveGeneration || !selection) return;
+    breadcrumbs(byId('moveBreadcrumbs'), data.breadcrumbs, chooseMoveFolder);
+    const folders = data.folders.filter(item => item.id !== selection.item.id);
+    for (const folder of folders) {
+      const row = document.createElement('li'); const button = document.createElement('button'); button.type = 'button'; button.className = 'file';
+      const title = document.createElement('span'); title.textContent = folder.name;
+      button.append(icon('folder'), title, icon('chevron')); button.addEventListener('click', () => chooseMoveFolder(folder.id));
+      row.append(button); byId('moveFolders').append(row);
+    }
+    byId('moveStatus').textContent = folders.length ? 'Abre uma pasta ou escolhe este local.' : 'Podes mover para esta pasta.';
+    byId('confirmMove').disabled = mutation || (selection.item.parentId || null) === id || selection.item.id === id;
+  } catch (error) { if (generation === moveGeneration) { byId('moveError').textContent = error.message; byId('moveError').hidden = false; } }
+}
+
+function openMove() {
+  if (!selection || mutation) return;
+  resetPreviewMedia(); byId('nameForm').hidden = true; byId('removeConfirmation').hidden = true;
+  byId('previewActions').hidden = true; byId('movePanel').hidden = false;
+  chooseMoveFolder(null);
+}
+
+async function confirmMove() {
+  if (!selection || mutation) return;
+  mutation = true; updateControls(); byId('confirmMove').disabled = true;
+  try {
+    await request(selection.item.url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parentId: moveParent }) });
+    closeDetail(); mutation = false; await load('family'); notice('Item movido.');
+  } catch (error) { byId('moveError').textContent = error.message; byId('moveError').hidden = false; }
+  finally { mutation = false; updateControls(); byId('confirmMove').disabled = false; }
+}
+
 function renderFamily() {
   const data = views.family.data;
   if (!data) return;
-  const { files } = data;
+  const { files, folders = [] } = data;
+  const all = [...folders.map(item => ({ ...item, folder: true })), ...files];
   const query = searchKey(byId('familySearch').value.trim());
-  const filtered = query ? files.filter(file => searchKey(file.name).includes(query)) : files;
-  count('familyCount', 'ficheiro', 'ficheiros', files.length);
+  const filtered = query ? all.filter(file => searchKey(file.name).includes(query)) : all;
+  count('familyCount', 'item', 'itens', all.length);
   const capacity = [prettySize(data.totalBytes), prettySize(data.maxTotalBytes)];
   byId('familyVolume').textContent = capacity.every(Boolean) ? capacity.join(' de ') + ' usados no tablet' : 'Ficheiros partilhados no tablet';
-  byId('searchWrap').hidden = files.length < 2 && !query;
-  setPlaceholder('family', !files.length ? 'Envia um ficheiro para ficar disponível à família.' : filtered.length ? '' : 'Nenhum ficheiro corresponde à pesquisa.');
+  const ratio = data.maxTotalBytes > 0 ? Math.min(100, data.totalBytes / data.maxTotalBytes * 100) : 0;
+  byId('familyStorage').hidden = false;
+  byId('storagePercent').textContent = ratio > 0 && ratio < .1 ? '<0,1% usado' : decimal.format(ratio) + '% usado';
+  byId('storageProgress').value = ratio;
+  byId('storageDetail').textContent = prettySize(data.totalBytes) + ' de ' + prettySize(data.maxTotalBytes) + ' · ' + prettySize(data.effectiveFreeBytes ?? Math.max(0, data.maxTotalBytes - data.totalBytes)) + ' disponíveis';
+  byId('folderBack').hidden = !familyParent;
+  byId('folderTitle').firstChild.textContent = (data.currentFolder?.name || 'Ficheiros') + ' ';
+  breadcrumbs(byId('familyBreadcrumbs'), data.breadcrumbs || [{ id: null, name: 'Família' }], navigateFolder);
+  byId('searchWrap').hidden = all.length < 2 && !query;
+  setPlaceholder('family', !all.length ? 'Esta pasta está vazia. Adiciona ficheiros ou cria uma pasta.' : filtered.length ? '' : 'Nenhum item corresponde à pesquisa.');
   const fragment = document.createDocumentFragment();
-  for (const file of filtered.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))) {
+  for (const file of filtered.slice().sort((a, b) => Number(!!b.folder) - Number(!!a.folder) || a.name.localeCompare(b.name, 'pt-PT', { numeric: true }))) {
     const item = document.createElement('li');
     const button = document.createElement('button');
     const badge = document.createElement('span');
     const labels = document.createElement('span');
     const title = document.createElement('strong');
     const metadata = document.createElement('span');
-    const kind = fileKind(file);
+    const kind = file.folder ? 'folder' : fileKind(file);
     button.type = 'button';
     button.className = 'file';
-    button.addEventListener('click', () => openDetail('family', file));
+    button.addEventListener('click', () => file.folder ? navigateFolder(file.id) : openDetail('family', file));
     badge.className = 'file-icon';
     badge.dataset.kind = kind;
-    badge.append(icon(kind === 'image' ? 'frame' : kind === 'archive' ? 'archive' : 'file'));
+    badge.append(icon(kind === 'image' ? 'frame' : ['archive', 'folder', 'audio', 'video'].includes(kind) ? kind : 'file'));
     labels.className = 'file-label';
     title.textContent = file.name;
     metadata.className = 'file-meta';
-    metadata.textContent = [prettySize(file.size), prettyDate(file.createdAt)].filter(Boolean).join(' · ');
+    metadata.textContent = file.folder ? 'Pasta' : [prettySize(file.size), prettyDate(file.createdAt)].filter(Boolean).join(' · ');
     labels.append(title, metadata);
     button.append(badge, labels, icon('chevron'));
     item.append(button);
+    if (file.folder) {
+      item.className = 'folder-row';
+      const more = document.createElement('button'); more.type = 'button'; more.className = 'icon-button folder-more';
+      more.setAttribute('aria-label', 'Opções da pasta ' + file.name); more.append(icon('more'));
+      more.addEventListener('click', () => openDetail('family', file)); item.append(more);
+    }
     fragment.append(item);
   }
   byId('familyList').replaceChildren(fragment);
@@ -242,13 +382,17 @@ async function load(name) {
   view.busy = true;
   if (!view.data) setPlaceholder(name, 'A carregar…');
   updateControls();
+  const generation = name === 'family' ? ++familyGeneration : 0;
   try {
-    accept(name, await request(view.path));
+    const data = await request(name === 'family' ? folderPath(familyParent) : view.path);
+    if (name === 'family' && generation !== familyGeneration) return;
+    accept(name, data);
   } catch (error) {
+    if (name === 'family' && generation !== familyGeneration) return;
     if (!view.data) setPlaceholder(name, 'Não foi possível carregar. Toca no botão de atualizar.');
     notice(error.message, 'error');
   } finally {
-    view.busy = false;
+    if (name !== 'family' || generation === familyGeneration) view.busy = false;
     updateControls();
   }
 }
@@ -290,6 +434,7 @@ async function connect() {
 }
 
 function resetPreviewMedia() {
+  for (const media of [mediaVideo, mediaAudio]) { media.pause(); media.removeAttribute('src'); media.load(); media.hidden = true; }
   if (previewController) previewController.abort();
   previewController = null;
   if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -310,6 +455,13 @@ function showPreviewMessage(message) {
 }
 
 async function previewAttachment(file) {
+  if (file.previewUrl && /^(video|audio)\//.test(file.type)) {
+    const media = file.type.startsWith('video/') ? mediaVideo : mediaAudio;
+    media.hidden = false; byId('previewVisual').hidden = false;
+    media.onerror = () => showPreviewMessage('Este formato não é reproduzido neste telemóvel. Podes guardar o ficheiro para o abrir noutra app.');
+    media.src = file.previewUrl;
+    return;
+  }
   const image = safeImages.has(file.type) && file.size <= previewImageBytes;
   const text = safeText.has(file.type) && file.size <= previewTextBytes;
   if (!image && !text) return;
@@ -351,10 +503,11 @@ async function previewAttachment(file) {
 }
 
 function confirmation(show) {
+  byId('nameForm').hidden = true; byId('movePanel').hidden = true;
   byId('removeConfirmation').hidden = !show;
   byId('previewActions').hidden = show;
   if (show) {
-    byId('removeDetail').textContent = selection.item.name;
+    byId('removeDetail').textContent = selection.item.name + (selection.item.folder ? ' — a pasta e todos os ficheiros e subpastas serão apagados.' : '');
     byId('cancelRemove').focus();
   } else if (dialog.open && !byId('removeItem').hidden) {
     byId('removeItem').focus();
@@ -364,12 +517,14 @@ function confirmation(show) {
 function openDetail(area, item) {
   resetPreviewMedia();
   selection = { area, item };
+  nameMode = ''; moveGeneration++;
   byId('previewTitle').textContent = item.name;
   const meta = byId('previewMeta');
   meta.textContent = area === 'family' ? [prettySize(item.size), prettyDate(item.createdAt)].filter(Boolean).join(' · ') : '';
   meta.hidden = !meta.textContent;
   byId('removeItem').hidden = !role || (area === 'family' && !views.family.data.canDelete);
-  previewDownload.hidden = area !== 'family';
+  byId('renameItem').hidden = byId('moveItem').hidden = area !== 'family';
+  previewDownload.hidden = area !== 'family' || !!item.folder;
   if (area === 'family') {
     previewDownload.href = item.url;
     previewDownload.download = item.name;
@@ -388,10 +543,11 @@ function openDetail(area, item) {
   confirmation(false);
   if (typeof dialog.showModal === 'function') dialog.showModal();
   else dialog.setAttribute('open', '');
-  if (area === 'family') previewAttachment(item);
+  if (area === 'family' && !item.folder) previewAttachment(item);
 }
 
 function clearDetail() {
+  moveGeneration++;
   selection = null;
   previewImage.onload = null;
   previewImage.onerror = null;
@@ -449,39 +605,41 @@ async function addItems(area, files) {
   const view = views[area];
   if (mutation || !view.data || !files.length) return;
   mutation = true;
+  uploadCancelled = false;
+  const uploadParent = familyParent;
   updateControls();
   notice('');
   const failures = [];
   let sent = 0;
   try {
     for (const [index, file] of files.entries()) {
+      if (uploadCancelled) break;
       try {
         if (area === 'family' && file.size > view.data.maxFileBytes) {
           throw new Error('O limite por ficheiro é ' + prettySize(view.data.maxFileBytes) + '.');
         }
         if (area === 'photos') progress('A preparar foto ' + (index + 1) + ' de ' + files.length, index, files.length);
         const body = area === 'photos' ? await preparePhoto(file) : file;
+        if (uploadCancelled) break;
         progress('A enviar ' + (index + 1) + ' de ' + files.length + ' · ' + file.name, index, files.length);
-        const data = await request(view.itemPath, {
-          method: 'POST', timeout: area === 'photos' ? 60000 : 600000,
-          headers: { 'Content-Type': body.type || 'application/octet-stream', [view.nameHeader]: encodeURIComponent(file.name) }, body
-        });
-        view.data = { ...data, [view.list]: goodItems(data, view) };
+        const data = await sendFile(view.itemPath, body, { 'Content-Type': body.type || 'application/octet-stream', [view.nameHeader]: encodeURIComponent(file.name), ...(area === 'family' && uploadParent ? { 'X-Folder-Id': uploadParent } : {}) }, (loaded, total) => progress('A enviar ' + file.name + ' · ' + prettySize(loaded) + ' de ' + prettySize(total), loaded, total));
+        accept(area, data);
         sent++;
       } catch (error) {
         failures.push(file.name + ' — ' + error.message);
       }
     }
     if (failures.length) {
-      try { accept(area, await request(view.path)); } catch { /* Keep the confirmed entries. */ }
+      try { accept(area, await request(area === 'family' ? folderPath(uploadParent) : view.path)); } catch { /* Keep the confirmed entries. */ }
       notice(sent ? sent + ' enviados. Revê os restantes.' : 'O envio precisa de atenção.', 'error', failures);
     } else {
       const label = area === 'photos' ? (sent === 1 ? 'Foto enviada.' : sent + ' fotos enviadas.') : (sent === 1 ? 'Ficheiro enviado.' : sent + ' ficheiros enviados.');
-      notice(label);
+      notice(uploadCancelled ? 'Envio cancelado. Os ficheiros já enviados foram mantidos.' : label);
     }
     render(area);
   } finally {
     progress('');
+    uploadRequest = null; byId('cancelUpload').hidden = true;
     mutation = false;
     updateControls();
   }
@@ -496,8 +654,8 @@ async function deleteItem() {
   updateControls();
   notice('');
   try {
-    accept(area, await request(item.url, { method: 'DELETE' }));
-    notice(area === 'photos' ? 'Foto apagada.' : 'Ficheiro apagado.');
+    accept(area, await request(item.url + (item.folder ? '?recursive=true' : ''), { method: 'DELETE' }));
+    notice(item.folder ? 'Pasta apagada.' : area === 'photos' ? 'Foto apagada.' : 'Ficheiro apagado.');
   } catch (error) {
     notice(error.message, 'error');
   } finally {
@@ -522,6 +680,15 @@ for (const [name, view] of Object.entries(views)) {
 }
 
 byId('familySearch').addEventListener('input', renderFamily);
+byId('newFolder').addEventListener('click', newFolder);
+byId('folderBack').addEventListener('click', () => navigateFolder(views.family.data?.currentFolder?.parentId || null));
+byId('nameForm').addEventListener('submit', submitName);
+byId('renameItem').addEventListener('click', () => namePanel('rename'));
+byId('cancelName').addEventListener('click', () => selection ? confirmation(false) : closeDetail());
+byId('moveItem').addEventListener('click', openMove);
+byId('cancelMove').addEventListener('click', () => { moveGeneration++; confirmation(false); });
+byId('confirmMove').addEventListener('click', confirmMove);
+byId('cancelUpload').addEventListener('click', () => { uploadCancelled = true; uploadRequest?.abort(); });
 byId('closePreview').addEventListener('click', closeDetail);
 dialog.addEventListener('close', () => { if (!dialog.open) clearDetail(); });
 dialog.addEventListener('click', event => {
@@ -537,7 +704,12 @@ previewDownload.addEventListener('click', event => {
   event.preventDefault();
   window.EddyMobile.download(selection.item.url, selection.item.name);
 });
-window.EddyCloseOverlay = closeDetail;
+window.EddyCloseOverlay = () => {
+  if (dialog.open && (!byId('nameForm').hidden || !byId('movePanel').hidden || !byId('removeConfirmation').hidden) && selection) { confirmation(false); return true; }
+  if (closeDetail()) return true;
+  if (active === 'family' && familyParent && !mutation) { navigateFolder(views.family.data?.currentFolder?.parentId || null); return true; }
+  return false;
+};
 if (typeof window.EddyMobile?.changeConnection === 'function') {
   const settings = byId('connectionSettings');
   settings.hidden = false;
@@ -545,4 +717,5 @@ if (typeof window.EddyMobile?.changeConnection === 'function') {
 }
 window.addEventListener('online', () => { if (!role) connect(); else load(active); });
 window.addEventListener('offline', () => setNetwork('offline'));
+window.addEventListener('pagehide', () => { uploadCancelled = true; uploadRequest?.abort(); resetPreviewMedia(); });
 connect();

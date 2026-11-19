@@ -354,14 +354,20 @@ class MobileActivity : ComponentActivity() {
                     runOnUiThread { if (session == generation) checkSessionNetwork() }
                     return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
                 }
-                if (request.method != "GET") return null
+                if (request.method != "GET" && request.method != "HEAD") return null
                 // Supply this connection's account for every image and API read, including after changing accounts.
                 return try {
-                    val response = request(target, request.url.encodedPath.orEmpty())
+                    val query = request.url.encodedQuery?.let { "?$it" }.orEmpty()
+                    val response = request(target, request.url.encodedPath.orEmpty() + query)
+                    response.requestMethod = request.method
+                    request.requestHeaders.entries.firstOrNull { it.key.equals("Range", ignoreCase = true) }?.value?.let {
+                        response.setRequestProperty("Range", it)
+                    }
                     val code = response.responseCode
                     val contentType = response.contentType?.substringBefore(';') ?: "application/octet-stream"
                     val headers = response.headerFields.filterKeys { it != null }.mapValues { it.value.joinToString(", ") }
-                    val bytes = if (code < 400) response.inputStream else response.errorStream ?: ByteArrayInputStream(ByteArray(0))
+                    val bytes = if (request.method == "HEAD") ByteArrayInputStream(ByteArray(0))
+                        else if (code < 400) response.inputStream else response.errorStream ?: ByteArrayInputStream(ByteArray(0))
                     val stream = object : FilterInputStream(bytes) {
                         override fun close() { try { super.close() } finally { response.disconnect() } }
                     }
@@ -422,7 +428,7 @@ class MobileActivity : ComponentActivity() {
                 try {
                     if (request.responseCode != 200) throw IOException()
                     val expected = request.contentLengthLong
-                    val limit = 100L * 1024 * 1024
+                    val limit = 8L * 1024 * 1024 * 1024
                     if (expected !in 0..limit) throw IOException()
                     request.inputStream.use { input ->
                         val output = contentResolver.openOutputStream(uri, "wt") ?: throw IOException()

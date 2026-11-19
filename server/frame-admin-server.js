@@ -22,7 +22,7 @@ const ASSETS = new Map([
 ]);
 const SECURITY_HEADERS = {
   'Cache-Control': 'no-store',
-  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer'
 };
@@ -146,7 +146,7 @@ function createFrameAdminServer({ config, panelPort, familyFiles, now = Date.now
     }
     // Browser writes include a matching Origin. Native requests authenticate and use a custom header.
     const native = !origin && request.headers['x-eddy-client'] === 'android' && !request.headers['sec-fetch-site'];
-    if ((request.method === 'POST' || request.method === 'DELETE') && origin !== `http://${host}` && !native) {
+    if (['POST', 'DELETE', 'PATCH'].includes(request.method) && origin !== `http://${host}` && !native) {
       send(response, 403, 'Origem não autorizada.');
       return;
     }
@@ -180,7 +180,7 @@ function createFrameAdminServer({ config, panelPort, familyFiles, now = Date.now
     } catch { send(response, 503, 'A página de gestão está indisponível.'); }
   });
   server.headersTimeout = 8000;
-  server.requestTimeout = 10 * 60 * 1000;
+  server.requestTimeout = 2 * 60 * 60 * 1000;
   server.timeout = 30000;
   server.keepAliveTimeout = 3000;
   server.maxConnections = 30;
